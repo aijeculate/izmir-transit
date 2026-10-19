@@ -30,13 +30,17 @@ import com.aijec.izmirtransit.feature.linemap.LineMapRoute
 import com.aijec.izmirtransit.feature.linemap.LineMapViewModel
 import com.aijec.izmirtransit.feature.stop.StopRoute
 import com.aijec.izmirtransit.feature.stop.StopViewModel
+import com.aijec.izmirtransit.feature.timetable.TimetableRoute
+import com.aijec.izmirtransit.feature.timetable.TimetableViewModel
 
 private const val HOME_ROUTE = "home"
 private const val LINE_ROUTE = "line?${LineMapViewModel.KEY_LINE}={${LineMapViewModel.KEY_LINE}}"
 private const val STOP_ROUTE = "stop/{${StopViewModel.STOP_CODE_ARG}}"
+private const val TIMETABLE_ROUTE = "timetable/{${TimetableViewModel.LINE_CODE_ARG}}"
 
 private fun lineDestination(code: String) = "line?${LineMapViewModel.KEY_LINE}=${Uri.encode(code)}"
 private fun stopDestination(code: String) = "stop/${Uri.encode(code)}"
+private fun timetableDestination(code: String) = "timetable/${Uri.encode(code)}"
 
 private enum class Tab(val route: String, val label: Int, val icon: ImageVector) {
     HOME(HOME_ROUTE, R.string.tab_home, Icons.Filled.Home),
@@ -89,7 +93,10 @@ fun AppNavHost() {
                     },
                 ),
             ) {
-                LineMapRoute(onOpenStop = { nav.navigate(stopDestination(it)) })
+                LineMapRoute(
+                    onOpenStop = { nav.navigate(stopDestination(it)) },
+                    onOpenTimetable = { nav.navigate(timetableDestination(it)) },
+                )
             }
             composable(
                 STOP_ROUTE,
@@ -99,6 +106,12 @@ fun AppNavHost() {
                     onBack = { nav.popBackStack() },
                     onOpenLine = { nav.navigate(lineDestination(it)) },
                 )
+            }
+            composable(
+                TIMETABLE_ROUTE,
+                arguments = listOf(navArgument(TimetableViewModel.LINE_CODE_ARG) { type = NavType.StringType }),
+            ) {
+                TimetableRoute(onBack = { nav.popBackStack() })
             }
         }
     }

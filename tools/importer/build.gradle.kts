@@ -28,3 +28,11 @@ tasks.register<JavaExec>("liveSmoke") {
     jvmArgs("-Dstdout.encoding=UTF-8")
     systemProperty("izmir.root", rootDir.absolutePath)
 }
+
+tasks.register<JavaExec>("refreshSmoke") {
+    description = "Runs the app's weekly data refresh against the real portal into a temporary database."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.aijec.izmirtransit.tools.smoke.RefreshSmokeKt")
+    jvmArgs("-Dstdout.encoding=UTF-8")
+    maxHeapSize = "1g"
+}

@@ -6,4 +6,7 @@
     <string name="ui_age_seconds">%1$d s</string>
     <string name="ui_age_minutes">%1$d min</string>
     <string name="ui_back">Back</string>
+    <string name="ui_announcement">Announcement</string>
+    <string name="ui_announcement_line">Line %1$s</string>
+    <string name="ui_announcement_until">Until %1$s</string>
 </resources>

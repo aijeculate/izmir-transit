@@ -20,6 +20,14 @@ android {
         versionCode = 1
         versionName = "0.1.0"
     }
+    buildTypes {
+        release {
+            // R8: shrink, optimize and obfuscate; libraries ship their own keep rules.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
     androidResources {
         // Turkish first, English second.
         localeFilters += listOf("tr", "en")
@@ -32,7 +40,9 @@ dependencies {
     implementation(projects.feature.linemap)
     implementation(projects.feature.stop)
     implementation(projects.feature.home)
+    implementation(projects.feature.timetable)
     implementation(libs.datastore.preferences)
+    implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

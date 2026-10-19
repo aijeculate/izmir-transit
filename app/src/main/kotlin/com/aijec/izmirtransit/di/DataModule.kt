@@ -5,6 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.aijec.izmirtransit.core.data.importer.EshotDownloader
+import com.aijec.izmirtransit.core.data.importer.StaticDataRefresher
 import com.aijec.izmirtransit.core.data.live.EtaEstimator
 import com.aijec.izmirtransit.core.data.live.GhostFilter
 import com.aijec.izmirtransit.core.data.live.RequestPacer
@@ -19,6 +21,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
 import java.time.Clock
 import javax.inject.Singleton
 
@@ -34,9 +37,23 @@ object DataModule {
     @Singleton
     fun requestPacer(): RequestPacer = RequestPacer()
 
+    /** One HTTP client for the live API and the dataset downloads. */
     @Provides
     @Singleton
-    fun iztekApi(): IztekApi = IztekApi.create(IztekApi.httpClient("IzmirTransit/0.1 (Android)"))
+    fun httpClient(): OkHttpClient = IztekApi.httpClient("IzmirTransit/0.1 (Android)")
+
+    @Provides
+    @Singleton
+    fun iztekApi(client: OkHttpClient): IztekApi = IztekApi.create(client)
+
+    @Provides
+    @Singleton
+    fun staticDataRefresher(
+        client: OkHttpClient,
+        database: IzmirDatabase,
+        @ApplicationContext context: Context,
+        clock: Clock,
+    ): StaticDataRefresher = StaticDataRefresher(EshotDownloader(client), database, context.cacheDir, clock)
 
     /** Favourites and settings. One instance per file is required by DataStore. */
     @Provides

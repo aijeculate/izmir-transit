@@ -8,51 +8,67 @@ Export this doc as Markdown, save it as `CLAUDE.md` in the root of your new Andr
 
 Everything under "Live API" was tested against the real servers on 19 Oct 2026 around 23:45 Istanbul time. Anything not tested is marked as such.
 
-## Current state and commands (updated 20 Oct 2026, 02:15)
+## Current state and commands (updated 20 Oct 2026, 03:00)
 
-The data layer and four screen areas (home, line map, stop screen, bottom bar) are done and run on a real phone (Galaxy S25 Ultra, Android 17 / API 37).
+**All MVP features in the brief are built.** The app runs on a real phone (Galaxy S25 Ultra, Android 17 / API 37). Everything except live data works offline.
 
-- **Home** is the start screen. It shows favourite stops with their next three live arrivals, favourite lines, and stops near you (location, computed offline). A bottom bar switches between Home and the Map.
-
-- **Search** finds lines and stops, Turkish-aware. Stop results list their lines, because names repeat: there are six "Bahribaba" stops.
-- **Line map** shows both directions' routes and stops, plus live buses that glide between polls. Tapping a stop opens it.
-- **Stop screen** lists the lines serving the stop and the approaching buses, sorted by stops remaining, with an approximate ETA. Tapping a line opens it on the map.
-- **Favourites:** the ♥ on the stop screen and on the line card toggles a favourite. They are stored in DataStore (`user_preferences`).
-
-Everything except live data works offline.
+- **Home** is the start screen. It shows favourite stops with their next three live arrivals, favourite lines, and stops near you (computed offline). A bottom bar switches between Home and the Map.
+- **Line map:**
+  - The route for both directions, stops, and live buses that glide between polls.
+  - Active announcements, which expand from the card.
+  - A ♥ favourite toggle and a "Timetable" button.
+  - A my-location button: it centres on you and shows the nearby stops of any line. Tapping a stop opens it.
+- **Search** covers lines and stops and is Turkish-aware. Stop results list their lines, because names repeat.
+- **Stop screen:** the lines serving the stop, active announcements for those lines, and approaching buses sorted by stops remaining with an approximate ETA. It has a ♥ toggle. Tapping a line opens it.
+- **Timetable:**
+  - Tabs for weekday, Saturday and Sunday, and a choice of direction.
+  - It opens on the timetable running now. The service day rolls over at 04:00, so at 00:30 it shows the previous day's late trips.
+  - The next departure is highlighted and scrolled into view, with "in N min".
+- **Weekly background refresh** (`StaticDataRefreshWorker`, WorkManager): every 7 days, Wi-Fi only, battery and storage not low.
+  - It downloads the CSVs and GTFS, imports them, checks the minimum counts, then swaps the data in one transaction.
+  - Rejected or failed downloads keep the existing data.
+  - On an app update the shipped asset is reinstalled, so the data is never older than the build.
+- **Release build:** R8 shrinking and resource shrinking. There's an adaptive bus icon with a monochrome layer for themed icons.
 
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
-| `:core:database` | Room KMP with JVM and Android targets: entities, DAOs, `IzmirDatabase`. `AndroidDatabases.prepackaged` installs the shipped DB from assets the first time Room opens a connection (off the main thread) and reinstalls it after each app update. `JvmDatabases` serves the importer and tests. The schema is exported to `core/database/schemas/`. |
-| `:core:data` | Plain JVM. CSV and GTFS parsers, the İztek client, `RequestPacer` (1 req/s app-wide), `GhostFilter`, `EtaEstimator`, `pollLive`, `EshotImporter`, and the repositories (`@Inject`), including `FavouritesRepository` (DataStore preferences-core, JVM-testable). |
-| `:core:location` | `LocationProvider`: a one-shot Fused Location request with balanced accuracy, a 10 s timeout and a last-known fallback. Coarse/fine permission is asked only when the user taps the button on Home. |
-| `:core:ui` | `IzmirTheme` (Material 3, dynamic colour, light/dark), `TransitColors` (fixed outbound/return colours), and shared pieces: `LineBadge`, `rememberNow`/`formatAge`, `liveErrorText`. |
-| `:feature:linemap` | `LineMapViewModel` (live flow `WhileSubscribed(5 s)`, so polling stops in the background), `LineMapScreen`, and `TransitMap`, a MapLibre `MapView` in `AndroidView` with GeoJSON sources written by hand. Strings: Turkish default, English in `values-en`. |
-| `:feature:home` | `HomeViewModel`: favourites, live arrivals for the first 5 favourite stops (shared pacer), and nearby stops within 750 m. `HomeScreen` handles the permission flow, including the "denied twice → open Settings" case. |
-| `:feature:stop` | `StopViewModel` (nav arg `stopCode`) and `StopScreen`. |
-| `:app` | `AppNavHost`: a bottom bar (Home / Map), with routes `home` (start), `line?lineCode=` (default line 5) and `stop/{stopCode}`; Hilt `DataModule`, `MainActivity`, and `IzmirTransitApp` (MapLibre init; StrictMode in debug). `copyTransitDatabase` puts the importer's DB into generated assets. |
-| `:tools:importer` | A desktop tool. `run` builds `build/izmir-transit.db` (inputs/outputs declared, so it's skipped when nothing changed). `liveSmoke` polls the real API once through the repositories. |
+| `:core:database` | Room KMP with JVM and Android targets: entities, DAOs, `IzmirDatabase`. `AndroidDatabases.prepackaged` installs the shipped DB from assets the first time Room opens a connection (off the main thread) and again after each app update. `JvmDatabases` serves the tools and tests. |
+| `:core:data` | Plain JVM. Parsers, the İztek client, `RequestPacer` (1 req/s app-wide), `GhostFilter`, `EtaEstimator`, `pollLive`, `EshotImporter`, `EshotDownloader` + `StaticDataRefresher`, and the repositories, including `FavouritesRepository` (DataStore) and `TimetableRepository` (`serviceMoment`, `localNow` in Europe/Istanbul, `formatClock`). |
+| `:core:location` | `LocationProvider`: a one-shot Fused Location request with balanced accuracy, a 10 s timeout and a last-known fallback. |
+| `:core:ui` | `IzmirTheme`, `TransitColors`, `LineBadge`, `AnnouncementCard`, `rememberNow`/`formatAge`, `liveErrorText`. |
+| `:feature:home` | Favourites with live arrivals (first 5 stops) and nearby stops, including the permission flow. |
+| `:feature:linemap` | `LineMapViewModel`, `LineMapScreen`, and `TransitMap` (MapLibre in `AndroidView`; GeoJSON sources written by hand; layers for routes, stops, nearby stops, the user dot and buses). |
+| `:feature:stop` | `StopViewModel` / `StopScreen`. |
+| `:feature:timetable` | `TimetableViewModel` / `TimetableScreen`. |
+| `:app` | `AppNavHost` (bottom bar; routes `home`, `line?lineCode=`, `stop/{stopCode}`, `timetable/{lineCode}`), Hilt `DataModule`, `StaticDataRefreshWorker`, the icon, and `copyTransitDatabase`, which builds the DB asset from `:tools:importer`. |
+| `:tools:importer` | `run` builds `build/izmir-transit.db`. `liveSmoke` does one real poll through the repositories. `refreshSmoke` runs the real weekly refresh into a temporary DB (about 24 s). |
 | `build-logic` | Convention plugins: `izmir.jvm.library`, `izmir.kmp.library`, `izmir.android.application`, `izmir.android.library`, `izmir.android.compose`, `izmir.android.hilt`. |
 
 **Toolchain (verified working together):**
 
 - Gradle 9.6.1 and AGP 9.4.1, which needs Gradle 9.6 or newer. AGP 9 has built-in Kotlin, so don't apply `org.jetbrains.kotlin.android`.
 - Kotlin 2.2.21, and KSP 2.3.12. KSP 2.2.x crashes on AGP 9's KMP Android target.
-- Room 2.8.4, Hilt 2.59.2, Compose BOM 2026.06.01, MapLibre Android 13.6.0.
+- Room 2.8.4, Hilt 2.59.2, Compose BOM 2026.06.01, Navigation 2.9.8, MapLibre 13.6.0, DataStore 1.1.7, WorkManager 2.10.5, play-services-location 21.3.0.
 - compileSdk/targetSdk 37, minSdk 26.
-- Map tiles are OpenFreeMap `liberty` (light) and `dark`, with no API key.
 
 Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 ```bash
-./gradlew test                                  # 55 JVM tests, all fixtures are real API responses
+./gradlew test                                  # 62 JVM tests, fixtures are real API responses
+./gradlew lintDebug                             # 0 errors; known warnings: LogNotTimber, ObsoleteSdkInt (aapt2 rejects plain mipmap-anydpi)
 ./gradlew :tools:importer:run                   # research/raw → build/izmir-transit.db (~9 MB, ~10 s)
-./gradlew :tools:importer:liveSmoke --args="--line 446 --stop 10007"
-./gradlew :app:assembleDebug                    # also rebuilds the DB asset when needed
+./gradlew :tools:importer:refreshSmoke          # real download + import + validation
+./gradlew :app:assembleDebug :app:assembleRelease
 ```
 
-**Device testing:** use the user's phone over wireless adb, **not the emulator**. The user asked for this, and the emulator is too slow here. **adb's default port 5037 is unusable on this machine** because Windows has reserved TCP 5024–5123 (Hyper-V/Docker). Always set `ANDROID_ADB_SERVER_PORT=15037`. The phone shows up via `adb mdns services` and is already paired:
+The release APK is unsigned; a Play upload key is the user's decision. For a local R8 test, sign it with the debug key: run `zipalign -p 4`, then `java -jar build-tools/36.0.0/lib/apksigner.jar sign --ks ~/.android/debug.keystore …` (the `.bat` wrapper fails from Git Bash). The release APK is 59 MB because it bundles 4 ABIs; an App Bundle on Play delivers only one.
+
+**Device testing:** use the user's phone over wireless adb, **not the emulator**. The user asked for this, and the emulator is too slow here.
+
+- **adb's default port 5037 is unusable on this machine** because Windows has reserved TCP 5024–5123. Always set `ANDROID_ADB_SERVER_PORT=15037`.
+- In Git Bash, also set `MSYS_NO_PATHCONV=1` for any `adb shell` command that takes a device path such as `/sdcard`.
+- Never grant permissions or unlock the phone on the user's behalf.
 
 ```bash
 export ANDROID_ADB_SERVER_PORT=15037
@@ -60,15 +76,30 @@ adb connect <ip:port from `adb mdns services`>
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-`research/raw/` holds the downloaded CSVs and the GTFS zip. It is git-ignored, and the app build needs it; re-download from the URLs below.
+`research/raw/` holds the downloaded CSVs and the GTFS zip. It is git-ignored, and the app build needs it; re-download from the URLs below, or with `EshotDownloader`.
 
-**Next steps:**
+**Verified on the device so far:**
 
-1. Daytime check of live movement and animation, the ghost filter, and the ETA under load.
-2. Not yet verified on a device: tapping a stop on the map (adb can't double-tap-zoom to stop level), and the nearby list after the location permission is granted. The user must grant that permission; Claude doesn't grant it.
-3. Timetable and announcements.
-6. App icon.
-8. Release build with ABI splits or an App Bundle (the debug APK is 70 MB because it bundles every ABI).
+- Line map, search, the stop screen, navigation, favourites (they persist and show live arrivals), and the Turkish and English text.
+- The release (R8) build starts without crashing.
+
+**Not yet verified on the device** (the phone locked at 03:00):
+
+- the timetable screen;
+- announcements on the line card and the stop screen;
+- the my-location button and nearby stops on the map and Home (the user must grant the permission);
+- tapping a stop on the map;
+- the release build's UI;
+- the worker running on the phone (its logic is verified on the desktop by `refreshSmoke`).
+
+**Later (from the brief):**
+
+- home-screen widget;
+- "notify me N stops away";
+- connection hints (the `connections` table is already imported; the `BAGLANTI_TIP_ID` meanings are unknown);
+- Phase 2 modes;
+- dark map tuning and TalkBack review;
+- public holidays (currently treated as weekdays or Saturdays).
 
 ## Goal and scope
 

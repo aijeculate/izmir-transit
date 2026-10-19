@@ -141,6 +141,13 @@ class ImporterAndRepositoriesTest {
     }
 
     @Test
+    fun `announcements for several lines at once`() = runBlocking {
+        val now = LocalDateTime.of(2026, 10, 20, 12, 0)
+        assertEquals(listOf("Geçici güzergah"), timetable.activeAnnouncementsForLines(listOf("5", "6"), now).map { it.title })
+        assertEquals(emptyList(), timetable.activeAnnouncementsForLines(emptyList(), now))
+    }
+
+    @Test
     fun `re-import replaces data instead of duplicating it`() = runBlocking {
         EshotImporter.importInto(database, result)
         assertEquals(2, timetable.departures("5", ServiceDay.WEEKDAY, Direction.OUTBOUND).size)

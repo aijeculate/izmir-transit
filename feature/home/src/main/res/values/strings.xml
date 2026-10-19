@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Turkish is the default locale. -->
 <resources>
-    <string name="home_title">İzmir Transit</string>
+    <string name="home_title" translatable="false">İzmir Transit</string>
     <string name="home_favourites">Favoriler</string>
     <string name="home_favourites_empty">Sık kullandığın durak ve hatları ♥ simgesiyle buraya ekle; durakların canlı varış süreleri burada görünür.</string>
     <string name="home_nearby">Yakınımdaki duraklar</string>
@@ -20,7 +20,10 @@
     <string name="home_stop_code_lines">Durak no. %1$s · Hatlar: %2$s</string>
     <string name="home_arrivals_loading">Varışlar yükleniyor…</string>
     <string name="home_arrivals_none">Şu anda yaklaşan otobüs yok</string>
-    <string name="home_stops_away">%1$d durak</string>
+    <plurals name="home_stops_away">
+        <item quantity="one">%1$d durak</item>
+        <item quantity="other">%1$d durak</item>
+    </plurals>
     <string name="home_eta_now">Geliyor</string>
     <string name="home_eta_minutes">~%1$d dk</string>
 </resources>

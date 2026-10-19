@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
 import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
 import com.aijec.izmirtransit.core.data.repository.StopRepository
+import com.aijec.izmirtransit.core.data.repository.TimetableRepository
+import com.aijec.izmirtransit.core.model.Announcement
 import com.aijec.izmirtransit.core.model.ApproachingBus
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LiveSnapshot
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Clock
 import javax.inject.Inject
 
 data class StopUiState(
@@ -26,6 +29,8 @@ data class StopUiState(
     val stop: Stop? = null,
     /** Lines serving this stop, from the offline data. */
     val lines: List<Line> = emptyList(),
+    /** Active notices for any line serving this stop. */
+    val announcements: List<Announcement> = emptyList(),
     val loading: Boolean = true,
 )
 
@@ -34,6 +39,8 @@ class StopViewModel @Inject constructor(
     stops: StopRepository,
     live: LiveBusRepository,
     private val favourites: FavouritesRepository,
+    private val timetable: TimetableRepository,
+    private val clock: Clock,
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val stopCode: String = checkNotNull(savedState[STOP_CODE_ARG]) { "stopCode argument missing" }
@@ -56,7 +63,8 @@ class StopViewModel @Inject constructor(
         viewModelScope.launch {
             val stop = stops.stop(stopCode)
             val lines = stops.linesAtStop(stopCode)
-            _state.value = StopUiState(stopCode, stop, lines, loading = false)
+            val announcements = timetable.activeAnnouncementsForLines(lines.map { it.code }, TimetableRepository.localNow(clock))
+            _state.value = StopUiState(stopCode, stop, lines, announcements, loading = false)
         }
     }
 

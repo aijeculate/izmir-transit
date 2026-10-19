@@ -7,4 +7,7 @@
     <string name="ui_age_seconds">%1$d sn</string>
     <string name="ui_age_minutes">%1$d dk</string>
     <string name="ui_back">Geri</string>
+    <string name="ui_announcement">Duyuru</string>
+    <string name="ui_announcement_line">%1$s numaralı hat</string>
+    <string name="ui_announcement_until">%1$s tarihine kadar</string>
 </resources>

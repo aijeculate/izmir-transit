@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_title">İzmir Transit</string>
     <string name="home_favourites">Favourites</string>
     <string name="home_favourites_empty">Add stops and lines you use with the ♥ button; live arrivals for your stops appear here.</string>
     <string name="home_nearby">Stops near me</string>
@@ -19,7 +18,10 @@
     <string name="home_stop_code_lines">Stop %1$s · Lines %2$s</string>
     <string name="home_arrivals_loading">Loading arrivals…</string>
     <string name="home_arrivals_none">No buses approaching right now</string>
-    <string name="home_stops_away">%1$d stops</string>
+    <plurals name="home_stops_away">
+        <item quantity="one">%1$d stop</item>
+        <item quantity="other">%1$d stops</item>
+    </plurals>
     <string name="home_eta_now">Arriving</string>
     <string name="home_eta_minutes">~%1$d min</string>
 </resources>

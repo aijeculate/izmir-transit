@@ -19,4 +19,13 @@
     <string name="linemap_live_unavailable">Canlı konumlar alınamıyor (%1$s). Yeniden deneniyor…</string>
     <string name="linemap_favourite_add">Favorilere ekle</string>
     <string name="linemap_favourite_remove">Favorilerden çıkar</string>
+    <string name="linemap_timetable">Sefer saatleri</string>
+    <plurals name="linemap_announcements">
+        <item quantity="one">%1$d duyuru</item>
+        <item quantity="other">%1$d duyuru</item>
+    </plurals>
+    <string name="linemap_my_location">Konumum</string>
+    <string name="linemap_location_permission">Konum izni olmadan yakındaki duraklar gösterilemez.</string>
+    <string name="linemap_location_off">Konum servisleri kapalı.</string>
+    <string name="linemap_location_unavailable">Konum alınamadı.</string>
 </resources>

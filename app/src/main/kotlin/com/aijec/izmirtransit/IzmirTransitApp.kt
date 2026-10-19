@@ -3,6 +3,7 @@ package com.aijec.izmirtransit
 import android.app.Application
 import android.content.pm.ApplicationInfo
 import android.os.StrictMode
+import com.aijec.izmirtransit.sync.StaticDataRefreshWorker
 import dagger.hilt.android.HiltAndroidApp
 import org.maplibre.android.MapLibre
 
@@ -16,5 +17,6 @@ class IzmirTransitApp : Application() {
         }
         // Must run before any MapView is created. OpenFreeMap needs no API key.
         MapLibre.getInstance(this)
+        StaticDataRefreshWorker.schedule(this)
     }
 }

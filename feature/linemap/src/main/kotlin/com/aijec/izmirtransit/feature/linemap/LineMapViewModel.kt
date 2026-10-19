@@ -7,6 +7,11 @@ import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
 import com.aijec.izmirtransit.core.data.repository.LineRepository
 import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
 import com.aijec.izmirtransit.core.data.repository.StopRepository
+import com.aijec.izmirtransit.core.data.repository.TimetableRepository
+import com.aijec.izmirtransit.core.location.LocationProvider
+import com.aijec.izmirtransit.core.location.LocationResult
+import com.aijec.izmirtransit.core.model.Announcement
+import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LineRoute
 import com.aijec.izmirtransit.core.model.LiveBus
@@ -27,6 +32,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Clock
 import javax.inject.Inject
 
 /** Many stops share a name ("Bahribaba" has six), so results carry their lines to tell them apart. */
@@ -36,13 +42,23 @@ data class LineMapUiState(
     val lineCode: String,
     val line: Line? = null,
     val routes: List<LineRoute> = emptyList(),
+    val announcements: List<Announcement> = emptyList(),
     val loadingRoute: Boolean = true,
     val query: String = "",
     val lineResults: List<Line> = emptyList(),
     val stopResults: List<StopResult> = emptyList(),
+    /** Set after the user taps "my location". */
+    val userLocation: LatLng? = null,
+    val nearbyStops: List<Stop> = emptyList(),
+    /** Incremented to ask the map to move to [userLocation]. */
+    val cameraRequest: Int = 0,
+    val locating: Boolean = false,
+    val locationProblem: LocationProblem? = null,
 ) {
     val hasResults: Boolean get() = lineResults.isNotEmpty() || stopResults.isNotEmpty()
 }
+
+enum class LocationProblem { PERMISSION, OFF, UNAVAILABLE }
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
@@ -51,6 +67,9 @@ class LineMapViewModel @Inject constructor(
     private val stops: StopRepository,
     live: LiveBusRepository,
     private val favourites: FavouritesRepository,
+    private val timetable: TimetableRepository,
+    private val clock: Clock,
+    private val location: LocationProvider,
     private val savedState: SavedStateHandle,
 ) : ViewModel() {
     private val lineCode = savedState.getStateFlow(KEY_LINE, DEFAULT_LINE)
@@ -82,7 +101,8 @@ class LineMapViewModel @Inject constructor(
                 _state.update { it.copy(lineCode = code, loadingRoute = true) }
                 val line = lines.line(code)
                 val routes = lines.routes(code)
-                _state.update { it.copy(line = line, routes = routes, loadingRoute = false) }
+                val announcements = timetable.activeAnnouncements(code, TimetableRepository.localNow(clock))
+                _state.update { it.copy(line = line, routes = routes, announcements = announcements, loadingRoute = false) }
             }
         }
         viewModelScope.launch {
@@ -103,6 +123,31 @@ class LineMapViewModel @Inject constructor(
         }
     }
 
+    fun hasLocationPermission(): Boolean = location.hasPermission()
+
+    /** Centres the map on the user and shows the stops around them. */
+    fun locate() {
+        if (_state.value.locating) return
+        _state.update { it.copy(locating = true, locationProblem = null) }
+        viewModelScope.launch {
+            when (val result = location.current()) {
+                is LocationResult.Found -> {
+                    val nearby = stops.nearby(result.location, radiusMeters = NEARBY_RADIUS_METERS, limit = NEARBY_LIMIT).map { it.stop }
+                    _state.update {
+                        it.copy(userLocation = result.location, nearbyStops = nearby, cameraRequest = it.cameraRequest + 1, locating = false)
+                    }
+                }
+                LocationResult.PermissionMissing -> _state.update { it.copy(locating = false, locationProblem = LocationProblem.PERMISSION) }
+                LocationResult.LocationOff -> _state.update { it.copy(locating = false, locationProblem = LocationProblem.OFF) }
+                LocationResult.Unavailable -> _state.update { it.copy(locating = false, locationProblem = LocationProblem.UNAVAILABLE) }
+            }
+        }
+    }
+
+    fun onLocationPermissionDenied() = _state.update { it.copy(locationProblem = LocationProblem.PERMISSION) }
+
+    fun consumeLocationProblem() = _state.update { it.copy(locationProblem = null) }
+
     fun selectLine(code: String) {
         savedState[KEY_LINE] = code
         onQueryChange("")
@@ -114,5 +159,8 @@ class LineMapViewModel @Inject constructor(
 
         /** A busy cross-city line, so the first launch shows something moving. */
         const val DEFAULT_LINE = "5"
+
+        private const val NEARBY_RADIUS_METERS = 800.0
+        private const val NEARBY_LIMIT = 40
     }
 }

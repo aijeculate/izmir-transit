@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish is the default locale. -->
+<resources>
+    <string name="timetable_title">Sefer saatleri</string>
+    <string name="timetable_weekday">Hafta içi</string>
+    <string name="timetable_saturday">Cumartesi</string>
+    <string name="timetable_sunday">Pazar</string>
+    <string name="timetable_towards">%1$s yönü</string>
+    <string name="timetable_none">Bu gün bu yönde sefer yok.</string>
+    <string name="timetable_next_in">Sıradaki sefer %1$s (%2$d dk sonra)</string>
+    <string name="timetable_next_now">Sıradaki sefer %1$s (şimdi)</string>
+    <string name="timetable_next_label">Sıradaki sefer %1$s</string>
+    <string name="timetable_service_over">Bugünkü seferler bitti.</string>
+    <plurals name="timetable_count">
+        <item quantity="one">%1$d sefer</item>
+        <item quantity="other">%1$d sefer</item>
+    </plurals>
+</resources>

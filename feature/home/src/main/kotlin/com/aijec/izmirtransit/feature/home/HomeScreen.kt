@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -203,7 +204,7 @@ private fun FavouriteStopCard(favourite: FavouriteStop, arrivals: LiveSnapshot<L
                         LineBadge(bus.lineCode)
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            stringResource(R.string.home_stops_away, bus.stopsRemaining),
+                            pluralStringResource(R.plurals.home_stops_away, bus.stopsRemaining, bus.stopsRemaining),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )

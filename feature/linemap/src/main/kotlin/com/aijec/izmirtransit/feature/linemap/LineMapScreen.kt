@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,11 +20,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,10 +41,18 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -45,10 +61,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aijec.izmirtransit.core.location.LocationProvider
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.LiveBus
 import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.LiveStatus
+import com.aijec.izmirtransit.core.ui.AnnouncementCard
 import com.aijec.izmirtransit.core.ui.LineBadge
 import com.aijec.izmirtransit.core.ui.TransitColors
 import com.aijec.izmirtransit.core.ui.formatAge
@@ -56,15 +74,42 @@ import com.aijec.izmirtransit.core.ui.liveErrorText
 import com.aijec.izmirtransit.core.ui.rememberNow
 
 @Composable
-fun LineMapRoute(onOpenStop: (stopCode: String) -> Unit, viewModel: LineMapViewModel = hiltViewModel()) {
+fun LineMapRoute(
+    onOpenStop: (stopCode: String) -> Unit,
+    onOpenTimetable: (lineCode: String) -> Unit,
+    viewModel: LineMapViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val live by viewModel.liveBuses.collectAsStateWithLifecycle()
     val isFavourite by viewModel.isFavourite.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        if (result.values.any { it }) viewModel.locate() else viewModel.onLocationPermissionDenied()
+    }
+    // Problems are one-off messages, not persistent UI.
+    val problem = state.locationProblem
+    LaunchedEffect(problem) {
+        if (problem != null) {
+            val message = when (problem) {
+                LocationProblem.PERMISSION -> R.string.linemap_location_permission
+                LocationProblem.OFF -> R.string.linemap_location_off
+                LocationProblem.UNAVAILABLE -> R.string.linemap_location_unavailable
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            viewModel.consumeLocationProblem()
+        }
+    }
+
     LineMapScreen(
         state = state,
         live = live,
         isFavourite = isFavourite,
         onToggleFavourite = viewModel::toggleFavourite,
+        onOpenTimetable = { onOpenTimetable(state.lineCode) },
+        onLocate = {
+            if (viewModel.hasLocationPermission()) viewModel.locate() else permissionLauncher.launch(LocationProvider.PERMISSIONS)
+        },
         onQueryChange = viewModel::onQueryChange,
         onSelectLine = viewModel::selectLine,
         onOpenStop = { code ->
@@ -80,6 +125,8 @@ fun LineMapScreen(
     live: LiveSnapshot<List<LiveBus>>,
     isFavourite: Boolean,
     onToggleFavourite: () -> Unit,
+    onOpenTimetable: () -> Unit,
+    onLocate: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSelectLine: (String) -> Unit,
     onOpenStop: (String) -> Unit,
@@ -90,6 +137,9 @@ fun LineMapScreen(
             buses = live.data.orEmpty(),
             contentPadding = MapPadding(start = 32.dp, top = 140.dp, end = 32.dp, bottom = 240.dp),
             onStopClick = onOpenStop,
+            userLocation = state.userLocation,
+            nearbyStops = state.nearbyStops,
+            cameraRequest = state.cameraRequest,
             modifier = Modifier.fillMaxSize(),
         )
         Search(
@@ -102,16 +152,29 @@ fun LineMapScreen(
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         )
-        LineCard(
-            state = state,
-            live = live,
-            isFavourite = isFavourite,
-            onToggleFavourite = onToggleFavourite,
-            modifier = Modifier
+        Column(
+            Modifier
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(16.dp),
-        )
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SmallFloatingActionButton(onClick = onLocate) {
+                if (state.locating) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Filled.LocationOn, contentDescription = stringResource(R.string.linemap_my_location))
+                }
+            }
+            LineCard(
+                state = state,
+                live = live,
+                isFavourite = isFavourite,
+                onToggleFavourite = onToggleFavourite,
+                onOpenTimetable = onOpenTimetable,
+            )
+        }
     }
 }
 
@@ -204,8 +267,10 @@ private fun LineCard(
     live: LiveSnapshot<List<LiveBus>>,
     isFavourite: Boolean,
     onToggleFavourite: () -> Unit,
+    onOpenTimetable: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showAnnouncements by rememberSaveable(state.lineCode) { mutableStateOf(false) }
     Card(modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -232,8 +297,25 @@ private fun LineCard(
                 DirectionLegend(Direction.OUTBOUND, stringResource(R.string.linemap_towards, line.destination))
                 DirectionLegend(Direction.RETURN, stringResource(R.string.linemap_towards, line.origin))
             }
+            if (state.announcements.isNotEmpty()) {
+                TextButton(onClick = { showAnnouncements = !showAnnouncements }, contentPadding = PaddingValues(0.dp)) {
+                    Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                    Spacer(Modifier.width(8.dp))
+                    Text(pluralStringResource(R.plurals.linemap_announcements, state.announcements.size, state.announcements.size))
+                }
+                if (showAnnouncements) {
+                    Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.announcements.forEach { AnnouncementCard(it, showLine = false) }
+                    }
+                }
+            }
             HorizontalDivider()
-            LiveStatusLine(live)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { LiveStatusLine(live) }
+                if (state.line != null) {
+                    TextButton(onClick = onOpenTimetable) { Text(stringResource(R.string.linemap_timetable)) }
+                }
+            }
         }
     }
 }

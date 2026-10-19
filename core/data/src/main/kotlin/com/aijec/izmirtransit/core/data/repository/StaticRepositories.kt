@@ -15,10 +15,13 @@ import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
 import com.aijec.izmirtransit.core.model.geo.PolylineCodec
 import com.aijec.izmirtransit.core.model.geo.distanceMeters
+import java.time.Clock
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
+import java.util.Locale
 import javax.inject.Inject
 
 // Read side of the offline data. Only ESHOT buses exist so far; the `mode` parameter
@@ -33,6 +36,9 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
     }
 
     suspend fun line(code: String): Line? = dao.line(BUS, code)?.toModel()
+
+    /** Call after the static data is replaced, so cached shapes are re-read. */
+    fun clearCaches() = synchronized(routeCache) { routeCache.clear() }
 
     /** Turkish-aware: "izmir" finds "İZMİR". Line-number matches rank first. */
     suspend fun search(query: String, limit: Int = 30): List<Line> {
@@ -98,7 +104,26 @@ class TimetableRepository @Inject constructor(private val database: IzmirDatabas
     suspend fun activeAnnouncements(lineCode: String, now: LocalDateTime): List<Announcement> =
         dao.announcements(BUS, lineCode).map { it.toModel() }.filter { it.isActiveAt(now) }
 
+    /** Active announcements for any of [lineCodes], e.g. every line serving a stop. */
+    suspend fun activeAnnouncementsForLines(lineCodes: List<String>, now: LocalDateTime): List<Announcement> =
+        if (lineCodes.isEmpty()) emptyList()
+        else dao.announcementsForLines(BUS, lineCodes).map { it.toModel() }.filter { it.isActiveAt(now) }
+
+    /** Which timetable applies right now, and the current minute on that timetable's clock. */
+    data class ServiceMoment(val serviceDay: ServiceDay, val minutesAfterMidnight: Int)
+
     companion object {
+        /**
+         * The service day rolls over at 04:00, not midnight: at 00:30 on a Tuesday the buses
+         * still running are Monday's late trips (stored as minute 1440+).
+         */
+        const val SERVICE_DAY_START_HOUR = 4
+
+        /** Timetables and announcements are in İzmir local time, whatever the phone's zone. */
+        val IZMIR_ZONE: ZoneId = ZoneId.of("Europe/Istanbul")
+
+        fun localNow(clock: Clock): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), IZMIR_ZONE)
+
         /** Public holidays are not modelled yet; they run the Sunday timetable. */
         fun serviceDayFor(date: LocalDate): ServiceDay = when (date.dayOfWeek) {
             DayOfWeek.SATURDAY -> ServiceDay.SATURDAY
@@ -106,10 +131,25 @@ class TimetableRepository @Inject constructor(private val database: IzmirDatabas
             else -> ServiceDay.WEEKDAY
         }
 
-        /** The first departure at or after [time]; departures are sorted by minute. */
-        fun nextDeparture(departures: List<Departure>, time: LocalTime): Departure? {
-            val minute = time.hour * 60 + time.minute
-            return departures.firstOrNull { it.minutesAfterMidnight >= minute }
+        fun serviceMoment(now: LocalDateTime): ServiceMoment {
+            val minute = now.hour * 60 + now.minute
+            return if (now.hour < SERVICE_DAY_START_HOUR) {
+                ServiceMoment(serviceDayFor(now.toLocalDate().minusDays(1)), minute + 24 * 60)
+            } else {
+                ServiceMoment(serviceDayFor(now.toLocalDate()), minute)
+            }
         }
+
+        /** Index of the first departure at or after [minute], or -1 when the day's service is over. */
+        fun nextDepartureIndex(departures: List<Departure>, minute: Int): Int =
+            departures.indexOfFirst { it.minutesAfterMidnight >= minute }
+
+        /** The first departure at or after [time]; departures are sorted by minute. */
+        fun nextDeparture(departures: List<Departure>, time: LocalTime): Departure? =
+            departures.getOrNull(nextDepartureIndex(departures, time.hour * 60 + time.minute))
+
+        /** 1445 → "00:05". */
+        fun formatClock(minutesAfterMidnight: Int): String =
+            "%02d:%02d".format(Locale.ROOT, (minutesAfterMidnight / 60) % 24, minutesAfterMidnight % 60)
     }
 }

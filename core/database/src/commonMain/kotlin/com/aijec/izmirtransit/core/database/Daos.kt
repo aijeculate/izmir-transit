@@ -162,4 +162,7 @@ interface TimetableDao {
 
     @Query("SELECT * FROM announcements WHERE mode = :mode AND line_code = :lineCode ORDER BY starts_at DESC")
     suspend fun announcements(mode: String, lineCode: String): List<AnnouncementEntity>
+
+    @Query("SELECT * FROM announcements WHERE mode = :mode AND line_code IN (:lineCodes) ORDER BY starts_at DESC")
+    suspend fun announcementsForLines(mode: String, lineCodes: List<String>): List<AnnouncementEntity>
 }

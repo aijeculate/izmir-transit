@@ -62,6 +62,9 @@ fun TransitMap(
     contentPadding: MapPadding,
     onStopClick: (stopCode: String) -> Unit,
     modifier: Modifier = Modifier,
+    userLocation: LatLng? = null,
+    nearbyStops: List<Stop> = emptyList(),
+    cameraRequest: Int = 0,
 ) {
     val currentOnStopClick by rememberUpdatedState(onStopClick)
     val context = LocalContext.current
@@ -94,7 +97,8 @@ fun TransitMap(
                     m.addOnMapClickListener { point ->
                         val screen = m.projection.toScreenLocation(point)
                         val box = RectF(screen.x - half, screen.y - half, screen.x + half, screen.y + half)
-                        val code = m.queryRenderedFeatures(box, *Direction.entries.map { "${stopSource(it)}-layer" }.toTypedArray())
+                        val layers = Direction.entries.map { "${stopSource(it)}-layer" } + "$NEARBY_SOURCE-layer"
+                        val code = m.queryRenderedFeatures(box, *layers.toTypedArray())
                             .firstNotNullOfOrNull { it.getStringProperty("code") }
                         code?.let(currentOnStopClick)
                         code != null
@@ -137,6 +141,21 @@ fun TransitMap(
                     800,
                 )
             }
+        }
+    }
+
+    LaunchedEffect(style, userLocation, nearbyStops) {
+        val s = style ?: return@LaunchedEffect
+        s.source(USER_SOURCE)?.setGeoJson(points(listOfNotNull(userLocation)))
+        s.source(NEARBY_SOURCE)?.setGeoJson(stopPoints(nearbyStops))
+    }
+
+    LaunchedEffect(map, cameraRequest) {
+        val m = map ?: return@LaunchedEffect
+        val target = userLocation ?: return@LaunchedEffect
+        if (cameraRequest > 0) {
+            // Zoom 15.5 shows streets and every stop dot around the user.
+            m.animateCamera(CameraUpdateFactory.newLatLngZoom(MapLatLng(target.latitude, target.longitude), 15.5), 800)
         }
     }
 
@@ -195,6 +214,9 @@ private fun MapViewLifecycle(mapView: MapView) {
     }
 }
 
+private const val USER_SOURCE = "user-location"
+private const val NEARBY_SOURCE = "nearby-stops"
+
 private fun routeSource(direction: Direction) = "route-${direction.name.lowercase()}"
 private fun stopSource(direction: Direction) = "stops-${direction.name.lowercase()}"
 private fun busSource(direction: Direction) = "buses-${direction.name.lowercase()}"
@@ -203,6 +225,16 @@ private fun Style.source(id: String): GeoJsonSource? = getSourceAs(id)
 
 @SuppressLint("ResourceType")
 private fun Style.addTransitLayers() {
+    // Nearby stops (around the user, any line) sit under the selected line's layers.
+    addSource(GeoJsonSource(NEARBY_SOURCE, points(emptyList())))
+    addLayer(
+        CircleLayer("$NEARBY_SOURCE-layer", NEARBY_SOURCE).withProperties(
+            PropertyFactory.circleRadius(5f),
+            PropertyFactory.circleColor(android.graphics.Color.WHITE),
+            PropertyFactory.circleStrokeColor(android.graphics.Color.DKGRAY),
+            PropertyFactory.circleStrokeWidth(2f),
+        ).apply { minZoom = 13f },
+    )
     // Return first so outbound draws on top where the two routes share a street.
     val order = listOf(Direction.RETURN, Direction.OUTBOUND)
     for (direction in order) {
@@ -242,6 +274,22 @@ private fun Style.addTransitLayers() {
             ),
         )
     }
+    addSource(GeoJsonSource(USER_SOURCE, points(emptyList())))
+    addLayer(
+        CircleLayer("$USER_SOURCE-halo", USER_SOURCE).withProperties(
+            PropertyFactory.circleRadius(16f),
+            PropertyFactory.circleColor(android.graphics.Color.rgb(26, 115, 232)),
+            PropertyFactory.circleOpacity(0.2f),
+        ),
+    )
+    addLayer(
+        CircleLayer("$USER_SOURCE-layer", USER_SOURCE).withProperties(
+            PropertyFactory.circleRadius(7f),
+            PropertyFactory.circleColor(android.graphics.Color.rgb(26, 115, 232)),
+            PropertyFactory.circleStrokeColor(android.graphics.Color.WHITE),
+            PropertyFactory.circleStrokeWidth(3f),
+        ),
+    )
 }
 
 // GeoJSON is written by hand: tiny, and independent of MapLibre's GeoJSON classes.

@@ -50,6 +50,7 @@ import com.aijec.izmirtransit.core.model.EtaBasis
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.LiveStatus
+import com.aijec.izmirtransit.core.ui.AnnouncementCard
 import com.aijec.izmirtransit.core.ui.LineBadge
 import com.aijec.izmirtransit.core.ui.TransitColors
 import com.aijec.izmirtransit.core.ui.formatAge
@@ -102,6 +103,9 @@ fun StopScreen(
             if (state.lines.isNotEmpty()) {
                 item("lines") { ServingLines(state.lines, onOpenLine) }
                 item("lines-divider") { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+            }
+            items(state.announcements, key = { "notice-${it.lineCode}-${it.title.hashCode()}" }) { announcement ->
+                AnnouncementCard(announcement, showLine = true, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
             item("status") { ArrivalsStatus(arrivals) }
             items(arrivals.data.orEmpty(), key = { "${it.lineCode}-${it.busId}" }) { bus ->

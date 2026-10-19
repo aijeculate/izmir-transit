@@ -21,6 +21,7 @@ maplibre = "13.6.0"
 navigation = "2.9.8"
 datastore = "1.1.7"
 playServicesLocation = "21.3.0"
+work = "2.10.5"
 
 [libraries]
 # Gradle plugins, used by build-logic
@@ -62,6 +63,7 @@ okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.
 # Storage and location
 datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }
 

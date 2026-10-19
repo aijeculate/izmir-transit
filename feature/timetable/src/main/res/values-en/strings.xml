@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="timetable_title">Timetable</string>
+    <string name="timetable_weekday">Weekdays</string>
+    <string name="timetable_saturday">Saturday</string>
+    <string name="timetable_sunday">Sunday</string>
+    <string name="timetable_towards">Towards %1$s</string>
+    <string name="timetable_none">No departures in this direction on this day.</string>
+    <string name="timetable_next_in">Next departure %1$s (in %2$d min)</string>
+    <string name="timetable_next_now">Next departure %1$s (now)</string>
+    <string name="timetable_next_label">Next departure %1$s</string>
+    <string name="timetable_service_over">No more departures today.</string>
+    <plurals name="timetable_count">
+        <item quantity="one">%1$d departure</item>
+        <item quantity="other">%1$d departures</item>
+    </plurals>
+</resources>
