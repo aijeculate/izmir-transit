@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.aijec.izmirtransit.core.ui.IzmirTheme
-import com.aijec.izmirtransit.feature.linemap.LineMapRoute
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -15,7 +14,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             IzmirTheme {
-                LineMapRoute()
+                AppNavHost()
             }
         }
     }

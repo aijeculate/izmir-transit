@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_error_network">No connection</string>
+    <string name="ui_error_busy">Server busy</string>
+    <string name="ui_error_server">Server error</string>
+    <string name="ui_age_seconds">%1$d s</string>
+    <string name="ui_age_minutes">%1$d min</string>
+    <string name="ui_back">Back</string>
+</resources>

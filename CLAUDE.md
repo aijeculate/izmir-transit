@@ -10,16 +10,23 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 
 ## Current state and commands (updated 20 Oct 2026, 02:15)
 
-The data layer and the first screen are done. The line map runs on a real phone (Galaxy S25 Ultra, Android 17 / API 37): search a line, see both directions' routes and stops, and live buses that glide between polls. It works offline except for live positions.
+The data layer, the line map and the stop screen are done and run on a real phone (Galaxy S25 Ultra, Android 17 / API 37).
+
+- **Search** finds lines and stops, Turkish-aware. Stop results list their lines, because names repeat: there are six "Bahribaba" stops.
+- **Line map** shows both directions' routes and stops, plus live buses that glide between polls. Tapping a stop opens it.
+- **Stop screen** lists the lines serving the stop and the approaching buses, sorted by stops remaining, with an approximate ETA. Tapping a line opens it on the map.
+
+Everything except live data works offline.
 
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
 | `:core:database` | Room KMP with JVM and Android targets: entities, DAOs, `IzmirDatabase`. `AndroidDatabases.prepackaged` installs the shipped DB from assets the first time Room opens a connection (off the main thread) and reinstalls it after each app update. `JvmDatabases` serves the importer and tests. The schema is exported to `core/database/schemas/`. |
 | `:core:data` | Plain JVM. CSV and GTFS parsers, the İztek client, `RequestPacer` (1 req/s app-wide), `GhostFilter`, `EtaEstimator`, `pollLive`, `EshotImporter`, and the repositories (`@Inject`). |
-| `:core:ui` | `IzmirTheme` (Material 3, dynamic colour, light/dark) and `TransitColors` (fixed outbound/return colours). |
+| `:core:ui` | `IzmirTheme` (Material 3, dynamic colour, light/dark), `TransitColors` (fixed outbound/return colours), and shared pieces: `LineBadge`, `rememberNow`/`formatAge`, `liveErrorText`. |
 | `:feature:linemap` | `LineMapViewModel` (live flow `WhileSubscribed(5 s)`, so polling stops in the background), `LineMapScreen`, and `TransitMap`, a MapLibre `MapView` in `AndroidView` with GeoJSON sources written by hand. Strings: Turkish default, English in `values-en`. |
-| `:app` | Hilt `DataModule`, `MainActivity`, and `IzmirTransitApp` (MapLibre init; StrictMode in debug). `copyTransitDatabase` puts the importer's DB into generated assets. |
+| `:feature:stop` | `StopViewModel` (nav arg `stopCode`) and `StopScreen`. |
+| `:app` | `AppNavHost`, with routes `line?lineCode=` (home, default line 5) and `stop/{stopCode}`; Hilt `DataModule`, `MainActivity`, and `IzmirTransitApp` (MapLibre init; StrictMode in debug). `copyTransitDatabase` puts the importer's DB into generated assets. |
 | `:tools:importer` | A desktop tool. `run` builds `build/izmir-transit.db` (inputs/outputs declared, so it's skipped when nothing changed). `liveSmoke` polls the real API once through the repositories. |
 | `build-logic` | Convention plugins: `izmir.jvm.library`, `izmir.kmp.library`, `izmir.android.application`, `izmir.android.library`, `izmir.android.compose`, `izmir.android.hilt`. |
 
@@ -53,12 +60,11 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 **Next steps:**
 
 1. Daytime check of live movement and animation, the ghost filter, and the ETA under load.
-2. Stop screen (arrivals with ETA).
+2. Tapping a stop on the map has not been verified on a device: adb taps are too slow to double-tap-zoom down to stop level.
 3. Nearby stops (location permission).
 4. Favourites on the home screen (DataStore).
-5. Navigation between screens.
-6. Timetable and announcements.
-7. App icon.
+5. Timetable and announcements.
+6. App icon.
 8. Release build with ABI splits or an App Bundle (the debug APK is 70 MB because it bundles every ABI).
 
 ## Goal and scope

@@ -1,6 +1,7 @@
 package com.aijec.izmirtransit.feature.linemap
 
 import android.annotation.SuppressLint
+import android.graphics.RectF
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
@@ -11,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -25,6 +27,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.LineRoute
 import com.aijec.izmirtransit.core.model.LiveBus
+import com.aijec.izmirtransit.core.model.Stop
 import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.ui.TransitColors
 import org.maplibre.android.camera.CameraPosition
@@ -57,8 +60,10 @@ fun TransitMap(
     routes: List<LineRoute>,
     buses: List<LiveBus>,
     contentPadding: MapPadding,
+    onStopClick: (stopCode: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val currentOnStopClick by rememberUpdatedState(onStopClick)
     val context = LocalContext.current
     val dark = isSystemInDarkTheme()
     val density = LocalDensity.current
@@ -84,6 +89,16 @@ fun TransitMap(
                         m.uiSettings.setLogoMargins(side, 0, 0, bottom)
                         m.uiSettings.setAttributionMargins(side + 100.dp.roundToPx(), 0, 0, bottom)
                     }
+                    // Tap a stop to open it. The hit box is 48 dp, wider than the drawn circle.
+                    val half = with(density) { 24.dp.toPx() }
+                    m.addOnMapClickListener { point ->
+                        val screen = m.projection.toScreenLocation(point)
+                        val box = RectF(screen.x - half, screen.y - half, screen.x + half, screen.y + half)
+                        val code = m.queryRenderedFeatures(box, *Direction.entries.map { "${stopSource(it)}-layer" }.toTypedArray())
+                            .firstNotNullOfOrNull { it.getStringProperty("code") }
+                        code?.let(currentOnStopClick)
+                        code != null
+                    }
                     map = m
                 }
             }
@@ -107,7 +122,7 @@ fun TransitMap(
         for (direction in Direction.entries) {
             val route = routes.firstOrNull { it.direction == direction }
             s.source(routeSource(direction))?.setGeoJson(lineString(route?.shape.orEmpty()))
-            s.source(stopSource(direction))?.setGeoJson(points(route?.stops.orEmpty().map { it.location }))
+            s.source(stopSource(direction))?.setGeoJson(stopPoints(route?.stops.orEmpty()))
         }
         val all = routes.flatMap { it.shape }
         if (all.size >= 2) {
@@ -208,7 +223,7 @@ private fun Style.addTransitLayers() {
         addSource(GeoJsonSource(stopSource(direction), points(emptyList())))
         addLayer(
             CircleLayer("${stopSource(direction)}-layer", stopSource(direction)).withProperties(
-                PropertyFactory.circleRadius(4f),
+                PropertyFactory.circleRadius(5f),
                 PropertyFactory.circleColor(android.graphics.Color.WHITE),
                 PropertyFactory.circleStrokeColor(color),
                 PropertyFactory.circleStrokeWidth(2f),
@@ -237,6 +252,13 @@ private fun coordinate(point: LatLng) = "[${point.longitude},${point.latitude}]"
 private fun lineString(points: List<LatLng>): String =
     if (points.size < 2) """{"type":"FeatureCollection","features":[]}"""
     else """{"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[${points.joinToString(",", transform = ::coordinate)}]}}"""
+
+private fun stopPoints(stops: List<Stop>): String =
+    """{"type":"FeatureCollection","features":[${
+        stops.joinToString(",") {
+            """{"type":"Feature","properties":{"code":"${it.code.filter(Char::isLetterOrDigit)}"},"geometry":{"type":"Point","coordinates":${coordinate(it.location)}}}"""
+        }
+    }]}"""
 
 private fun points(points: List<LatLng>): String =
     """{"type":"FeatureCollection","features":[${

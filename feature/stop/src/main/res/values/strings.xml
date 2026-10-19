@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish is the default locale. -->
+<resources>
+    <string name="stop_code">Durak no. %1$s</string>
+    <string name="stop_lines_title">Bu duraktan geçen hatlar</string>
+    <string name="stop_arrivals_title">Yaklaşan otobüsler</string>
+    <string name="stop_live_loading">Yaklaşan otobüsler yükleniyor…</string>
+    <string name="stop_live_none">Şu anda bu durağa yaklaşan otobüs yok</string>
+    <string name="stop_live_updated">%1$s önce güncellendi</string>
+    <string name="stop_live_stale">%1$s · son veri %2$s önce</string>
+    <string name="stop_live_unavailable">Canlı veri alınamıyor (%1$s). Yeniden deneniyor…</string>
+    <string name="stop_towards">%1$s yönü</string>
+    <plurals name="stop_stops_away">
+        <item quantity="one">%1$d durak kaldı</item>
+        <item quantity="other">%1$d durak kaldı</item>
+    </plurals>
+    <string name="stop_wheelchair">Engelli erişimli</string>
+    <string name="stop_bike">Bisiklet aparatlı</string>
+    <string name="stop_eta_now">Geliyor</string>
+    <string name="stop_eta_minutes">~%1$d dk</string>
+    <string name="stop_eta_unreliable">konum belirsiz</string>
+    <string name="stop_eta_unreliable_description">%1$s, konum verisi belirsiz</string>
+    <string name="stop_eta_note">Süreler yaklaşıktır: otobüsün güzergâh üzerindeki konumundan hesaplanır.</string>
+</resources>

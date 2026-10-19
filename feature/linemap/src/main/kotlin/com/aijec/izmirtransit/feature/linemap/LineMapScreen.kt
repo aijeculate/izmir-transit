@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,38 +27,43 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aijec.izmirtransit.core.model.Direction
-import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LiveBus
-import com.aijec.izmirtransit.core.model.LiveError
 import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.LiveStatus
+import com.aijec.izmirtransit.core.ui.LineBadge
 import com.aijec.izmirtransit.core.ui.TransitColors
-import kotlinx.coroutines.delay
-import java.time.Duration
-import java.time.Instant
+import com.aijec.izmirtransit.core.ui.formatAge
+import com.aijec.izmirtransit.core.ui.liveErrorText
+import com.aijec.izmirtransit.core.ui.rememberNow
 
 @Composable
-fun LineMapRoute(viewModel: LineMapViewModel = hiltViewModel()) {
+fun LineMapRoute(onOpenStop: (stopCode: String) -> Unit, viewModel: LineMapViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val live by viewModel.liveBuses.collectAsStateWithLifecycle()
-    LineMapScreen(state, live, onQueryChange = viewModel::onQueryChange, onSelectLine = viewModel::selectLine)
+    LineMapScreen(
+        state = state,
+        live = live,
+        onQueryChange = viewModel::onQueryChange,
+        onSelectLine = viewModel::selectLine,
+        onOpenStop = { code ->
+            viewModel.onQueryChange("")
+            onOpenStop(code)
+        },
+    )
 }
 
 @Composable
@@ -68,19 +72,21 @@ fun LineMapScreen(
     live: LiveSnapshot<List<LiveBus>>,
     onQueryChange: (String) -> Unit,
     onSelectLine: (String) -> Unit,
+    onOpenStop: (String) -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
         TransitMap(
             routes = state.routes,
             buses = live.data.orEmpty(),
             contentPadding = MapPadding(start = 32.dp, top = 140.dp, end = 32.dp, bottom = 240.dp),
+            onStopClick = onOpenStop,
             modifier = Modifier.fillMaxSize(),
         )
-        LineSearch(
-            query = state.query,
-            results = state.searchResults,
+        Search(
+            state = state,
             onQueryChange = onQueryChange,
             onSelectLine = onSelectLine,
+            onOpenStop = onOpenStop,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.statusBars)
@@ -97,46 +103,58 @@ fun LineMapScreen(
     }
 }
 
+/** One box for lines and stops; Turkish-aware matching happens in the repositories. */
 @Composable
-private fun LineSearch(
-    query: String,
-    results: List<Line>,
+private fun Search(
+    state: LineMapUiState,
     onQueryChange: (String) -> Unit,
     onSelectLine: (String) -> Unit,
+    onOpenStop: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focus = LocalFocusManager.current
     Card(modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
         OutlinedTextField(
-            value = query,
+            value = state.query,
             onValueChange = onQueryChange,
             placeholder = { Text(stringResource(R.string.linemap_search_hint)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             modifier = Modifier.fillMaxWidth().padding(8.dp),
         )
-        if (results.isNotEmpty()) {
+        if (state.hasResults) {
             HorizontalDivider()
-            LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                items(results, key = { it.code }) { line ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clickable {
-                                focus.clearFocus()
-                                onSelectLine(line.code)
+            LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                if (state.lineResults.isNotEmpty()) {
+                    item("lines-header") { SectionHeader(stringResource(R.string.linemap_search_lines)) }
+                    items(state.lineResults, key = { "line-${it.code}" }) { line ->
+                        ResultRow(onClick = { focus.clearFocus(); onSelectLine(line.code) }) {
+                            LineBadge(line.code)
+                            Spacer(Modifier.width(12.dp))
+                            Text(line.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                if (state.stopResults.isNotEmpty()) {
+                    item("stops-header") { SectionHeader(stringResource(R.string.linemap_search_stops)) }
+                    items(state.stopResults, key = { "stop-${it.stop.code}" }) { (stop, lineCodes) ->
+                        ResultRow(onClick = { focus.clearFocus(); onOpenStop(stop.code) }) {
+                            Column {
+                                Text(stop.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    if (lineCodes.isEmpty()) stringResource(R.string.linemap_stop_code, stop.code)
+                                    else stringResource(R.string.linemap_stop_code_lines, stop.code, lineCodes.joinToString(", ")),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        LineBadge(line.code)
-                        Spacer(Modifier.width(12.dp))
-                        Text(line.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }
-        } else if (query.isNotBlank()) {
+        } else if (state.query.isNotBlank()) {
             Text(
                 stringResource(R.string.linemap_search_no_results),
                 style = MaterialTheme.typography.bodyMedium,
@@ -144,6 +162,28 @@ private fun LineSearch(
             )
         }
     }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun ResultRow(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) { content() }
 }
 
 @Composable
@@ -179,37 +219,19 @@ private fun DirectionLegend(direction: Direction, label: String) {
     }
 }
 
-@Composable
-private fun LineBadge(code: String) {
-    Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(8.dp)) {
-        Text(
-            code,
-            color = MaterialTheme.colorScheme.onPrimary,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
-    }
-}
-
 /** Explicit loading, empty, fresh, stale and unavailable states; never a blank. */
 @Composable
 private fun LiveStatusLine(live: LiveSnapshot<List<LiveBus>>) {
-    val now by produceState(Instant.now()) {
-        while (true) {
-            delay(1_000)
-            value = Instant.now()
-        }
-    }
-    val age = live.lastUpdated?.let { formatAge(Duration.between(it, now)) }
+    val now by rememberNow()
+    val age = live.lastUpdated?.let { formatAge(it, now) }.orEmpty()
     val buses = live.data.orEmpty()
     val (text, color) = when (live.status) {
         LiveStatus.LOADING -> stringResource(R.string.linemap_live_loading) to MaterialTheme.colorScheme.onSurfaceVariant
         LiveStatus.FRESH ->
             if (buses.isEmpty()) stringResource(R.string.linemap_live_none) to MaterialTheme.colorScheme.onSurfaceVariant
-            else pluralStringResource(R.plurals.linemap_live_count, buses.size, buses.size, age ?: "") to MaterialTheme.colorScheme.onSurface
-        LiveStatus.STALE -> stringResource(R.string.linemap_live_stale, errorText(live.lastError), age ?: "") to MaterialTheme.colorScheme.tertiary
-        LiveStatus.UNAVAILABLE -> stringResource(R.string.linemap_live_unavailable, errorText(live.lastError)) to MaterialTheme.colorScheme.error
+            else pluralStringResource(R.plurals.linemap_live_count, buses.size, buses.size, age) to MaterialTheme.colorScheme.onSurface
+        LiveStatus.STALE -> stringResource(R.string.linemap_live_stale, liveErrorText(live.lastError), age) to MaterialTheme.colorScheme.tertiary
+        LiveStatus.UNAVAILABLE -> stringResource(R.string.linemap_live_unavailable, liveErrorText(live.lastError)) to MaterialTheme.colorScheme.error
     }
     Column {
         Text(text, color = color, style = MaterialTheme.typography.bodyMedium)
@@ -219,20 +241,3 @@ private fun LiveStatusLine(live: LiveSnapshot<List<LiveBus>>) {
         }
     }
 }
-
-@Composable
-private fun errorText(error: LiveError?): String = stringResource(
-    when (error) {
-        LiveError.RATE_LIMITED -> R.string.linemap_error_busy
-        LiveError.SERVER, LiveError.MALFORMED -> R.string.linemap_error_server
-        LiveError.NETWORK, null -> R.string.linemap_error_network
-    },
-)
-
-@Composable
-private fun formatAge(duration: Duration): String {
-    val seconds = duration.seconds.coerceAtLeast(0)
-    return if (seconds < 60) stringResource(R.string.linemap_age_seconds, seconds.toInt())
-    else stringResource(R.string.linemap_age_minutes, (seconds / 60).toInt())
-}
-

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stop_code">Stop %1$s</string>
+    <string name="stop_lines_title">Lines serving this stop</string>
+    <string name="stop_arrivals_title">Approaching buses</string>
+    <string name="stop_live_loading">Loading approaching buses…</string>
+    <string name="stop_live_none">No buses are approaching this stop right now</string>
+    <string name="stop_live_updated">Updated %1$s ago</string>
+    <string name="stop_live_stale">%1$s · last data %2$s ago</string>
+    <string name="stop_live_unavailable">Live data unavailable (%1$s). Retrying…</string>
+    <string name="stop_towards">Towards %1$s</string>
+    <plurals name="stop_stops_away">
+        <item quantity="one">%1$d stop away</item>
+        <item quantity="other">%1$d stops away</item>
+    </plurals>
+    <string name="stop_wheelchair">Wheelchair accessible</string>
+    <string name="stop_bike">Bike rack</string>
+    <string name="stop_eta_now">Arriving</string>
+    <string name="stop_eta_minutes">~%1$d min</string>
+    <string name="stop_eta_unreliable">position uncertain</string>
+    <string name="stop_eta_unreliable_description">%1$s, position data uncertain</string>
+    <string name="stop_eta_note">Times are estimates based on each bus\'s position along its route.</string>
+</resources>
