@@ -1,0 +1,12 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Downloaded datasets are large and re-downloadable; fixtures are kept.
+research/raw/
+research/gtfs/
+research/yon/

@@ -1,0 +1,9 @@
+* text=auto
+
+# Shell script must keep LF or it fails in bash; Windows scripts keep CRLF.
+gradlew text eol=lf
+*.bat text eol=crlf
+
+*.jar binary
+*.zip binary
+*.db binary
