@@ -16,4 +16,6 @@
     </plurals>
     <string name="linemap_live_stale">%1$s · last data %2$s ago</string>
     <string name="linemap_live_unavailable">Live positions unavailable (%1$s). Retrying…</string>
+    <string name="linemap_favourite_add">Add to favourites</string>
+    <string name="linemap_favourite_remove">Remove from favourites</string>
 </resources>

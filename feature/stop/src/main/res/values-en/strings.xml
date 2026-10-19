@@ -20,4 +20,6 @@
     <string name="stop_eta_unreliable">position uncertain</string>
     <string name="stop_eta_unreliable_description">%1$s, position data uncertain</string>
     <string name="stop_eta_note">Times are estimates based on each bus\'s position along its route.</string>
+    <string name="stop_favourite_add">Add to favourites</string>
+    <string name="stop_favourite_remove">Remove from favourites</string>
 </resources>

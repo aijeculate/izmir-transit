@@ -21,7 +21,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -54,9 +59,12 @@ import com.aijec.izmirtransit.core.ui.rememberNow
 fun LineMapRoute(onOpenStop: (stopCode: String) -> Unit, viewModel: LineMapViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val live by viewModel.liveBuses.collectAsStateWithLifecycle()
+    val isFavourite by viewModel.isFavourite.collectAsStateWithLifecycle()
     LineMapScreen(
         state = state,
         live = live,
+        isFavourite = isFavourite,
+        onToggleFavourite = viewModel::toggleFavourite,
         onQueryChange = viewModel::onQueryChange,
         onSelectLine = viewModel::selectLine,
         onOpenStop = { code ->
@@ -70,6 +78,8 @@ fun LineMapRoute(onOpenStop: (stopCode: String) -> Unit, viewModel: LineMapViewM
 fun LineMapScreen(
     state: LineMapUiState,
     live: LiveSnapshot<List<LiveBus>>,
+    isFavourite: Boolean,
+    onToggleFavourite: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSelectLine: (String) -> Unit,
     onOpenStop: (String) -> Unit,
@@ -95,6 +105,8 @@ fun LineMapScreen(
         LineCard(
             state = state,
             live = live,
+            isFavourite = isFavourite,
+            onToggleFavourite = onToggleFavourite,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.navigationBars)
@@ -187,7 +199,13 @@ private fun ResultRow(onClick: () -> Unit, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun LineCard(state: LineMapUiState, live: LiveSnapshot<List<LiveBus>>, modifier: Modifier = Modifier) {
+private fun LineCard(
+    state: LineMapUiState,
+    live: LiveSnapshot<List<LiveBus>>,
+    isFavourite: Boolean,
+    onToggleFavourite: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Card(modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -198,7 +216,17 @@ private fun LineCard(state: LineMapUiState, live: LiveSnapshot<List<LiveBus>>, m
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
+                if (state.line != null) {
+                    IconButton(onClick = onToggleFavourite) {
+                        Icon(
+                            if (isFavourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = stringResource(if (isFavourite) R.string.linemap_favourite_remove else R.string.linemap_favourite_add),
+                            tint = if (isFavourite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
             state.line?.let { line ->
                 DirectionLegend(Direction.OUTBOUND, stringResource(R.string.linemap_towards, line.destination))

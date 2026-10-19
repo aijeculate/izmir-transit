@@ -21,4 +21,6 @@
     <string name="stop_eta_unreliable">konum belirsiz</string>
     <string name="stop_eta_unreliable_description">%1$s, konum verisi belirsiz</string>
     <string name="stop_eta_note">Süreler yaklaşıktır: otobüsün güzergâh üzerindeki konumundan hesaplanır.</string>
+    <string name="stop_favourite_add">Favorilere ekle</string>
+    <string name="stop_favourite_remove">Favorilerden çıkar</string>
 </resources>

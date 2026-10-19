@@ -10,11 +10,14 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 
 ## Current state and commands (updated 20 Oct 2026, 02:15)
 
-The data layer, the line map and the stop screen are done and run on a real phone (Galaxy S25 Ultra, Android 17 / API 37).
+The data layer and four screen areas (home, line map, stop screen, bottom bar) are done and run on a real phone (Galaxy S25 Ultra, Android 17 / API 37).
+
+- **Home** is the start screen. It shows favourite stops with their next three live arrivals, favourite lines, and stops near you (location, computed offline). A bottom bar switches between Home and the Map.
 
 - **Search** finds lines and stops, Turkish-aware. Stop results list their lines, because names repeat: there are six "Bahribaba" stops.
 - **Line map** shows both directions' routes and stops, plus live buses that glide between polls. Tapping a stop opens it.
 - **Stop screen** lists the lines serving the stop and the approaching buses, sorted by stops remaining, with an approximate ETA. Tapping a line opens it on the map.
+- **Favourites:** the ♥ on the stop screen and on the line card toggles a favourite. They are stored in DataStore (`user_preferences`).
 
 Everything except live data works offline.
 
@@ -22,11 +25,13 @@ Everything except live data works offline.
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
 | `:core:database` | Room KMP with JVM and Android targets: entities, DAOs, `IzmirDatabase`. `AndroidDatabases.prepackaged` installs the shipped DB from assets the first time Room opens a connection (off the main thread) and reinstalls it after each app update. `JvmDatabases` serves the importer and tests. The schema is exported to `core/database/schemas/`. |
-| `:core:data` | Plain JVM. CSV and GTFS parsers, the İztek client, `RequestPacer` (1 req/s app-wide), `GhostFilter`, `EtaEstimator`, `pollLive`, `EshotImporter`, and the repositories (`@Inject`). |
+| `:core:data` | Plain JVM. CSV and GTFS parsers, the İztek client, `RequestPacer` (1 req/s app-wide), `GhostFilter`, `EtaEstimator`, `pollLive`, `EshotImporter`, and the repositories (`@Inject`), including `FavouritesRepository` (DataStore preferences-core, JVM-testable). |
+| `:core:location` | `LocationProvider`: a one-shot Fused Location request with balanced accuracy, a 10 s timeout and a last-known fallback. Coarse/fine permission is asked only when the user taps the button on Home. |
 | `:core:ui` | `IzmirTheme` (Material 3, dynamic colour, light/dark), `TransitColors` (fixed outbound/return colours), and shared pieces: `LineBadge`, `rememberNow`/`formatAge`, `liveErrorText`. |
 | `:feature:linemap` | `LineMapViewModel` (live flow `WhileSubscribed(5 s)`, so polling stops in the background), `LineMapScreen`, and `TransitMap`, a MapLibre `MapView` in `AndroidView` with GeoJSON sources written by hand. Strings: Turkish default, English in `values-en`. |
+| `:feature:home` | `HomeViewModel`: favourites, live arrivals for the first 5 favourite stops (shared pacer), and nearby stops within 750 m. `HomeScreen` handles the permission flow, including the "denied twice → open Settings" case. |
 | `:feature:stop` | `StopViewModel` (nav arg `stopCode`) and `StopScreen`. |
-| `:app` | `AppNavHost`, with routes `line?lineCode=` (home, default line 5) and `stop/{stopCode}`; Hilt `DataModule`, `MainActivity`, and `IzmirTransitApp` (MapLibre init; StrictMode in debug). `copyTransitDatabase` puts the importer's DB into generated assets. |
+| `:app` | `AppNavHost`: a bottom bar (Home / Map), with routes `home` (start), `line?lineCode=` (default line 5) and `stop/{stopCode}`; Hilt `DataModule`, `MainActivity`, and `IzmirTransitApp` (MapLibre init; StrictMode in debug). `copyTransitDatabase` puts the importer's DB into generated assets. |
 | `:tools:importer` | A desktop tool. `run` builds `build/izmir-transit.db` (inputs/outputs declared, so it's skipped when nothing changed). `liveSmoke` polls the real API once through the repositories. |
 | `build-logic` | Convention plugins: `izmir.jvm.library`, `izmir.kmp.library`, `izmir.android.application`, `izmir.android.library`, `izmir.android.compose`, `izmir.android.hilt`. |
 
@@ -60,10 +65,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 **Next steps:**
 
 1. Daytime check of live movement and animation, the ghost filter, and the ETA under load.
-2. Tapping a stop on the map has not been verified on a device: adb taps are too slow to double-tap-zoom down to stop level.
-3. Nearby stops (location permission).
-4. Favourites on the home screen (DataStore).
-5. Timetable and announcements.
+2. Not yet verified on a device: tapping a stop on the map (adb can't double-tap-zoom to stop level), and the nearby list after the location permission is granted. The user must grant that permission; Claude doesn't grant it.
+3. Timetable and announcements.
 6. App icon.
 8. Release build with ABI splits or an App Bundle (the debug APK is 70 MB because it bundles every ABI).
 

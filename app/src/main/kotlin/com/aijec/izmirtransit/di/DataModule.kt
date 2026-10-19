@@ -1,6 +1,10 @@
 package com.aijec.izmirtransit.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import com.aijec.izmirtransit.core.data.live.EtaEstimator
 import com.aijec.izmirtransit.core.data.live.GhostFilter
 import com.aijec.izmirtransit.core.data.live.RequestPacer
@@ -33,6 +37,12 @@ object DataModule {
     @Provides
     @Singleton
     fun iztekApi(): IztekApi = IztekApi.create(IztekApi.httpClient("IzmirTransit/0.1 (Android)"))
+
+    /** Favourites and settings. One instance per file is required by DataStore. */
+    @Provides
+    @Singleton
+    fun preferences(@ApplicationContext context: Context): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("user_preferences") }
 
     @Provides
     fun ghostFilter(): GhostFilter = GhostFilter()

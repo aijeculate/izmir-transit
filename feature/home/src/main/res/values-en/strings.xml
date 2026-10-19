@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_title">İzmir Transit</string>
+    <string name="home_favourites">Favourites</string>
+    <string name="home_favourites_empty">Add stops and lines you use with the ♥ button; live arrivals for your stops appear here.</string>
+    <string name="home_nearby">Stops near me</string>
+    <string name="home_nearby_refresh">Refresh location</string>
+    <string name="home_nearby_locating">Finding your location…</string>
+    <string name="home_nearby_permission">Allow location to see stops near you. It is only used while the app is open, on your device.</string>
+    <string name="home_nearby_permission_settings">Location permission is off. You can allow it in Settings to see nearby stops.</string>
+    <string name="home_nearby_allow">Allow location</string>
+    <string name="home_nearby_open_settings">Open Settings</string>
+    <string name="home_nearby_location_off">Location services are off. Turn them on and try again.</string>
+    <string name="home_nearby_unavailable">Couldn\'t get your location.</string>
+    <string name="home_nearby_retry">Try again</string>
+    <string name="home_nearby_none">No stops within 750 m.</string>
+    <string name="home_distance_m">%1$d m</string>
+    <string name="home_stop_code">Stop %1$s</string>
+    <string name="home_stop_code_lines">Stop %1$s · Lines %2$s</string>
+    <string name="home_arrivals_loading">Loading arrivals…</string>
+    <string name="home_arrivals_none">No buses approaching right now</string>
+    <string name="home_stops_away">%1$d stops</string>
+    <string name="home_eta_now">Arriving</string>
+    <string name="home_eta_minutes">~%1$d min</string>
+</resources>

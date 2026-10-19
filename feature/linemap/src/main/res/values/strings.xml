@@ -17,4 +17,6 @@
     </plurals>
     <string name="linemap_live_stale">%1$s · son veri %2$s önce</string>
     <string name="linemap_live_unavailable">Canlı konumlar alınamıyor (%1$s). Yeniden deneniyor…</string>
+    <string name="linemap_favourite_add">Favorilere ekle</string>
+    <string name="linemap_favourite_remove">Favorilerden çıkar</string>
 </resources>

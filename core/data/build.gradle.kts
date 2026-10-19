@@ -11,6 +11,7 @@ dependencies {
     implementation(libs.retrofit)
     api(libs.okhttp)
     implementation(libs.javax.inject)
+    api(libs.datastore.preferences.core)
 
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)

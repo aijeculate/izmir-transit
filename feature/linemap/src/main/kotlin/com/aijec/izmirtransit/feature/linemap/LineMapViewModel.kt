@@ -3,6 +3,7 @@ package com.aijec.izmirtransit.feature.linemap
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
 import com.aijec.izmirtransit.core.data.repository.LineRepository
 import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
 import com.aijec.izmirtransit.core.data.repository.StopRepository
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -48,6 +50,7 @@ class LineMapViewModel @Inject constructor(
     private val lines: LineRepository,
     private val stops: StopRepository,
     live: LiveBusRepository,
+    private val favourites: FavouritesRepository,
     private val savedState: SavedStateHandle,
 ) : ViewModel() {
     private val lineCode = savedState.getStateFlow(KEY_LINE, DEFAULT_LINE)
@@ -64,6 +67,14 @@ class LineMapViewModel @Inject constructor(
     val liveBuses: StateFlow<LiveSnapshot<List<LiveBus>>> = lineCode
         .flatMapLatest { live.observeLine(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveSnapshot(null, LiveStatus.LOADING))
+
+    val isFavourite: StateFlow<Boolean> = combine(lineCode, favourites.favourites) { code, favs -> favs.hasLine(code) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun toggleFavourite() {
+        val code = lineCode.value
+        viewModelScope.launch { favourites.setLine(code, !isFavourite.value) }
+    }
 
     init {
         viewModelScope.launch {

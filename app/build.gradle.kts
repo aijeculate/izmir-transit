@@ -31,6 +31,8 @@ dependencies {
     implementation(projects.core.ui)
     implementation(projects.feature.linemap)
     implementation(projects.feature.stop)
+    implementation(projects.feature.home)
+    implementation(libs.datastore.preferences)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

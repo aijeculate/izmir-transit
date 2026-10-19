@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -59,7 +61,8 @@ import com.aijec.izmirtransit.core.ui.R as UiR
 fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val arrivals by viewModel.arrivals.collectAsStateWithLifecycle()
-    StopScreen(state, arrivals, onBack, onOpenLine)
+    val isFavourite by viewModel.isFavourite.collectAsStateWithLifecycle()
+    StopScreen(state, arrivals, isFavourite, viewModel::toggleFavourite, onBack, onOpenLine)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,6 +70,8 @@ fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopV
 fun StopScreen(
     state: StopUiState,
     arrivals: LiveSnapshot<List<ApproachingBus>>,
+    isFavourite: Boolean,
+    onToggleFavourite: () -> Unit,
     onBack: () -> Unit,
     onOpenLine: (String) -> Unit,
 ) {
@@ -84,6 +89,7 @@ fun StopScreen(
                         )
                     }
                 },
+                actions = { FavouriteButton(isFavourite, onToggleFavourite) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(UiR.string.ui_back))
@@ -224,3 +230,14 @@ private fun EtaLabel(bus: ApproachingBus) {
     }
 }
 
+
+@Composable
+private fun FavouriteButton(isFavourite: Boolean, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle) {
+        Icon(
+            if (isFavourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            contentDescription = stringResource(if (isFavourite) R.string.stop_favourite_remove else R.string.stop_favourite_add),
+            tint = if (isFavourite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

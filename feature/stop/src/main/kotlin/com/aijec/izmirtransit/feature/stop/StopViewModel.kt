@@ -3,6 +3,7 @@ package com.aijec.izmirtransit.feature.stop
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
 import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
 import com.aijec.izmirtransit.core.data.repository.StopRepository
 import com.aijec.izmirtransit.core.model.ApproachingBus
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,6 +33,7 @@ data class StopUiState(
 class StopViewModel @Inject constructor(
     stops: StopRepository,
     live: LiveBusRepository,
+    private val favourites: FavouritesRepository,
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val stopCode: String = checkNotNull(savedState[STOP_CODE_ARG]) { "stopCode argument missing" }
@@ -41,6 +44,13 @@ class StopViewModel @Inject constructor(
     /** Polls only while the screen is visible; see LineMapViewModel. */
     val arrivals: StateFlow<LiveSnapshot<List<ApproachingBus>>> = live.observeStop(stopCode)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveSnapshot(null, LiveStatus.LOADING))
+
+    val isFavourite: StateFlow<Boolean> = favourites.favourites.map { it.hasStop(stopCode) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun toggleFavourite() {
+        viewModelScope.launch { favourites.setStop(stopCode, !isFavourite.value) }
+    }
 
     init {
         viewModelScope.launch {

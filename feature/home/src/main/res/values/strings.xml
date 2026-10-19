@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish is the default locale. -->
+<resources>
+    <string name="home_title">İzmir Transit</string>
+    <string name="home_favourites">Favoriler</string>
+    <string name="home_favourites_empty">Sık kullandığın durak ve hatları ♥ simgesiyle buraya ekle; durakların canlı varış süreleri burada görünür.</string>
+    <string name="home_nearby">Yakınımdaki duraklar</string>
+    <string name="home_nearby_refresh">Konumu yenile</string>
+    <string name="home_nearby_locating">Konum bulunuyor…</string>
+    <string name="home_nearby_permission">Yakınındaki durakları görmek için konum izni ver. Konum yalnızca uygulama açıkken ve cihazında kullanılır.</string>
+    <string name="home_nearby_permission_settings">Konum izni kapalı. Yakındaki durakları görmek için ayarlardan izin verebilirsin.</string>
+    <string name="home_nearby_allow">Konum izni ver</string>
+    <string name="home_nearby_open_settings">Ayarları aç</string>
+    <string name="home_nearby_location_off">Konum servisleri kapalı. Açıp tekrar dene.</string>
+    <string name="home_nearby_unavailable">Konum alınamadı.</string>
+    <string name="home_nearby_retry">Tekrar dene</string>
+    <string name="home_nearby_none">750 m içinde durak yok.</string>
+    <string name="home_distance_m">%1$d m</string>
+    <string name="home_stop_code">Durak no. %1$s</string>
+    <string name="home_stop_code_lines">Durak no. %1$s · Hatlar: %2$s</string>
+    <string name="home_arrivals_loading">Varışlar yükleniyor…</string>
+    <string name="home_arrivals_none">Şu anda yaklaşan otobüs yok</string>
+    <string name="home_stops_away">%1$d durak</string>
+    <string name="home_eta_now">Geliyor</string>
+    <string name="home_eta_minutes">~%1$d dk</string>
+</resources>
