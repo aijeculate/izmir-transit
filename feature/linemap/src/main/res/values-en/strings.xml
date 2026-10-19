@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="linemap_search_hint">Line number or name</string>
+    <string name="linemap_search_no_results">No lines found</string>
+    <string name="linemap_unknown_line">Unknown line</string>
+    <string name="linemap_towards">Towards %1$s</string>
+    <string name="linemap_live_loading">Loading live positions…</string>
+    <string name="linemap_live_none">No buses are running on this line right now</string>
+    <plurals name="linemap_live_count">
+        <item quantity="one">%1$d bus · updated %2$s ago</item>
+        <item quantity="other">%1$d buses · updated %2$s ago</item>
+    </plurals>
+    <string name="linemap_live_stale">%1$s · last data %2$s ago</string>
+    <string name="linemap_live_unavailable">Live positions unavailable (%1$s). Retrying…</string>
+    <string name="linemap_error_network">No connection</string>
+    <string name="linemap_error_busy">Server busy</string>
+    <string name="linemap_error_server">Server error</string>
+    <string name="linemap_age_seconds">%1$d s</string>
+    <string name="linemap_age_minutes">%1$d min</string>
+</resources>

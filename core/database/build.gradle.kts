@@ -1,10 +1,16 @@
 plugins {
     alias(libs.plugins.izmir.kmp.library)
+    alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
 }
 
 kotlin {
+    android {
+        namespace = "com.aijec.izmirtransit.core.database"
+        compileSdk = 37
+        minSdk = 26
+    }
     sourceSets {
         commonMain.dependencies {
             api(libs.room.runtime)
@@ -21,4 +27,5 @@ room {
 
 dependencies {
     add("kspJvm", libs.room.compiler)
+    add("kspAndroid", libs.room.compiler)
 }

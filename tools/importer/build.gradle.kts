@@ -16,6 +16,9 @@ tasks.named<JavaExec>("run") {
     systemProperty("izmir.root", rootDir.absolutePath)
     maxHeapSize = "2g"
     jvmArgs("-Dstdout.encoding=UTF-8")
+    // Declared so the app's asset task can depend on it and Gradle can skip it when nothing changed.
+    inputs.dir(rootDir.resolve("research/raw")).withPropertyName("rawData")
+    outputs.file(rootDir.resolve("build/izmir-transit.db")).withPropertyName("database")
 }
 
 tasks.register<JavaExec>("liveSmoke") {

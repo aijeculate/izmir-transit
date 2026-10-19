@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish is the default locale. -->
+<resources>
+    <string name="linemap_search_hint">Hat numarası veya adı</string>
+    <string name="linemap_search_no_results">Hat bulunamadı</string>
+    <string name="linemap_unknown_line">Bilinmeyen hat</string>
+    <string name="linemap_towards">%1$s yönü</string>
+    <string name="linemap_live_loading">Canlı konumlar yükleniyor…</string>
+    <string name="linemap_live_none">Şu anda bu hatta sefer yapan otobüs yok</string>
+    <plurals name="linemap_live_count">
+        <item quantity="one">%1$d otobüs · %2$s önce güncellendi</item>
+        <item quantity="other">%1$d otobüs · %2$s önce güncellendi</item>
+    </plurals>
+    <string name="linemap_live_stale">%1$s · son veri %2$s önce</string>
+    <string name="linemap_live_unavailable">Canlı konumlar alınamıyor (%1$s). Yeniden deneniyor…</string>
+    <string name="linemap_error_network">Bağlantı yok</string>
+    <string name="linemap_error_busy">Sunucu yoğun</string>
+    <string name="linemap_error_server">Sunucu hatası</string>
+    <string name="linemap_age_seconds">%1$d sn</string>
+    <string name="linemap_age_minutes">%1$d dk</string>
+</resources>

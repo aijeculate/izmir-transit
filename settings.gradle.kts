@@ -22,6 +22,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 include(":core:model")
 include(":core:database")
 include(":core:data")
+include(":core:ui")
+include(":feature:linemap")
+include(":app")
 include(":tools:importer")
-
-// :app, :core:ui and :feature:* are added once the Android SDK is installed.

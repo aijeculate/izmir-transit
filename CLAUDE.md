@@ -8,35 +8,58 @@ Export this doc as Markdown, save it as `CLAUDE.md` in the root of your new Andr
 
 Everything under "Live API" was tested against the real servers on 19 Oct 2026 around 23:45 Istanbul time. Anything not tested is marked as such.
 
-## Current state and commands (updated 20 Oct 2026)
+## Current state and commands (updated 20 Oct 2026, 02:15)
 
-The data layer is built. No Android modules exist yet because **Android Studio / the SDK is not installed** on the dev machine. Everything below is plain Kotlin/JVM (or KMP with only a JVM target) and builds with the JDK 21 that is installed.
+The data layer and the first screen are done. The line map runs on a real phone (Galaxy S25 Ultra, Android 17 / API 37): search a line, see both directions' routes and stops, and live buses that glide between polls. It works offline except for live positions.
 
 | Module | What it holds |
 | --- | --- |
-| `:core:model` | Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
-| `:core:database` | Room KMP with a JVM target only: entities, DAOs, `IzmirDatabase`. The schema is exported to `core/database/schemas/`. Add the Android target in `KmpLibraryConventionPlugin` once the SDK exists. |
-| `:core:data` | CSV and GTFS parsers (`source/eshot`), the İztek client (`source/eshot/live`), `RequestPacer` (1 req/s app-wide), `GhostFilter`, `EtaEstimator`, `pollLive`, `EshotImporter`, and the repositories. |
-| `:tools:importer` | A desktop tool. `run` builds `build/izmir-transit.db`, the database to ship in the app's assets for `createFromAsset`. `liveSmoke` polls the real API once through the repositories. |
-| `build-logic` | Convention plugins `izmir.jvm.library` and `izmir.kmp.library`. |
+| `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
+| `:core:database` | Room KMP with JVM and Android targets: entities, DAOs, `IzmirDatabase`. `AndroidDatabases.prepackaged` installs the shipped DB from assets the first time Room opens a connection (off the main thread) and reinstalls it after each app update. `JvmDatabases` serves the importer and tests. The schema is exported to `core/database/schemas/`. |
+| `:core:data` | Plain JVM. CSV and GTFS parsers, the İztek client, `RequestPacer` (1 req/s app-wide), `GhostFilter`, `EtaEstimator`, `pollLive`, `EshotImporter`, and the repositories (`@Inject`). |
+| `:core:ui` | `IzmirTheme` (Material 3, dynamic colour, light/dark) and `TransitColors` (fixed outbound/return colours). |
+| `:feature:linemap` | `LineMapViewModel` (live flow `WhileSubscribed(5 s)`, so polling stops in the background), `LineMapScreen`, and `TransitMap`, a MapLibre `MapView` in `AndroidView` with GeoJSON sources written by hand. Strings: Turkish default, English in `values-en`. |
+| `:app` | Hilt `DataModule`, `MainActivity`, and `IzmirTransitApp` (MapLibre init; StrictMode in debug). `copyTransitDatabase` puts the importer's DB into generated assets. |
+| `:tools:importer` | A desktop tool. `run` builds `build/izmir-transit.db` (inputs/outputs declared, so it's skipped when nothing changed). `liveSmoke` polls the real API once through the repositories. |
+| `build-logic` | Convention plugins: `izmir.jvm.library`, `izmir.kmp.library`, `izmir.android.application`, `izmir.android.library`, `izmir.android.compose`, `izmir.android.hilt`. |
+
+**Toolchain (verified working together):**
+
+- Gradle 9.6.1 and AGP 9.4.1, which needs Gradle 9.6 or newer. AGP 9 has built-in Kotlin, so don't apply `org.jetbrains.kotlin.android`.
+- Kotlin 2.2.21, and KSP 2.3.12. KSP 2.2.x crashes on AGP 9's KMP Android target.
+- Room 2.8.4, Hilt 2.59.2, Compose BOM 2026.06.01, MapLibre Android 13.6.0.
+- compileSdk/targetSdk 37, minSdk 26.
+- Map tiles are OpenFreeMap `liberty` (light) and `dark`, with no API key.
 
 Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 ```bash
-./gradlew test                                  # 55 tests, all fixtures are real API responses
+./gradlew test                                  # 55 JVM tests, all fixtures are real API responses
 ./gradlew :tools:importer:run                   # research/raw → build/izmir-transit.db (~9 MB, ~10 s)
 ./gradlew :tools:importer:liveSmoke --args="--line 446 --stop 10007"
+./gradlew :app:assembleDebug                    # also rebuilds the DB asset when needed
 ```
 
-`research/raw/` holds the downloaded CSVs and the GTFS zip. It is git-ignored; re-download from the URLs below.
+**Device testing:** use the user's phone over wireless adb, **not the emulator**. The user asked for this, and the emulator is too slow here. **adb's default port 5037 is unusable on this machine** because Windows has reserved TCP 5024–5123 (Hyper-V/Docker). Always set `ANDROID_ADB_SERVER_PORT=15037`. The phone shows up via `adb mdns services` and is already paired:
+
+```bash
+export ANDROID_ADB_SERVER_PORT=15037
+adb connect <ip:port from `adb mdns services`>
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+`research/raw/` holds the downloaded CSVs and the GTFS zip. It is git-ignored, and the app build needs it; re-download from the URLs below.
 
 **Next steps:**
 
-1. Install Android Studio.
-2. Add the Android target to `:core:database`, then add `:app`, `:core:ui` and `:feature:*`.
-3. Move to AGP 9 / Gradle 9, bumping Kotlin, KSP and Room together.
-4. Add Hilt modules that provide a singleton `RequestPacer`, `IztekApi`, `GhostFilter`, `EtaEstimator` and `Clock`.
-5. Set the map stack: MapLibre + OpenFreeMap tiles. The package id is `com.aijec.izmirtransit`.
+1. Daytime check of live movement and animation, the ghost filter, and the ETA under load.
+2. Stop screen (arrivals with ETA).
+3. Nearby stops (location permission).
+4. Favourites on the home screen (DataStore).
+5. Navigation between screens.
+6. Timetable and announcements.
+7. App icon.
+8. Release build with ABI splits or an App Bundle (the debug APK is 70 MB because it bundles every ABI).
 
 ## Goal and scope
 
