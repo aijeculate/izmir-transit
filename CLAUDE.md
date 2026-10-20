@@ -69,7 +69,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - **Codes are unique across modes.** Bus codes are plain numbers. Others carry a prefix:
     - metro: `M1` with stations `M{id}`;
     - tram: `T-KONAK`, `T-KARSIYAKA`, `T-CIGLI_IC`, `T-CIGLI_DIS`, `T-TURUNCU` ("Ring"), with stops `T{id}`;
-    - İZBAN: `IZBAN` with stations `I{id}`;
+    - İZBAN: `IZBAN` with stations `I{id}`, where id is the izban.com.tr station id;
     - ferries: one line per pier pair, `F-{a}-{b}` (displayed as "Vapur", named "Konak – Karşıyaka"), with piers `F{id}`.
   - DAOs therefore take no mode. `isBusCode()` decides whether live calls apply.
   - **Schema v2:**
@@ -79,8 +79,13 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - **`RailImporter`** reads the operators' GTFS:
     - Sources: `izmirmetro.com.tr/gtfs/rail-metro-gtfs.zip`, `tramizmir.com/gtfs/rail-tramizmir-gtfs.zip`, `izban.com.tr/gtfs/rail-izban-gtfs.zip`. None has shapes.txt.
     - Station order merges all trips topologically. Routes are drawn through the stations.
-    - İZBAN's `direction_id` is meaningless, so southbound is treated as outbound.
-    - **The İZBAN feed is a 2023 snapshot whose calendar ended 2025-01-01**, so the app labels its times as possibly outdated.
+    - **İZBAN times come from izban.com.tr instead** (`IzbanImporter`), because its GTFS is a 2023 snapshot (the calendar ended 2025-01-01). The feed now only supplies station coordinates, matched by name.
+      - The [Sefer Saatleri page](https://www.izban.com.tr/Sayfalar/SeferSaatleri.aspx?MenuId=24) is an ASP.NET form: day (1 Mon … 7 Sun), from-station, to-station and date, posted with the page's `__VIEWSTATE`/`__EVENTVALIDATION` and its session cookie.
+      - It returns (departure, arrival) pairs only, with no train numbers or destinations.
+      - `OtherModesDownloader.downloadIzban` queries every adjacent pair, both ways, for days 1, 6 and 7: 228 posts, 1 s apart, about 4 minutes. `./gradlew :tools:importer:downloadIzban` saves them to `research/raw/izban-web/`.
+      - `IzbanImporter.chainTrips` rebuilds whole trips: a train arriving at a station that leaves again within 2 minutes is the same train. That gives each departure its destination. The breaks were checked against the data: they are real termini (Menemen, Cumaovası, Tepeköy, Alsancak, Gaziemir) plus the separate Tepeköy–Sağlık shuttle.
+      - The line runs Aliağa → Sağlık (39 stations, no Selçuk branch on the site); southbound is outbound.
+      - The site lists after-midnight trains first ("00:05"); they are stored as 1440+ on the same day.
   - **`FerryImporter`** reads the İzdeniz open API (`openapi.izmir.bel.tr/api/izdeniz/iskeleler`, `iskelesefersaatleri/{pier}/{day}`), saved as `research/raw/ferry/pier_{id}_day_{1|6|7}.json`.
     - Day 1 stands for every weekday; Mon–Fri differ by a sailing or two.
     - Urla, Güzelbahçe and Mordoğan are seasonal and have 0 sailings in October.
@@ -91,6 +96,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
     - The line panel shows the next 3 departures from each direction's first stop instead of live buses.
     - Home favourites show station boards.
     - The widget uses the first favourite *bus* stop only.
+    - The weekly refresh scrapes İZBAN too; if the site fails, the existing İZBAN data is kept (the 2023 GTFS times are never used again).
 
 | Module | What it holds |
 | --- | --- |
@@ -117,10 +123,11 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 ```bash
-./gradlew test                                  # 89 JVM tests, fixtures are real API responses (night_* and day_*)
+./gradlew test                                  # 92 JVM tests, fixtures are real API responses (night_* and day_*)
 ./gradlew lintDebug                             # 0 errors; known warnings: LogNotTimber, ObsoleteSdkInt (aapt2 rejects plain mipmap-anydpi)
 ./gradlew :tools:importer:run                   # research/raw (+ rail/*.zip, ferry/*.json) → build/izmir-transit.db (~13 MB, ~10 s)
 ./gradlew :tools:importer:refreshSmoke          # real download + import + validation
+./gradlew :tools:importer:downloadIzban         # current İZBAN timetable → research/raw/izban-web (~4 min)
 ./gradlew :app:assembleDebug :app:assembleRelease
 ```
 
@@ -162,7 +169,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **Later (from the brief):**
 
-- Phase 2 follow-ups: the light theme, rail and ferry screens not yet checked on the device, and a newer İZBAN timetable source;
+- Phase 2 follow-ups: the light theme, rail and ferry screens not yet checked on the device, ;
 - per-line ETA speeds (see gotcha 12);
 - dark map tuning and TalkBack review;
 - public holidays (currently treated as weekdays or Saturdays).

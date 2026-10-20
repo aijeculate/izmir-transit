@@ -2,6 +2,7 @@ package com.aijec.izmirtransit.core.data.importer
 
 import com.aijec.izmirtransit.core.database.IzmirDatabase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -35,6 +36,56 @@ class EshotDownloader(
         } catch (e: IOException) {
             log.warning("GTFS download failed, continuing without it: ${e.message}")
         }
+    }
+
+    /**
+     * Walks the İZBAN "Sefer Saatleri" form like a browser: one postback per adjacent station
+     * pair, direction and day (about 230), a second apart. Writes the layout
+     * [IzbanImporter.build] reads. Takes about four minutes.
+     */
+    suspend fun downloadIzban(dir: File, clock: Clock) = withContext(Dispatchers.IO) {
+        dir.mkdirs()
+        val session = client.newBuilder().cookieJar(SessionCookies()).build()
+        fun call(request: Request): String = session.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code} for ${request.url}")
+            response.body?.string() ?: throw IOException("Empty body for ${request.url}")
+        }
+        var page = call(Request.Builder().url(IzbanImporter.PAGE_URL).build())
+        val stations = IzbanImporter.parseStations(page)
+        if (stations.size < 10) throw IOException("İZBAN station list not found")
+        File(dir, IzbanImporter.STATIONS_FILE).writeText(stations.joinToString("\n") { "${it.first}\t${it.second}" })
+
+        val today = java.time.LocalDate.now(clock.withZone(java.time.ZoneId.of("Europe/Istanbul")))
+        for ((_, dayId) in IzbanImporter.DAYS) {
+            // The form also asks for a date; use the next one that falls on that day.
+            val date = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.of(dayId)))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+            for ((a, b) in stations.zipWithNext()) for ((from, to) in listOf(a to b, b to a)) {
+                delay(1_000)
+                val form = okhttp3.FormBody.Builder().apply {
+                    IzbanImporter.hiddenFields(page).forEach { (name, value) -> add(name, value) }
+                    add("ctl00\$CPH\$drpGun", dayId.toString())
+                    add("ctl00\$CPH\$drpHareketDur", from.first.toString())
+                    add("ctl00\$CPH\$drpVarisDur", to.first.toString())
+                    add("ctl00\$CPH\$txtIslPlani", date)
+                    add("ctl00\$CPH\$Goster", "Sorgula")
+                }.build()
+                page = call(Request.Builder().url(IzbanImporter.PAGE_URL).post(form).build())
+                val times = IzbanImporter.parseLegTimes(page) ?: throw IOException("No timetable for ${from.second} → ${to.second}")
+                File(dir, IzbanImporter.legFile(dayId, from.first, to.first))
+                    .writeText(times.joinToString("\n") { "${it.first}\t${it.second}" })
+            }
+        }
+    }
+
+    /** Keeps the ASP.NET session cookie between the page load and its postbacks. */
+    private class SessionCookies : okhttp3.CookieJar {
+        private val cookies = ArrayList<okhttp3.Cookie>()
+        @Synchronized override fun saveFromResponse(url: okhttp3.HttpUrl, cookies: List<okhttp3.Cookie>) {
+            this.cookies.removeAll { old -> cookies.any { it.name == old.name } }
+            this.cookies += cookies
+        }
+        @Synchronized override fun loadForRequest(url: okhttp3.HttpUrl): List<okhttp3.Cookie> = cookies.filter { it.matches(url) }
     }
 
     private fun fetch(url: String, target: File) {
@@ -117,7 +168,7 @@ class StaticDataRefresher(
         val dir = File(workDir, "other-download")
         dir.deleteRecursively()
         try {
-            for (feed in RailFeed.entries) {
+            for (feed in listOf(RailFeed.METRO, RailFeed.TRAM)) {
                 notes += runCatching {
                     val zip = other.downloadRail(feed, dir)
                     val result = withContext(Dispatchers.Default) { RailImporter.build(feed, zip, clock.instant()) }
@@ -128,6 +179,18 @@ class StaticDataRefresher(
                     }
                 }.getOrElse { "${feed.name}: kept old data (${it.message})" }
             }
+            // İZBAN's GTFS is a 2023 snapshot: times come from its website, the feed gives coordinates.
+            notes += runCatching {
+                val zip = other.downloadRail(RailFeed.IZBAN, dir)
+                val izbanDir = File(dir, "izban")
+                other.downloadIzban(izbanDir, clock)
+                val result = withContext(Dispatchers.Default) { IzbanImporter.build(izbanDir, zip, clock.instant()) }
+                if (result.data.stops.size < 30 || result.data.stopDepartures.size < 5_000) "IZBAN: rejected, too little data"
+                else {
+                    database.staticDataDao().replaceMode(result.data)
+                    "IZBAN: updated"
+                }
+            }.getOrElse { "IZBAN: kept old data (${it.message})" }
             notes += runCatching {
                 val ferryDir = File(dir, "ferry")
                 other.downloadFerry(ferryDir)
@@ -157,7 +220,7 @@ class StaticDataRefresher(
 }
 
 /**
- * Downloads the rail GTFS feeds and the İzdeniz pier timetables. The İzdeniz API shares
+ * Downloads the rail GTFS feeds, the İZBAN website timetable and the İzdeniz pier timetables. The İzdeniz API shares
  * the İztek rate limit, so its calls go through the app-wide [pacer].
  */
 class OtherModesDownloader(
@@ -185,6 +248,56 @@ class OtherModesDownloader(
             val target = File(dir, FerryImporter.pierFile(pier.id, dayId))
             pacer.paced { withContext(Dispatchers.IO) { fetch(izdenizBaseUrl + "iskelesefersaatleri/${pier.id}/$dayId", target) } }
         }
+    }
+
+    /**
+     * Walks the İZBAN "Sefer Saatleri" form like a browser: one postback per adjacent station
+     * pair, direction and day (about 230), a second apart. Writes the layout
+     * [IzbanImporter.build] reads. Takes about four minutes.
+     */
+    suspend fun downloadIzban(dir: File, clock: Clock) = withContext(Dispatchers.IO) {
+        dir.mkdirs()
+        val session = client.newBuilder().cookieJar(SessionCookies()).build()
+        fun call(request: Request): String = session.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code} for ${request.url}")
+            response.body?.string() ?: throw IOException("Empty body for ${request.url}")
+        }
+        var page = call(Request.Builder().url(IzbanImporter.PAGE_URL).build())
+        val stations = IzbanImporter.parseStations(page)
+        if (stations.size < 10) throw IOException("İZBAN station list not found")
+        File(dir, IzbanImporter.STATIONS_FILE).writeText(stations.joinToString("\n") { "${it.first}\t${it.second}" })
+
+        val today = java.time.LocalDate.now(clock.withZone(java.time.ZoneId.of("Europe/Istanbul")))
+        for ((_, dayId) in IzbanImporter.DAYS) {
+            // The form also asks for a date; use the next one that falls on that day.
+            val date = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.of(dayId)))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+            for ((a, b) in stations.zipWithNext()) for ((from, to) in listOf(a to b, b to a)) {
+                delay(1_000)
+                val form = okhttp3.FormBody.Builder().apply {
+                    IzbanImporter.hiddenFields(page).forEach { (name, value) -> add(name, value) }
+                    add("ctl00\$CPH\$drpGun", dayId.toString())
+                    add("ctl00\$CPH\$drpHareketDur", from.first.toString())
+                    add("ctl00\$CPH\$drpVarisDur", to.first.toString())
+                    add("ctl00\$CPH\$txtIslPlani", date)
+                    add("ctl00\$CPH\$Goster", "Sorgula")
+                }.build()
+                page = call(Request.Builder().url(IzbanImporter.PAGE_URL).post(form).build())
+                val times = IzbanImporter.parseLegTimes(page) ?: throw IOException("No timetable for ${from.second} → ${to.second}")
+                File(dir, IzbanImporter.legFile(dayId, from.first, to.first))
+                    .writeText(times.joinToString("\n") { "${it.first}\t${it.second}" })
+            }
+        }
+    }
+
+    /** Keeps the ASP.NET session cookie between the page load and its postbacks. */
+    private class SessionCookies : okhttp3.CookieJar {
+        private val cookies = ArrayList<okhttp3.Cookie>()
+        @Synchronized override fun saveFromResponse(url: okhttp3.HttpUrl, cookies: List<okhttp3.Cookie>) {
+            this.cookies.removeAll { old -> cookies.any { it.name == old.name } }
+            this.cookies += cookies
+        }
+        @Synchronized override fun loadForRequest(url: okhttp3.HttpUrl): List<okhttp3.Cookie> = cookies.filter { it.matches(url) }
     }
 
     private fun fetch(url: String, target: File) {

@@ -34,5 +34,5 @@
     <string name="stop_departures_title">Departures</string>
     <string name="stop_departures_none">No more departures from here today</string>
     <string name="stop_departures_note">Times are from the official timetable; delays are not shown.</string>
-    <string name="stop_departures_note_izban">Times are from the last timetable İZBAN published (2023) and may differ from today\'s.</string>
+    <string name="stop_departures_note_izban">Times come from the izban.com.tr timetable and are approximate; delays are not shown.</string>
 </resources>

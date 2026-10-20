@@ -35,5 +35,5 @@
     <string name="stop_departures_title">Kalkışlar</string>
     <string name="stop_departures_none">Bugün buradan başka sefer yok</string>
     <string name="stop_departures_note">Saatler resmî tarifeden; gecikmeler gösterilmez.</string>
-    <string name="stop_departures_note_izban">Saatler İZBAN\'ın yayımladığı son tarifeden (2023); güncel saatlerden farklı olabilir.</string>
+    <string name="stop_departures_note_izban">Saatler izban.com.tr sefer saatlerinden alınır ve yaklaşıktır; gecikmeler gösterilmez.</string>
 </resources>

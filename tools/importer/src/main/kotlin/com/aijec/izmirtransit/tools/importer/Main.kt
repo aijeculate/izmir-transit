@@ -4,6 +4,7 @@ import com.aijec.izmirtransit.core.data.importer.EshotImporter
 import com.aijec.izmirtransit.core.data.importer.EshotSources
 import com.aijec.izmirtransit.core.data.importer.FerryImporter
 import com.aijec.izmirtransit.core.data.importer.ImportResult
+import com.aijec.izmirtransit.core.data.importer.IzbanImporter
 import com.aijec.izmirtransit.core.data.importer.RailFeed
 import com.aijec.izmirtransit.core.data.importer.RailImporter
 import com.aijec.izmirtransit.core.database.IzmirDatabase
@@ -19,8 +20,8 @@ import kotlin.time.measureTimedValue
  *
  *   ./gradlew :tools:importer:run --args="--raw research/raw --gtfs research/raw/bus-eshot-gtfs.zip --out build/izmir-transit.db"
  *
- * Rail feeds are read from `<raw>/rail/<feed>.zip` and ferries from `<raw>/ferry/`; a
- * missing source is skipped with a warning.
+ * Rail feeds are read from `<raw>/rail/<feed>.zip`, İZBAN times from `<raw>/izban-web/`
+ * and ferries from `<raw>/ferry/`; a missing source is skipped with a warning.
  *
  * Writing through Room itself guarantees the schema and identity hash match what the app
  * expects from `createFromAsset`.
@@ -44,7 +45,16 @@ fun main(args: Array<String>) {
             add(EshotImporter.build(EshotSources.fromDirectory(rawDir, gtfs)))
             for (feed in RailFeed.entries) {
                 val zip = File(rawDir, "rail/${feed.fileName}")
-                if (zip.exists()) add(RailImporter.build(feed, zip)) else println("WARNING: ${feed.name} skipped, $zip not found")
+                val izbanWeb = File(rawDir, "izban-web")
+                when {
+                    !zip.exists() -> println("WARNING: ${feed.name} skipped, $zip not found")
+                    // İZBAN's GTFS timetable is from 2023; prefer the website's (./gradlew :tools:importer:downloadIzban).
+                    feed == RailFeed.IZBAN && File(izbanWeb, IzbanImporter.STATIONS_FILE).exists() -> add(IzbanImporter.build(izbanWeb, zip))
+                    else -> {
+                        if (feed == RailFeed.IZBAN) println("WARNING: no $izbanWeb, using İZBAN's outdated GTFS timetable")
+                        add(RailImporter.build(feed, zip))
+                    }
+                }
             }
             val ferryDir = File(rawDir, "ferry")
             if (File(ferryDir, FerryImporter.PIERS_FILE).exists()) add(FerryImporter.build(ferryDir))

@@ -36,3 +36,11 @@ tasks.register<JavaExec>("refreshSmoke") {
     jvmArgs("-Dstdout.encoding=UTF-8")
     maxHeapSize = "1g"
 }
+
+tasks.register<JavaExec>("downloadIzban") {
+    description = "Saves the current İZBAN timetable from izban.com.tr into research/raw/izban-web (~4 min)."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.aijec.izmirtransit.tools.smoke.IzbanDownloadKt")
+    jvmArgs("-Dstdout.encoding=UTF-8")
+    systemProperty("izmir.root", rootDir.absolutePath)
+}
