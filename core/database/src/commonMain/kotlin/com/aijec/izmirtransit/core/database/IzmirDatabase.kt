@@ -16,8 +16,11 @@ import androidx.room.RoomDatabaseConstructor
         AnnouncementEntity::class,
         ConnectionEntity::class,
         MetaEntity::class,
+        StopDepartureEntity::class,
     ],
-    version = 1,
+    // 2: rail and ferry (display code, colour, stop_departures). The shipped asset is
+    // reinstalled on every app update, so older files never need migrating.
+    version = 2,
     exportSchema = true,
 )
 @ConstructedBy(IzmirDatabaseConstructor::class)

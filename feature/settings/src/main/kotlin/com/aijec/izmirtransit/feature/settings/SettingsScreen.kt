@@ -1,0 +1,224 @@
+package com.aijec.izmirtransit.feature.settings
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import com.aijec.izmirtransit.core.data.repository.AppSettings
+import com.aijec.izmirtransit.core.data.repository.SettingsRepository
+import com.aijec.izmirtransit.core.model.AccentTheme
+import com.aijec.izmirtransit.core.model.ThemeMode
+import com.aijec.izmirtransit.core.ui.Calm
+import com.aijec.izmirtransit.core.ui.Hairline
+import com.aijec.izmirtransit.core.ui.Panel
+import com.aijec.izmirtransit.core.ui.ScreenHeader
+import com.aijec.izmirtransit.core.ui.SectionLabel
+import com.aijec.izmirtransit.core.ui.SegmentedControl
+import com.aijec.izmirtransit.core.ui.accentSwatch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class SettingsViewModel @Inject constructor(private val repository: SettingsRepository) : ViewModel() {
+    val settings: StateFlow<AppSettings> = repository.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+
+    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { repository.setThemeMode(mode) }
+
+    fun setAccent(accent: AccentTheme) = viewModelScope.launch { repository.setAccent(accent) }
+
+    fun setSearchAtBottom(bottom: Boolean) = viewModelScope.launch { repository.setSearchAtBottom(bottom) }
+}
+
+@Composable
+fun SettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    SettingsScreen(
+        settings = settings,
+        onBack = onBack,
+        onThemeMode = { viewModel.setThemeMode(it) },
+        onAccent = { viewModel.setAccent(it) },
+        onSearchAtBottom = { viewModel.setSearchAtBottom(it) },
+    )
+}
+
+@Composable
+fun SettingsScreen(
+    settings: AppSettings,
+    onBack: () -> Unit,
+    onThemeMode: (ThemeMode) -> Unit,
+    onAccent: (AccentTheme) -> Unit,
+    onSearchAtBottom: (Boolean) -> Unit,
+) {
+    val colors = Calm.colors
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(colors.canvas)
+            .windowInsetsPadding(WindowInsets.statusBars),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+        ),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item { ScreenHeader(stringResource(R.string.settings_title), onBack = onBack, horizontalPadding = 0.dp) }
+
+        item { SectionLabel(stringResource(R.string.settings_appearance)) }
+        item {
+            SegmentedControl(
+                options = ThemeMode.entries,
+                selected = settings.themeMode,
+                onSelect = onThemeMode,
+                label = { mode ->
+                    stringResource(
+                        when (mode) {
+                            ThemeMode.SYSTEM -> R.string.settings_theme_system
+                            ThemeMode.LIGHT -> R.string.settings_theme_light
+                            ThemeMode.DARK -> R.string.settings_theme_dark
+                        },
+                    )
+                },
+            )
+        }
+
+        item { SectionLabel(stringResource(R.string.settings_colour)) }
+        item {
+            Panel(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    AccentTheme.entries.forEach { accent ->
+                        AccentSwatch(accent, selected = accent == settings.accent, onClick = { onAccent(accent) })
+                    }
+                }
+            }
+        }
+
+        item { SectionLabel(stringResource(R.string.settings_map)) }
+        item {
+            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Switch) { onSearchAtBottom(!settings.searchAtBottom) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_search_bottom), style = MaterialTheme.typography.bodyLarge, color = colors.text)
+                        Text(stringResource(R.string.settings_search_bottom_hint), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = settings.searchAtBottom,
+                        onCheckedChange = onSearchAtBottom,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = colors.accent,
+                            checkedThumbColor = colors.onAccent,
+                            uncheckedTrackColor = colors.hairline,
+                            uncheckedBorderColor = colors.hairline,
+                            uncheckedThumbColor = colors.textSecondary,
+                        ),
+                    )
+                }
+            }
+        }
+
+        item { SectionLabel(stringResource(R.string.settings_about)) }
+        item {
+            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
+                AboutRow(stringResource(R.string.settings_about_data_title), stringResource(R.string.settings_about_data))
+                Hairline()
+                AboutRow(stringResource(R.string.settings_about_map_title), stringResource(R.string.settings_about_map))
+                Hairline()
+                AboutRow(stringResource(R.string.settings_about_font_title), stringResource(R.string.settings_about_font))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccentSwatch(accent: AccentTheme, selected: Boolean, onClick: () -> Unit) {
+    val colors = Calm.colors
+    val name = stringResource(
+        when (accent) {
+            AccentTheme.OCEAN -> R.string.settings_accent_ocean
+            AccentTheme.TEAL -> R.string.settings_accent_teal
+            AccentTheme.VIOLET -> R.string.settings_accent_violet
+            AccentTheme.CORAL -> R.string.settings_accent_coral
+            AccentTheme.GRAPHITE -> R.string.settings_accent_graphite
+        },
+    )
+    Column(
+        Modifier
+            .clip(Calm.CellShape)
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .semantics { this.selected = selected }
+            .padding(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(accentSwatch(accent))
+                // A hairline keeps dark swatches (Graphite) visible on the dark panel.
+                .border(if (selected) 3.dp else 1.dp, if (selected) colors.panel else colors.hairline, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) Icon(Icons.Filled.Check, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(name, style = MaterialTheme.typography.labelSmall, color = if (selected) colors.text else colors.textSecondary)
+    }
+}
+
+@Composable
+private fun AboutRow(title: String, body: String) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = Calm.colors.text)
+        Text(body, style = MaterialTheme.typography.bodySmall, color = Calm.colors.textSecondary)
+    }
+}

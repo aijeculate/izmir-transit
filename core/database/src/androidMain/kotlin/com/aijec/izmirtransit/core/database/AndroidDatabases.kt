@@ -31,6 +31,9 @@ object AndroidDatabases {
         )
             .setDriver(AssetInstallingDriver(app, BundledSQLiteDriver()))
             .setQueryCoroutineContext(Dispatchers.IO)
+            // The asset is reinstalled on update before Room opens it, so a version change
+            // only reaches this in development; never ship a migration-less downgrade.
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }
 

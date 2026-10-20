@@ -51,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aijec.izmirtransit.core.data.repository.TimetableRepository
 import com.aijec.izmirtransit.core.model.ApproachingBus
+import com.aijec.izmirtransit.core.model.TransitMode
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.EtaBasis
 import com.aijec.izmirtransit.core.model.Line
@@ -73,11 +75,14 @@ import com.aijec.izmirtransit.core.ui.TransitColors
 import com.aijec.izmirtransit.core.ui.formatAge
 import com.aijec.izmirtransit.core.ui.liveErrorText
 import com.aijec.izmirtransit.core.ui.rememberNow
+import com.aijec.izmirtransit.core.ui.stopKindLabel
+import com.aijec.izmirtransit.core.ui.tabular
 
 @Composable
 fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val arrivals by viewModel.arrivals.collectAsStateWithLifecycle()
+    val board by viewModel.departures.collectAsStateWithLifecycle()
     val isFavourite by viewModel.isFavourite.collectAsStateWithLifecycle()
     val activeAlert by viewModel.activeAlert.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -108,6 +113,7 @@ fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopV
     StopScreen(
         state = state,
         arrivals = arrivals,
+        board = if (viewModel.isBusStop) null else board ?: StationBoard(0, emptyList()),
         isFavourite = isFavourite,
         onToggleFavourite = viewModel::toggleFavourite,
         onBack = onBack,
@@ -127,6 +133,8 @@ fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopV
 fun StopScreen(
     state: StopUiState,
     arrivals: LiveSnapshot<List<ApproachingBus>>,
+    /** Non-null for stations and piers, which show their timetable instead of live buses. */
+    board: StationBoard?,
     isFavourite: Boolean,
     onToggleFavourite: () -> Unit,
     onBack: () -> Unit,
@@ -145,7 +153,7 @@ fun StopScreen(
         item("header") {
             ScreenHeader(
                 title = state.stop?.name.orEmpty(),
-                subtitle = stringResource(R.string.stop_code, state.stopCode),
+                subtitle = state.stop?.let { stopKindLabel(it) } ?: stringResource(R.string.stop_code, state.stopCode),
                 onBack = onBack,
                 action = { FavouriteButton(isFavourite, onToggleFavourite) },
             )
@@ -155,6 +163,21 @@ fun StopScreen(
         }
         items(state.announcements, key = { "notice-${it.lineCode}-${it.title.hashCode()}" }) { announcement ->
             AnnouncementCard(announcement, showLine = true, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        }
+        if (board != null) {
+            item("departures-label") {
+                SectionLabel(stringResource(R.string.stop_departures_title), Modifier.padding(horizontal = 16.dp))
+            }
+            item("departures") { DeparturesPanel(board, onOpenLine) }
+            item("departures-note") {
+                Text(
+                    stringResource(if (state.stop?.mode == TransitMode.IZBAN) R.string.stop_departures_note_izban else R.string.stop_departures_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Calm.colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                )
+            }
+            return@LazyColumn
         }
         item("arrivals-label") {
             SectionLabel(stringResource(R.string.stop_arrivals_title), Modifier.padding(horizontal = 16.dp))
@@ -181,7 +204,48 @@ private fun ServingLines(lines: List<Line>, onOpenLine: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         lines.forEach { line ->
-            LineBadge(line.code, Modifier.clickable { onOpenLine(line.code) })
+            val clickable = Modifier.clickable { onOpenLine(line.code) }
+            // Every ferry route is "Vapur"; its name ("Konak – Karşıyaka") is what tells them apart.
+            if (line.mode == TransitMode.FERRY) LineBadge(line.name, clickable, color = line.color)
+            else LineBadge(line, clickable)
+        }
+    }
+}
+
+@Composable
+private fun DeparturesPanel(board: StationBoard, onOpenLine: (String) -> Unit) {
+    val colors = Calm.colors
+    Panel(Modifier.fillMaxWidth().padding(horizontal = 16.dp), padding = PaddingValues(vertical = 4.dp)) {
+        if (board.departures.isEmpty()) {
+            Text(
+                stringResource(R.string.stop_departures_none),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+        }
+        board.departures.forEachIndexed { index, departure ->
+            if (index > 0) Hairline()
+            CalmRow(onClick = { onOpenLine(departure.line.code) }, padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+                LineBadge(departure.line, strong = true)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.stop_towards, departure.headsign),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colors.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        TimetableRepository.formatClock(departure.minutesAfterMidnight),
+                        style = MaterialTheme.typography.bodySmall.tabular(),
+                        color = colors.textSecondary,
+                    )
+                }
+                EtaText(departure.minutesAfterMidnight - board.nowMinute)
+            }
         }
     }
 }
@@ -238,7 +302,7 @@ private fun ArrivalRow(bus: ApproachingBus, line: Line?, onClick: () -> Unit, al
     val unreliable = bus.eta.basis == EtaBasis.UNRELIABLE
     val etaDescription = if (unreliable) stringResource(R.string.stop_eta_unreliable_description, bus.eta.minutes.toString()) else null
     CalmRow(onClick = onClick, padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
-        LineBadge(bus.lineCode, strong = true)
+        if (line != null) LineBadge(line, strong = true) else LineBadge(bus.lineCode, strong = true)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

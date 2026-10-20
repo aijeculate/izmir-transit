@@ -17,6 +17,8 @@ import java.time.LocalDateTime
 internal fun LineEntity.toModel() = Line(
     mode = TransitMode.valueOf(mode),
     code = code,
+    displayCode = displayCode,
+    color = color,
     name = name,
     routeDescription = routeDescription,
     notes = notes,

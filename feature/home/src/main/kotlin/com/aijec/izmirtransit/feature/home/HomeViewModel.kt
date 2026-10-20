@@ -26,13 +26,23 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.delay
+import com.aijec.izmirtransit.core.data.repository.TimetableRepository
+import com.aijec.izmirtransit.core.model.ScheduledDeparture
+import com.aijec.izmirtransit.core.model.isBusCode
+import java.time.Clock
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class FavouriteStop(val stop: Stop, val lineCodes: List<String>)
+data class FavouriteStop(val stop: Stop, val lines: List<Line>)
 
-data class NearbyStopItem(val stop: Stop, val distanceMeters: Int, val lineCodes: List<String>)
+data class NearbyStopItem(val stop: Stop, val distanceMeters: Int, val lines: List<Line>)
+
+/** A station or pier's next timetabled departures, from [nowMinute] on the service day's clock. */
+data class StationBoard(val nowMinute: Int, val departures: List<ScheduledDeparture>)
 
 sealed interface NearbyState {
     data object Idle : NearbyState
@@ -57,6 +67,7 @@ class HomeViewModel @Inject constructor(
     private val lines: LineRepository,
     private val live: LiveBusRepository,
     private val location: LocationProvider,
+    private val clock: Clock,
 ) : ViewModel() {
 
     val favourites: StateFlow<FavouritesState> = favouritesRepository.favourites
@@ -64,7 +75,7 @@ class HomeViewModel @Inject constructor(
             FavouritesState(
                 loaded = true,
                 stops = favourites.stopCodes.mapNotNull { code ->
-                    stops.stop(code)?.let { FavouriteStop(it, stops.linesAtStop(code).map(Line::code)) }
+                    stops.stop(code)?.let { FavouriteStop(it, stops.linesAtStop(code)) }
                 },
                 lines = favourites.lineCodes.mapNotNull { lines.line(it) },
             )
@@ -76,8 +87,27 @@ class HomeViewModel @Inject constructor(
      * through the shared 1 req/s pacer, so the number is capped to keep updates timely.
      */
     val arrivals: StateFlow<Map<String, LiveSnapshot<List<ApproachingBus>>>> = favourites
-        .map { state -> state.stops.take(MAX_LIVE_STOPS).map { it.stop.code } }
+        .map { state -> state.stops.map { it.stop.code }.filter(::isBusCode).take(MAX_LIVE_STOPS) }
+        .distinctUntilChanged()
         .flatMapLatest { codes -> arrivalsFor(codes) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** Favourite stations and piers run to timetable: their boards, re-read every minute. */
+    val boards: StateFlow<Map<String, StationBoard>> = favourites
+        .map { state -> state.stops.map { it.stop.code }.filterNot(::isBusCode) }
+        .distinctUntilChanged()
+        .flatMapLatest { codes ->
+            if (codes.isEmpty()) flowOf(emptyMap())
+            else flow {
+                while (true) {
+                    val moment = TimetableRepository.serviceMoment(TimetableRepository.localNow(clock))
+                    emit(codes.associateWith { code ->
+                        StationBoard(moment.minutesAfterMidnight, stops.scheduledDepartures(code, moment.serviceDay, moment.minutesAfterMidnight, limit = 3))
+                    })
+                    delay(60_000L - clock.millis() % 60_000L)
+                }
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private fun arrivalsFor(codes: List<String>): Flow<Map<String, LiveSnapshot<List<ApproachingBus>>>> =
@@ -101,7 +131,7 @@ class HomeViewModel @Inject constructor(
             _nearby.value = when (val result = location.current()) {
                 is LocationResult.Found -> NearbyState.Found(
                     stops.nearby(result.location, radiusMeters = NEARBY_RADIUS_METERS, limit = NEARBY_LIMIT).map {
-                        NearbyStopItem(it.stop, it.distanceMeters.toInt(), stops.linesAtStop(it.stop.code).map(Line::code))
+                        NearbyStopItem(it.stop, it.distanceMeters.toInt(), stops.linesAtStop(it.stop.code))
                     },
                 )
                 LocationResult.PermissionMissing -> NearbyState.PermissionNeeded

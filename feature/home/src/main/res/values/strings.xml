@@ -30,4 +30,6 @@
     <string name="home_greeting_day">İyi günler</string>
     <string name="home_greeting_evening">İyi akşamlar</string>
     <string name="home_greeting_night">İyi geceler</string>
+    <string name="home_settings">Ayarlar</string>
+    <string name="home_departures_none">Bugün başka sefer yok</string>
 </resources>

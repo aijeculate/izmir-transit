@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.aijec.izmirtransit.core.data.importer.EshotDownloader
+import com.aijec.izmirtransit.core.data.importer.OtherModesDownloader
 import com.aijec.izmirtransit.core.data.importer.StaticDataRefresher
 import com.aijec.izmirtransit.core.data.live.EtaEstimator
 import com.aijec.izmirtransit.core.data.live.GhostFilter
@@ -53,7 +54,14 @@ object DataModule {
         database: IzmirDatabase,
         @ApplicationContext context: Context,
         clock: Clock,
-    ): StaticDataRefresher = StaticDataRefresher(EshotDownloader(client), database, context.cacheDir, clock)
+        pacer: RequestPacer,
+    ): StaticDataRefresher = StaticDataRefresher(
+        downloader = EshotDownloader(client),
+        database = database,
+        workDir = context.cacheDir,
+        clock = clock,
+        otherModes = OtherModesDownloader(client, pacer),
+    )
 
     /** Favourites and settings. One instance per file is required by DataStore. */
     @Provides

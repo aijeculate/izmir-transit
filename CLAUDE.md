@@ -54,6 +54,44 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - Build screens from the `:core:ui` components (`Panel`, `CalmRow`, `LineBadge`, `PillSearchField`, `SegmentedControl`, `ScreenHeader`, `EtaText`, `FloatingTabBar`, `PillButton`, `TextAction`, `CircleIconButton`) rather than stock Material components such as TopAppBar, Card, NavigationBar or TabRow. Stock components are what made it look generic.
   - The light map style is OpenFreeMap `positron`. The light theme hasn't been checked on the device yet (the user's phone runs dark mode).
 
+**Added 20 Oct 2026, afternoon:**
+
+- **Tabs:**
+  - Routes: `home` (start), `map` (the Map tab), and pushed `line/{lineCode}`, `stop/{stopCode}`, `timetable/{lineCode}`, `settings`.
+  - Home pops to `home`. Map pops to `map` if it is in the stack; otherwise it pops to home and pushes `map`.
+  - The Map tab's line lives in the `MapSelection` singleton. Null means the all-lines overview.
+- **Overview:**
+  - With no line chosen, the map shows every bus route faintly in the accent colour.
+  - Metro, tram and İZBAN are drawn bold in their colours, and ferries dashed.
+  - `LineRepository.overviewShapes()` simplifies to 25 m and caches.
+- **Settings screen** (`:feature:settings`, `SettingsRepository` in DataStore): system/light/dark theme, five accent palettes (`AccentTheme`), and a "search bar at the bottom" option. Status-bar icons follow the app theme.
+- **Phase 2 (metro, tram, İZBAN, ferries):**
+  - **Codes are unique across modes.** Bus codes are plain numbers. Others carry a prefix:
+    - metro: `M1` with stations `M{id}`;
+    - tram: `T-KONAK`, `T-KARSIYAKA`, `T-CIGLI_IC`, `T-CIGLI_DIS`, `T-TURUNCU` ("Ring"), with stops `T{id}`;
+    - İZBAN: `IZBAN` with stations `I{id}`;
+    - ferries: one line per pier pair, `F-{a}-{b}` (displayed as "Vapur", named "Konak – Karşıyaka"), with piers `F{id}`.
+  - DAOs therefore take no mode. `isBusCode()` decides whether live calls apply.
+  - **Schema v2:**
+    - `lines.display_code` and `lines.color` (ARGB, null for buses).
+    - `stop_departures` table: every station's timetabled departures, with a headsign.
+    - Destructive fallback is safe, because the shipped asset is reinstalled on each update.
+  - **`RailImporter`** reads the operators' GTFS:
+    - Sources: `izmirmetro.com.tr/gtfs/rail-metro-gtfs.zip`, `tramizmir.com/gtfs/rail-tramizmir-gtfs.zip`, `izban.com.tr/gtfs/rail-izban-gtfs.zip`. None has shapes.txt.
+    - Station order merges all trips topologically. Routes are drawn through the stations.
+    - İZBAN's `direction_id` is meaningless, so southbound is treated as outbound.
+    - **The İZBAN feed is a 2023 snapshot whose calendar ended 2025-01-01**, so the app labels its times as possibly outdated.
+  - **`FerryImporter`** reads the İzdeniz open API (`openapi.izmir.bel.tr/api/izdeniz/iskeleler`, `iskelesefersaatleri/{pier}/{day}`), saved as `research/raw/ferry/pier_{id}_day_{1|6|7}.json`.
+    - Day 1 stands for every weekday; Mon–Fri differ by a sailing or two.
+    - Urla, Güzelbahçe and Mordoğan are seasonal and have 0 sailings in October.
+  - The weekly refresh also updates rail and ferries via `OtherModesDownloader`, one mode at a time. A failure keeps that mode's old data. İzdeniz calls go through the shared pacer.
+  - **UI:**
+    - Rail and ferry badges wear their line colour.
+    - The stop screen shows a departure board for stations and piers, refreshed each minute, with no live arrivals and no alert bells.
+    - The line panel shows the next 3 departures from each direction's first stop instead of live buses.
+    - Home favourites show station boards.
+    - The widget uses the first favourite *bus* stop only.
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
@@ -79,9 +117,9 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 ```bash
-./gradlew test                                  # 84 JVM tests, fixtures are real API responses (night_* and day_*)
+./gradlew test                                  # 89 JVM tests, fixtures are real API responses (night_* and day_*)
 ./gradlew lintDebug                             # 0 errors; known warnings: LogNotTimber, ObsoleteSdkInt (aapt2 rejects plain mipmap-anydpi)
-./gradlew :tools:importer:run                   # research/raw → build/izmir-transit.db (~9 MB, ~10 s)
+./gradlew :tools:importer:run                   # research/raw (+ rail/*.zip, ferry/*.json) → build/izmir-transit.db (~13 MB, ~10 s)
 ./gradlew :tools:importer:refreshSmoke          # real download + import + validation
 ./gradlew :app:assembleDebug :app:assembleRelease
 ```
@@ -124,7 +162,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **Later (from the brief):**
 
-- Phase 2 modes;
+- Phase 2 follow-ups: the light theme, rail and ferry screens not yet checked on the device, and a newer İZBAN timetable source;
 - per-line ETA speeds (see gotcha 12);
 - dark map tuning and TalkBack review;
 - public holidays (currently treated as weekdays or Saturdays).

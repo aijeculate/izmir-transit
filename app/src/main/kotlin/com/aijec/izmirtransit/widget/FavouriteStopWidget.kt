@@ -49,6 +49,7 @@ import com.aijec.izmirtransit.core.data.repository.StopRepository
 import com.aijec.izmirtransit.core.data.repository.TimetableRepository
 import com.aijec.izmirtransit.core.model.ApproachingBus
 import com.aijec.izmirtransit.core.model.Stop
+import com.aijec.izmirtransit.core.model.isBusCode
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -59,7 +60,7 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 /**
- * Home-screen widget: the first favourite stop and its next three arrivals. Widgets can't
+ * Home-screen widget: the first favourite bus stop and its next three arrivals. Widgets can't
  * poll every 15 s like the app, so it refreshes every 15 minutes (the Android minimum)
  * and whenever the refresh button is tapped; the "updated" time says how fresh it is.
  */
@@ -81,7 +82,8 @@ class FavouriteStopWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val deps = EntryPointAccessors.fromApplication(context, Dependencies::class.java)
-        val stopCode = deps.favourites().favourites.first().stopCodes.firstOrNull()
+        // Bus stops only: a station board would go stale between the widget's 15-minute refreshes.
+        val stopCode = deps.favourites().favourites.first().stopCodes.firstOrNull(::isBusCode)
         val stop = stopCode?.let { deps.stops().stop(it) }
         val content = if (stop == null) {
             Content.NoFavourite

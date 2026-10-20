@@ -93,7 +93,7 @@ fun TimetableScreen(
                 title = stringResource(R.string.timetable_title),
                 subtitle = state.line?.name,
                 onBack = onBack,
-                leading = { LineBadge(state.lineCode, strong = true) },
+                leading = { state.line?.let { LineBadge(it, strong = true) } ?: LineBadge(state.lineCode, strong = true) },
                 horizontalPadding = 0.dp,
             )
         }

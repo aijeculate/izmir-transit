@@ -11,7 +11,12 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "lines", primaryKeys = ["mode", "code"])
 data class LineEntity(
     val mode: String,
+    /** Unique across modes: bus lines are numbers, others carry a prefix (e.g. "M1", "T-KONAK"). */
     val code: String,
+    /** What the badge shows: "5", "M1", "Konak", "İZBAN", "Vapur". */
+    @ColumnInfo(name = "display_code") val displayCode: String,
+    /** Official line colour as ARGB, or null to use the app's accent (buses). */
+    val color: Int?,
     val name: String,
     /** [name], code and endpoints folded with Turkish rules, for search. */
     @ColumnInfo(name = "search_text") val searchText: String,
@@ -116,6 +121,27 @@ data class ConnectionEntity(
     @ColumnInfo(name = "connection_type") val connectionType: Int,
     @ColumnInfo(name = "outbound_hours") val outboundHours: String,
     @ColumnInfo(name = "return_hours") val returnHours: String,
+)
+
+/**
+ * A scheduled departure from a stop: metro, tram and İZBAN from GTFS stop_times, ferries
+ * from the İzdeniz timetable. Buses use live arrivals instead.
+ */
+@Entity(
+    tableName = "stop_departures",
+    indices = [Index("stop_code", "service_day", "minutes_after_midnight")],
+)
+data class StopDepartureEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val mode: String,
+    @ColumnInfo(name = "stop_code") val stopCode: String,
+    @ColumnInfo(name = "line_code") val lineCode: String,
+    val direction: Int,
+    @ColumnInfo(name = "service_day") val serviceDay: Int,
+    /** May exceed 1440 for trips after midnight, as in GTFS ("24:40:00"). */
+    @ColumnInfo(name = "minutes_after_midnight") val minutesAfterMidnight: Int,
+    /** Where it's going: the GTFS headsign or the ferry's destination piers. */
+    val headsign: String,
 )
 
 /** Key-value facts about the imported data, e.g. when it was built and from what. */

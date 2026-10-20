@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.luminance
+import com.aijec.izmirtransit.core.model.Line
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -113,23 +115,35 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, trailing: @Composa
 
 /** Line number as a soft pill. [strong] fills it with the accent (for "this line"). */
 @Composable
-fun LineBadge(code: String, modifier: Modifier = Modifier, strong: Boolean = false) {
+fun LineBadge(code: String, modifier: Modifier = Modifier, strong: Boolean = false, color: Int? = null) {
     val colors = Calm.colors
+    // Rail and ferry lines always wear their official colour, so a station's lines read at a glance.
+    val background = color?.let(::Color) ?: if (strong) colors.accent else colors.accentSoft
+    val content = when {
+        color != null -> if (background.luminance() > 0.5f) Color.Black else Color.White
+        strong -> colors.onAccent
+        else -> colors.onAccentSoft
+    }
     Box(
         modifier
             .clip(Calm.PillShape)
-            .background(if (strong) colors.accent else colors.accentSoft)
+            .background(background)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             code,
             style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = TabularNumbers),
-            color = if (strong) colors.onAccent else colors.onAccentSoft,
+            color = content,
             maxLines = 1,
         )
     }
 }
+
+/** Badge for a known line: its display code ("M1", "Konak", "Vapur") in its colour. */
+@Composable
+fun LineBadge(line: Line, modifier: Modifier = Modifier, strong: Boolean = false) =
+    LineBadge(line.displayCode, modifier, strong, line.color)
 
 /** Round icon button on a panel-coloured disc; 48 dp touch target. */
 @Composable

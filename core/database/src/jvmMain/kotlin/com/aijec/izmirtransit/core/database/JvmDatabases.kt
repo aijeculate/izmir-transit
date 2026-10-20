@@ -25,5 +25,5 @@ object JvmDatabases {
     }
 
     private fun RoomDatabase.Builder<IzmirDatabase>.configure() =
-        setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.IO)
+        setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.IO).fallbackToDestructiveMigration(dropAllTables = true)
 }

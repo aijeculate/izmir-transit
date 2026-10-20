@@ -20,4 +20,14 @@
     <string name="ui_connection_ferry">Ferry</string>
     <string name="ui_connection_airport">Airport</string>
     <string name="ui_connection_terminal">Bus terminal</string>
+    <string name="ui_mode_bus">Bus</string>
+    <string name="ui_mode_metro">Metro</string>
+    <string name="ui_mode_tram">Tram</string>
+    <string name="ui_mode_izban">İZBAN</string>
+    <string name="ui_mode_ferry">Ferry</string>
+    <string name="ui_stop_bus">Bus stop %1$s</string>
+    <string name="ui_stop_metro">Metro station</string>
+    <string name="ui_stop_tram">Tram stop</string>
+    <string name="ui_stop_izban">İZBAN station</string>
+    <string name="ui_stop_ferry">Ferry pier</string>
 </resources>

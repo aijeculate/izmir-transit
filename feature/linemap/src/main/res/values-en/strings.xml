@@ -27,4 +27,15 @@
     <string name="linemap_location_permission">Location permission is needed to show nearby stops.</string>
     <string name="linemap_location_off">Location services are off.</string>
     <string name="linemap_location_unavailable">Couldn\'t get your location.</string>
+    <string name="linemap_close">Close line</string>
+    <string name="linemap_back">Back</string>
+    <string name="linemap_overview_title">İzmir transit network</string>
+    <string name="linemap_overview_hint">Search for a line or stop.</string>
+    <plurals name="linemap_overview_count">
+        <item quantity="one">About %1$d line. Search for a line to see its live buses.</item>
+        <item quantity="other">About %1$d lines. Search for a line to see its live buses.</item>
+    </plurals>
+    <string name="linemap_scheduled_only">Timetabled · no live positions</string>
+    <string name="linemap_schedule_from">%1$s: %2$s</string>
+    <string name="linemap_schedule_none">%1$s: no more departures today</string>
 </resources>

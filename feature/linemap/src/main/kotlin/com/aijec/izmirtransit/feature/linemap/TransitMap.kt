@@ -14,7 +14,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -30,15 +32,20 @@ import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
 import com.aijec.izmirtransit.core.model.LineRoute
 import com.aijec.izmirtransit.core.model.LiveBus
+import com.aijec.izmirtransit.core.model.OverviewRoute
+import com.aijec.izmirtransit.core.model.TransitMode
 import com.aijec.izmirtransit.core.model.Stop
 import com.aijec.izmirtransit.core.model.geo.LatLng
+import com.aijec.izmirtransit.core.ui.Calm
 import com.aijec.izmirtransit.core.ui.TransitColors
+import java.util.Locale
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
@@ -69,6 +76,11 @@ fun TransitMap(
     userLocation: LatLng? = null,
     nearbyStops: List<Stop> = emptyList(),
     cameraRequest: Int = 0,
+    /**
+     * All routes when no line is selected: buses faint in the accent colour, rail lines bold
+     * in their own colours, ferries dashed. Empty hides the overlay.
+     */
+    overview: List<OverviewRoute> = emptyList(),
 ) {
     // A MapView must not outlive the lifecycle it is bound to. Navigation can restore this
     // screen under a new lifecycle owner while keeping the composition; reusing the old,
@@ -77,7 +89,8 @@ fun TransitMap(
     key(LocalLifecycleOwner.current) {
         val currentOnStopClick by rememberUpdatedState(onStopClick)
         val context = LocalContext.current
-        val dark = isSystemInDarkTheme()
+        val dark = Calm.colors.isDark
+    val accentArgb = Calm.colors.accent.toArgb()
         val density = LocalDensity.current
         val mapView = remember { MapView(context) }
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -122,11 +135,11 @@ fun TransitMap(
         )
 
         val styleUrl = if (dark) DARK_STYLE else LIGHT_STYLE
-        LaunchedEffect(map, styleUrl) {
+        LaunchedEffect(map, styleUrl, accentArgb) {
             val m = map ?: return@LaunchedEffect
             style = null
             m.setStyle(Style.Builder().fromUri(styleUrl)) { loaded ->
-                loaded.addTransitLayers()
+                loaded.addTransitLayers(accentArgb)
                 style = loaded
             }
         }
@@ -152,6 +165,21 @@ fun TransitMap(
                         800,
                     )
                 }
+            }
+        }
+
+        LaunchedEffect(style, overview, routes.isEmpty()) {
+            val s = style ?: return@LaunchedEffect
+            val m = map ?: return@LaunchedEffect
+            // Built off the main thread: ~900 bus shapes become one MultiLineString.
+            val (busJson, railJson) = withContext(Dispatchers.Default) {
+                val (bus, other) = overview.partition { it.mode == TransitMode.BUS }
+                multiLineString(bus.map { it.points }) to coloredLines(other)
+            }
+            s.source(OVERVIEW_SOURCE)?.setGeoJson(busJson)
+            s.source(OVERVIEW_RAIL_SOURCE)?.setGeoJson(railJson)
+            if (overview.isNotEmpty() && routes.isEmpty()) {
+                m.animateCamera(CameraUpdateFactory.newLatLngZoom(IZMIR_CENTER, 10.6), 600)
             }
         }
 
@@ -223,6 +251,8 @@ private fun MapViewLifecycle(mapView: MapView) {
 }
 
 private const val USER_SOURCE = "user-location"
+private const val OVERVIEW_SOURCE = "overview-routes"
+private const val OVERVIEW_RAIL_SOURCE = "overview-rail"
 private const val NEARBY_SOURCE = "nearby-stops"
 
 private fun routeSource(direction: Direction) = "route-${direction.name.lowercase()}"
@@ -232,7 +262,37 @@ private fun busSource(direction: Direction) = "buses-${direction.name.lowercase(
 private fun Style.source(id: String): GeoJsonSource? = getSourceAs(id)
 
 @SuppressLint("ResourceType")
-private fun Style.addTransitLayers() {
+private fun Style.addTransitLayers(overviewColor: Int) {
+    // All lines, faint, under everything else: the Map tab's starting view.
+    addSource(GeoJsonSource(OVERVIEW_SOURCE, multiLineString(emptyList())))
+    addLayer(
+        LineLayer("$OVERVIEW_SOURCE-layer", OVERVIEW_SOURCE).withProperties(
+            PropertyFactory.lineColor(overviewColor),
+            PropertyFactory.lineWidth(1.4f),
+            PropertyFactory.lineOpacity(0.45f),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+        ),
+    )
+    // Metro, tram and İZBAN over the buses in their official colours; ferries dashed.
+    addSource(GeoJsonSource(OVERVIEW_RAIL_SOURCE, coloredLines(emptyList())))
+    addLayer(
+        LineLayer("$OVERVIEW_RAIL_SOURCE-ferry", OVERVIEW_RAIL_SOURCE).withProperties(
+            PropertyFactory.lineColor(Expression.toColor(Expression.get("color"))),
+            PropertyFactory.lineWidth(2.2f),
+            PropertyFactory.lineOpacity(0.9f),
+            PropertyFactory.lineDasharray(arrayOf(2f, 2f)),
+        ).withFilter(Expression.eq(Expression.get("mode"), Expression.literal(TransitMode.FERRY.name))),
+    )
+    addLayer(
+        LineLayer("$OVERVIEW_RAIL_SOURCE-rail", OVERVIEW_RAIL_SOURCE).withProperties(
+            PropertyFactory.lineColor(Expression.toColor(Expression.get("color"))),
+            PropertyFactory.lineWidth(3.5f),
+            PropertyFactory.lineOpacity(0.95f),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+        ).withFilter(Expression.neq(Expression.get("mode"), Expression.literal(TransitMode.FERRY.name))),
+    )
     // Nearby stops (around the user, any line) sit under the selected line's layers.
     addSource(GeoJsonSource(NEARBY_SOURCE, points(emptyList())))
     addLayer(
@@ -315,6 +375,36 @@ private fun stopPoints(stops: List<Stop>): String =
             """{"type":"Feature","properties":{"code":"${it.code.filter(Char::isLetterOrDigit)}"},"geometry":{"type":"Point","coordinates":${coordinate(it.location)}}}"""
         }
     }]}"""
+
+private fun multiLineString(lines: List<List<LatLng>>): String {
+    val drawable = lines.filter { it.size >= 2 }
+    if (drawable.isEmpty()) return """{"type":"FeatureCollection","features":[]}"""
+    return buildString(drawable.sumOf { it.size } * 22) {
+        append("""{"type":"Feature","properties":{},"geometry":{"type":"MultiLineString","coordinates":[""")
+        drawable.forEachIndexed { i, line ->
+            if (i > 0) append(',')
+            append('[')
+            line.forEachIndexed { j, point ->
+                if (j > 0) append(',')
+                append(coordinate(point))
+            }
+            append(']')
+        }
+        append("]}}")
+    }
+}
+
+/** One LineString per route, carrying its mode and colour ("#RRGGBB") for the overview layers. */
+private fun coloredLines(routes: List<OverviewRoute>): String =
+    """{"type":"FeatureCollection","features":[${
+        routes.filter { it.points.size >= 2 }.joinToString(",") { route ->
+            val color = "#%06X".format(Locale.ROOT, (route.color ?: DEFAULT_ROUTE_COLOR) and 0xFFFFFF)
+            """{"type":"Feature","properties":{"mode":"${route.mode.name}","color":"$color"},""" +
+                """"geometry":{"type":"LineString","coordinates":[${route.points.joinToString(",", transform = ::coordinate)}]}}"""
+        }
+    }]}"""
+
+private const val DEFAULT_ROUTE_COLOR = 0x5E6B7D
 
 private fun points(points: List<LatLng>): String =
     """{"type":"FeatureCollection","features":[${

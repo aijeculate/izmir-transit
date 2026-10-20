@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -63,8 +64,11 @@ import com.aijec.izmirtransit.core.model.EtaBasis
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.LiveStatus
+import com.aijec.izmirtransit.core.model.Stop
+import com.aijec.izmirtransit.core.model.TransitMode
 import com.aijec.izmirtransit.core.ui.Calm
 import com.aijec.izmirtransit.core.ui.CalmRow
+import com.aijec.izmirtransit.core.ui.CircleIconButton
 import com.aijec.izmirtransit.core.ui.EtaText
 import com.aijec.izmirtransit.core.ui.FloatingBarClearance
 import com.aijec.izmirtransit.core.ui.Hairline
@@ -74,6 +78,7 @@ import com.aijec.izmirtransit.core.ui.PillButton
 import com.aijec.izmirtransit.core.ui.SectionLabel
 import com.aijec.izmirtransit.core.ui.liveErrorText
 import com.aijec.izmirtransit.core.ui.rememberNow
+import com.aijec.izmirtransit.core.ui.stopKindLabel
 import com.aijec.izmirtransit.core.ui.tabular
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -83,10 +88,12 @@ import java.time.format.DateTimeFormatter
 fun HomeRoute(
     onOpenStop: (String) -> Unit,
     onOpenLine: (String) -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
     val arrivals by viewModel.arrivals.collectAsStateWithLifecycle()
+    val boards by viewModel.boards.collectAsStateWithLifecycle()
     val nearby by viewModel.nearby.collectAsStateWithLifecycle()
 
     // Refresh the location each time the screen comes back into view.
@@ -95,10 +102,12 @@ fun HomeRoute(
     HomeScreen(
         favourites = favourites,
         arrivals = arrivals,
+        boards = boards,
         nearby = nearby,
         onRefreshNearby = viewModel::refreshNearby,
         onOpenStop = onOpenStop,
         onOpenLine = onOpenLine,
+        onOpenSettings = onOpenSettings,
     )
 }
 
@@ -106,10 +115,12 @@ fun HomeRoute(
 fun HomeScreen(
     favourites: FavouritesState,
     arrivals: Map<String, LiveSnapshot<List<ApproachingBus>>>,
+    boards: Map<String, StationBoard> = emptyMap(),
     nearby: NearbyState,
     onRefreshNearby: () -> Unit,
     onOpenStop: (String) -> Unit,
     onOpenLine: (String) -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     LazyColumn(
         Modifier
@@ -125,14 +136,19 @@ fun HomeScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item("header") { Greeting() }
+        item("header") {
+            Row(verticalAlignment = Alignment.Top) {
+                Box(Modifier.weight(1f)) { Greeting() }
+                CircleIconButton(Icons.Filled.Settings, stringResource(R.string.home_settings), onOpenSettings, tint = Calm.colors.textSecondary)
+            }
+        }
 
         item("fav-label") { SectionLabel(stringResource(R.string.home_favourites)) }
         if (favourites.loaded && favourites.stops.isEmpty() && favourites.lines.isEmpty()) {
             item("fav-empty") { EmptyFavourites() }
         }
         items(favourites.stops, key = { "fav-stop-${it.stop.code}" }) { favourite ->
-            FavouriteStopPanel(favourite, arrivals[favourite.stop.code], onClick = { onOpenStop(favourite.stop.code) })
+            FavouriteStopPanel(favourite, arrivals[favourite.stop.code], boards[favourite.stop.code], onClick = { onOpenStop(favourite.stop.code) })
         }
         if (favourites.lines.isNotEmpty()) {
             item("fav-lines") { FavouriteLinesPanel(favourites.lines, onOpenLine) }
@@ -198,7 +214,12 @@ private fun EmptyFavourites() {
 }
 
 @Composable
-private fun FavouriteStopPanel(favourite: FavouriteStop, arrivals: LiveSnapshot<List<ApproachingBus>>?, onClick: () -> Unit) {
+private fun FavouriteStopPanel(
+    favourite: FavouriteStop,
+    arrivals: LiveSnapshot<List<ApproachingBus>>?,
+    board: StationBoard?,
+    onClick: () -> Unit,
+) {
     val snapshot = arrivals ?: LoadingArrivals
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
@@ -206,7 +227,7 @@ private fun FavouriteStopPanel(favourite: FavouriteStop, arrivals: LiveSnapshot<
             Column(Modifier.weight(1f)) {
                 Text(favourite.stop.name, style = MaterialTheme.typography.titleMedium, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    linesText(favourite.lineCodes, favourite.stop.code),
+                    linesText(favourite.stop, favourite.lines),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textSecondary,
                     maxLines = 1,
@@ -217,7 +238,30 @@ private fun FavouriteStopPanel(favourite: FavouriteStop, arrivals: LiveSnapshot<
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val buses = snapshot.data.orEmpty()
+            val linesByCode = favourite.lines.associateBy { it.code }
             when {
+                favourite.stop.mode != TransitMode.BUS -> when {
+                    board == null -> {
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(Modifier.fillMaxWidth(), color = colors.accent, trackColor = colors.accentSoft)
+                    }
+                    board.departures.isEmpty() -> Text(stringResource(R.string.home_departures_none), style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+                    else -> board.departures.forEach { departure ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            LineBadge(departure.line)
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                departure.headsign,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            EtaText(departure.minutesAfterMidnight - board.nowMinute)
+                        }
+                    }
+                }
                 snapshot.status == LiveStatus.LOADING -> {
                     Spacer(Modifier.height(4.dp))
                     LinearProgressIndicator(Modifier.fillMaxWidth(), color = colors.accent, trackColor = colors.accentSoft)
@@ -226,7 +270,7 @@ private fun FavouriteStopPanel(favourite: FavouriteStop, arrivals: LiveSnapshot<
                 buses.isEmpty() -> Text(stringResource(R.string.home_arrivals_none), style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
                 else -> buses.take(3).forEach { bus ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        LineBadge(bus.lineCode)
+                        linesByCode[bus.lineCode]?.let { LineBadge(it) } ?: LineBadge(bus.lineCode)
                         Spacer(Modifier.width(10.dp))
                         Text(
                             pluralStringResource(R.plurals.home_stops_away, bus.stopsRemaining, bus.stopsRemaining),
@@ -251,7 +295,7 @@ private fun FavouriteLinesPanel(lines: List<Line>, onOpenLine: (String) -> Unit)
         lines.forEachIndexed { index, line ->
             if (index > 0) Hairline()
             CalmRow(onClick = { onOpenLine(line.code) }) {
-                LineBadge(line.code, strong = true)
+                LineBadge(line, strong = true)
                 Spacer(Modifier.width(12.dp))
                 Text(line.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Calm.colors.textSecondary)
@@ -288,7 +332,7 @@ private fun LazyListScope.nearbySection(nearby: NearbyState, onRefresh: () -> Un
                                 Column(Modifier.weight(1f)) {
                                     Text(item.stop.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
-                                        linesText(item.lineCodes, item.stop.code),
+                                        linesText(item.stop, item.lines),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Calm.colors.textSecondary,
                                         maxLines = 1,
@@ -310,9 +354,13 @@ private fun LazyListScope.nearbySection(nearby: NearbyState, onRefresh: () -> Un
 }
 
 @Composable
-private fun linesText(lineCodes: List<String>, stopCode: String): String =
-    if (lineCodes.isEmpty()) stringResource(R.string.home_stop_code, stopCode)
-    else stringResource(R.string.home_stop_code_lines, stopCode, lineCodes.joinToString(", "))
+private fun linesText(stop: Stop, lines: List<Line>): String = when {
+    // Stations say what they are ("Metro istasyonu · M1"); every ferry route is just "Vapur".
+    stop.mode == TransitMode.FERRY -> stopKindLabel(stop)
+    stop.mode != TransitMode.BUS -> stopKindLabel(stop) + " · " + lines.map { it.displayCode }.distinct().joinToString(", ")
+    lines.isEmpty() -> stringResource(R.string.home_stop_code, stop.code)
+    else -> stringResource(R.string.home_stop_code_lines, stop.code, lines.joinToString(", ") { it.displayCode })
+}
 
 /**
  * Asks for location only when the user taps the button. If Android stops showing the

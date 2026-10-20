@@ -21,7 +21,9 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aijec.izmirtransit.core.model.AccentTheme
 import com.aijec.izmirtransit.core.model.Direction
+import com.aijec.izmirtransit.core.model.ThemeMode
 
 // "Calm glass": a soft blue-grey canvas, white rounded panels floating on it (or on the
 // map), one blue accent. A fixed palette, deliberately not Material You dynamic colour,
@@ -30,6 +32,7 @@ import com.aijec.izmirtransit.core.model.Direction
 /** Colours Material's scheme has no slot for. Read with [Calm.colors]. */
 @Immutable
 data class CalmColors(
+    val isDark: Boolean,
     val canvas: Color,
     val panel: Color,
     /** Panels floating over the map: slightly see-through. */
@@ -48,6 +51,7 @@ data class CalmColors(
 )
 
 private val LightCalm = CalmColors(
+    isDark = false,
     canvas = Color(0xFFEEF1F5),
     panel = Color(0xFFFFFFFF),
     panelGlass = Color(0xF2FFFFFF),
@@ -65,6 +69,7 @@ private val LightCalm = CalmColors(
 )
 
 private val DarkCalm = CalmColors(
+    isDark = true,
     canvas = Color(0xFF0E1217),
     panel = Color(0xFF192028),
     panelGlass = Color(0xF2192028),
@@ -82,6 +87,25 @@ private val DarkCalm = CalmColors(
 )
 
 private val LocalCalmColors = staticCompositionLocalOf { LightCalm }
+
+private data class Accent(val accent: Color, val onAccent: Color, val soft: Color, val onSoft: Color)
+
+/** Light and dark variants of each accent; contrast checked against the panels. */
+private fun accentFor(theme: AccentTheme, dark: Boolean): Accent = when (theme) {
+    AccentTheme.OCEAN -> if (dark) Accent(Color(0xFF7DB0FF), Color(0xFF0B1A2E), Color(0xFF1C2F47), Color(0xFFCFE2FF))
+    else Accent(Color(0xFF1F6FD1), Color.White, Color(0xFFE6F0FB), Color(0xFF0C447C))
+    AccentTheme.TEAL -> if (dark) Accent(Color(0xFF5ED3BE), Color(0xFF032A23), Color(0xFF12352F), Color(0xFFC7F1E8))
+    else Accent(Color(0xFF0F7B6C), Color.White, Color(0xFFDDF3EE), Color(0xFF064D43))
+    AccentTheme.VIOLET -> if (dark) Accent(Color(0xFFB9A6FF), Color(0xFF1E1440), Color(0xFF2A2148), Color(0xFFE4DCFF))
+    else Accent(Color(0xFF6D4AE0), Color.White, Color(0xFFECE7FD), Color(0xFF3A2582))
+    AccentTheme.CORAL -> if (dark) Accent(Color(0xFFFF9B7A), Color(0xFF3A1206), Color(0xFF3D2219), Color(0xFFFFDCCF))
+    else Accent(Color(0xFFC94A24), Color.White, Color(0xFFFBE9E2), Color(0xFF6E2610))
+    AccentTheme.GRAPHITE -> if (dark) Accent(Color(0xFFD5DEE9), Color(0xFF111820), Color(0xFF26303B), Color(0xFFE8EDF3))
+    else Accent(Color(0xFF2F3A48), Color.White, Color(0xFFE7EAEE), Color(0xFF1C2430))
+}
+
+/** The swatch shown for each accent in Settings (its light-theme accent). */
+fun accentSwatch(theme: AccentTheme): Color = accentFor(theme, dark = false).accent
 
 object Calm {
     val colors: CalmColors
@@ -130,8 +154,23 @@ private val CalmTypography = Typography(
 )
 
 @Composable
-fun IzmirTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val calm = if (darkTheme) DarkCalm else LightCalm
+fun IzmirTheme(
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    accentTheme: AccentTheme = AccentTheme.OCEAN,
+    content: @Composable () -> Unit,
+) {
+    val darkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+    val accent = accentFor(accentTheme, darkTheme)
+    val calm = (if (darkTheme) DarkCalm else LightCalm).copy(
+        accent = accent.accent,
+        onAccent = accent.onAccent,
+        accentSoft = accent.soft,
+        onAccentSoft = accent.onSoft,
+    )
     // Material components (text fields, progress, dialogs) pick up the same palette.
     val scheme = if (darkTheme) {
         darkColorScheme(

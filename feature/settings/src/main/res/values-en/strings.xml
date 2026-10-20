@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_colour">Colour theme</string>
+    <string name="settings_accent_ocean">Ocean</string>
+    <string name="settings_accent_teal">Teal</string>
+    <string name="settings_accent_violet">Violet</string>
+    <string name="settings_accent_coral">Coral</string>
+    <string name="settings_accent_graphite">Graphite</string>
+    <string name="settings_map">Map</string>
+    <string name="settings_search_bottom">Search bar at the bottom</string>
+    <string name="settings_search_bottom_hint">Moves the map search to the bottom, for one-handed use.</string>
+    <string name="settings_about">About</string>
+    <string name="settings_about_data_title">Data</string>
+    <string name="settings_about_data">Lines, stops, timetables and live positions: İzmir Metropolitan Municipality open data portal and İztek web services (İBB Open Data Licence). Arrival times are estimates.</string>
+    <string name="settings_about_map_title">Map</string>
+    <string name="settings_about_map">© OpenStreetMap contributors · OpenFreeMap · MapLibre</string>
+    <string name="settings_about_font_title">Typeface</string>
+    <string name="settings_about_font">Inter, SIL Open Font License 1.1</string>
+</resources>

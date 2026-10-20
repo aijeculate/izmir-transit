@@ -14,9 +14,14 @@ import com.aijec.izmirtransit.core.model.ApproachingBus
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.LiveStatus
+import com.aijec.izmirtransit.core.model.ScheduledDeparture
 import com.aijec.izmirtransit.core.model.Stop
+import com.aijec.izmirtransit.core.model.isBusCode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,9 +41,12 @@ data class StopUiState(
     val loading: Boolean = true,
 )
 
+/** Departures from [nowMinute] on, on the service day's clock (may exceed 1440). */
+data class StationBoard(val nowMinute: Int, val departures: List<ScheduledDeparture>)
+
 @HiltViewModel
 class StopViewModel @Inject constructor(
-    stops: StopRepository,
+    private val stops: StopRepository,
     live: LiveBusRepository,
     private val favourites: FavouritesRepository,
     private val timetable: TimetableRepository,
@@ -51,9 +59,29 @@ class StopViewModel @Inject constructor(
     private val _state = MutableStateFlow(StopUiState(stopCode))
     val state: StateFlow<StopUiState> = _state.asStateFlow()
 
+    /** Stations and piers run to timetable; only bus stops have live arrivals. */
+    val isBusStop: Boolean = isBusCode(stopCode)
+
     /** Polls only while the screen is visible; see LineMapViewModel. */
-    val arrivals: StateFlow<LiveSnapshot<List<ApproachingBus>>> = live.observeStop(stopCode)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveSnapshot(null, LiveStatus.LOADING))
+    val arrivals: StateFlow<LiveSnapshot<List<ApproachingBus>>> =
+        (if (isBusStop) live.observeStop(stopCode) else flowOf(LiveSnapshot(emptyList(), LiveStatus.FRESH)))
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveSnapshot(null, LiveStatus.LOADING))
+
+    /**
+     * The station board: the next timetabled departures, re-read at each minute so passed
+     * trains drop off. Null while loading; always empty for bus stops.
+     */
+    val departures: StateFlow<StationBoard?> = flow {
+        if (!isBusStop) {
+            while (true) {
+                val moment = TimetableRepository.serviceMoment(TimetableRepository.localNow(clock))
+                emit(StationBoard(moment.minutesAfterMidnight, stops.scheduledDepartures(stopCode, moment.serviceDay, moment.minutesAfterMidnight, BOARD_SIZE)))
+                delay(60_000L - clock.millis() % 60_000L)
+            }
+        } else {
+            emit(StationBoard(0, emptyList()))
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val isFavourite: StateFlow<Boolean> = favourites.favourites.map { it.hasStop(stopCode) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -90,5 +118,6 @@ class StopViewModel @Inject constructor(
 
     companion object {
         const val STOP_CODE_ARG = "stopCode"
+        private const val BOARD_SIZE = 40
     }
 }

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish is the default locale. -->
+<resources>
+    <string name="settings_title">Ayarlar</string>
+    <string name="settings_appearance">Görünüm</string>
+    <string name="settings_theme_system">Sistem</string>
+    <string name="settings_theme_light">Açık</string>
+    <string name="settings_theme_dark">Koyu</string>
+    <string name="settings_colour">Renk teması</string>
+    <string name="settings_accent_ocean">Okyanus</string>
+    <string name="settings_accent_teal">Deniz</string>
+    <string name="settings_accent_violet">Mor</string>
+    <string name="settings_accent_coral">Mercan</string>
+    <string name="settings_accent_graphite">Grafit</string>
+    <string name="settings_map">Harita</string>
+    <string name="settings_search_bottom">Arama çubuğu altta</string>
+    <string name="settings_search_bottom_hint">Tek elle kullanım için arama alanını haritanın altına taşır.</string>
+    <string name="settings_about">Hakkında</string>
+    <string name="settings_about_data_title">Veri</string>
+    <string name="settings_about_data">Hat, durak, sefer ve canlı konum verileri: İzmir Büyükşehir Belediyesi açık veri portalı ve İztek web servisleri (İBB Açık Veri Lisansı). Varış süreleri tahminidir.</string>
+    <string name="settings_about_map_title">Harita</string>
+    <string name="settings_about_map">© OpenStreetMap katkıda bulunanlar · OpenFreeMap · MapLibre</string>
+    <string name="settings_about_font_title">Yazı tipi</string>
+    <string name="settings_about_font">Inter, SIL Open Font License 1.1</string>
+</resources>

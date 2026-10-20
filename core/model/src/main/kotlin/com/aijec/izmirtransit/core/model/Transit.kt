@@ -4,7 +4,22 @@ import com.aijec.izmirtransit.core.model.geo.LatLng
 import java.time.LocalDateTime
 
 /** Every line and stop belongs to one mode, so metro, İZBAN, tram and ferries can slot in later. */
-enum class TransitMode { BUS }
+enum class TransitMode {
+    BUS,
+    METRO,
+    TRAM,
+    IZBAN,
+    FERRY;
+
+    /** Only ESHOT buses publish live positions; the rest run to timetable in the app. */
+    val hasLiveVehicles: Boolean get() = this == BUS
+}
+
+/**
+ * ESHOT line and stop codes are plain numbers; every other mode's carry a letter prefix
+ * ("M1", "T-KONAK", "I20", "F1"). Lets callers skip live requests without a lookup.
+ */
+fun isBusCode(code: String): Boolean = code.isNotEmpty() && code.all { it.isDigit() }
 
 /** Direction as the static datasets number it: YON 1 is outbound, YON 2 is return. */
 enum class Direction(val datasetCode: Int) {
@@ -25,6 +40,10 @@ data class Line(
     val mode: TransitMode,
     val code: String,
     val name: String,
+    /** Badge text: "5", "M1", "Konak", "İZBAN". */
+    val displayCode: String = code,
+    /** Official colour (ARGB) for rail lines; null uses the app's accent. */
+    val color: Int? = null,
     val routeDescription: String,
     val notes: String,
     val origin: String,
@@ -75,6 +94,14 @@ enum class ConnectionType(val code: Int) {
     }
 }
 
+/** A timetabled departure from a station or pier (rail and ferry). */
+data class ScheduledDeparture(
+    val line: Line,
+    val direction: Direction,
+    val minutesAfterMidnight: Int,
+    val headsign: String,
+)
+
 data class Announcement(
     val lineCode: String,
     val title: String,
@@ -84,3 +111,11 @@ data class Announcement(
     fun isActiveAt(time: LocalDateTime): Boolean =
         (startsAt == null || !time.isBefore(startsAt)) && (endsAt == null || !time.isAfter(endsAt))
 }
+
+/** One simplified route for the all-lines overview, drawn in its line's colour. */
+data class OverviewRoute(
+    val mode: TransitMode,
+    /** Official colour (ARGB), or null for buses, which use the accent. */
+    val color: Int?,
+    val points: List<LatLng>,
+)

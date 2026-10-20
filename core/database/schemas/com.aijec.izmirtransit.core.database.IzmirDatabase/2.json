@@ -1,0 +1,566 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "d56bd42a6feea3630f3bdb8036e6209f",
+    "entities": [
+      {
+        "tableName": "lines",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mode` TEXT NOT NULL, `code` TEXT NOT NULL, `display_code` TEXT NOT NULL, `color` INTEGER, `name` TEXT NOT NULL, `search_text` TEXT NOT NULL, `route_description` TEXT NOT NULL, `notes` TEXT NOT NULL, `origin` TEXT NOT NULL, `destination` TEXT NOT NULL, PRIMARY KEY(`mode`, `code`))",
+        "fields": [
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "code",
+            "columnName": "code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayCode",
+            "columnName": "display_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "searchText",
+            "columnName": "search_text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "routeDescription",
+            "columnName": "route_description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "origin",
+            "columnName": "origin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "destination",
+            "columnName": "destination",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mode",
+            "code"
+          ]
+        }
+      },
+      {
+        "tableName": "stops",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mode` TEXT NOT NULL, `code` TEXT NOT NULL, `name` TEXT NOT NULL, `search_text` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, PRIMARY KEY(`mode`, `code`))",
+        "fields": [
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "code",
+            "columnName": "code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "searchText",
+            "columnName": "search_text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mode",
+            "code"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_stops_latitude_longitude",
+            "unique": false,
+            "columnNames": [
+              "latitude",
+              "longitude"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stops_latitude_longitude` ON `${TABLE_NAME}` (`latitude`, `longitude`)"
+          }
+        ]
+      },
+      {
+        "tableName": "stop_lines",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mode` TEXT NOT NULL, `stop_code` TEXT NOT NULL, `line_code` TEXT NOT NULL, PRIMARY KEY(`mode`, `stop_code`, `line_code`))",
+        "fields": [
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stopCode",
+            "columnName": "stop_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineCode",
+            "columnName": "line_code",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mode",
+            "stop_code",
+            "line_code"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_stop_lines_mode_line_code",
+            "unique": false,
+            "columnNames": [
+              "mode",
+              "line_code"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stop_lines_mode_line_code` ON `${TABLE_NAME}` (`mode`, `line_code`)"
+          }
+        ]
+      },
+      {
+        "tableName": "line_stops",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mode` TEXT NOT NULL, `line_code` TEXT NOT NULL, `direction` INTEGER NOT NULL, `sequence` INTEGER NOT NULL, `stop_code` TEXT NOT NULL, `source` TEXT NOT NULL, PRIMARY KEY(`mode`, `line_code`, `direction`, `sequence`))",
+        "fields": [
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineCode",
+            "columnName": "line_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "direction",
+            "columnName": "direction",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence",
+            "columnName": "sequence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stopCode",
+            "columnName": "stop_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mode",
+            "line_code",
+            "direction",
+            "sequence"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_line_stops_mode_stop_code",
+            "unique": false,
+            "columnNames": [
+              "mode",
+              "stop_code"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_line_stops_mode_stop_code` ON `${TABLE_NAME}` (`mode`, `stop_code`)"
+          }
+        ]
+      },
+      {
+        "tableName": "shapes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mode` TEXT NOT NULL, `line_code` TEXT NOT NULL, `direction` INTEGER NOT NULL, `encoded_polyline` TEXT NOT NULL, `length_meters` REAL NOT NULL, PRIMARY KEY(`mode`, `line_code`, `direction`))",
+        "fields": [
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineCode",
+            "columnName": "line_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "direction",
+            "columnName": "direction",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "encodedPolyline",
+            "columnName": "encoded_polyline",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lengthMeters",
+            "columnName": "length_meters",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mode",
+            "line_code",
+            "direction"
+          ]
+        }
+      },
+      {
+        "tableName": "departures",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mode` TEXT NOT NULL, `line_code` TEXT NOT NULL, `service_day` INTEGER NOT NULL, `direction` INTEGER NOT NULL, `sequence` INTEGER NOT NULL, `minutes_after_midnight` INTEGER NOT NULL, `wheelchair_accessible` INTEGER NOT NULL, `bike_rack` INTEGER NOT NULL, `electric` INTEGER NOT NULL, PRIMARY KEY(`mode`, `line_code`, `service_day`, `direction`, `sequence`))",
+        "fields": [
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineCode",
+            "columnName": "line_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serviceDay",
+            "columnName": "service_day",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "direction",
+            "columnName": "direction",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence",
+            "columnName": "sequence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minutesAfterMidnight",
+            "columnName": "minutes_after_midnight",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wheelchairAccessible",
+            "columnName": "wheelchair_accessible",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bikeRack",
+            "columnName": "bike_rack",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "electric",
+            "columnName": "electric",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mode",
+            "line_code",
+            "service_day",
+            "direction",
+            "sequence"
+          ]
+        }
+      },
+      {
+        "tableName": "announcements",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mode` TEXT NOT NULL, `line_code` TEXT NOT NULL, `title` TEXT NOT NULL, `starts_at` TEXT, `ends_at` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineCode",
+            "columnName": "line_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startsAt",
+            "columnName": "starts_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endsAt",
+            "columnName": "ends_at",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_announcements_mode_line_code",
+            "unique": false,
+            "columnNames": [
+              "mode",
+              "line_code"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_announcements_mode_line_code` ON `${TABLE_NAME}` (`mode`, `line_code`)"
+          }
+        ]
+      },
+      {
+        "tableName": "connections",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mode` TEXT NOT NULL, `line_code` TEXT NOT NULL, `connection_type` INTEGER NOT NULL, `outbound_hours` TEXT NOT NULL, `return_hours` TEXT NOT NULL, PRIMARY KEY(`mode`, `line_code`, `connection_type`))",
+        "fields": [
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineCode",
+            "columnName": "line_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionType",
+            "columnName": "connection_type",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outboundHours",
+            "columnName": "outbound_hours",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "returnHours",
+            "columnName": "return_hours",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mode",
+            "line_code",
+            "connection_type"
+          ]
+        }
+      },
+      {
+        "tableName": "dataset_meta",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
+      },
+      {
+        "tableName": "stop_departures",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mode` TEXT NOT NULL, `stop_code` TEXT NOT NULL, `line_code` TEXT NOT NULL, `direction` INTEGER NOT NULL, `service_day` INTEGER NOT NULL, `minutes_after_midnight` INTEGER NOT NULL, `headsign` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stopCode",
+            "columnName": "stop_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineCode",
+            "columnName": "line_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "direction",
+            "columnName": "direction",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serviceDay",
+            "columnName": "service_day",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minutesAfterMidnight",
+            "columnName": "minutes_after_midnight",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "headsign",
+            "columnName": "headsign",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_stop_departures_stop_code_service_day_minutes_after_midnight",
+            "unique": false,
+            "columnNames": [
+              "stop_code",
+              "service_day",
+              "minutes_after_midnight"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stop_departures_stop_code_service_day_minutes_after_midnight` ON `${TABLE_NAME}` (`stop_code`, `service_day`, `minutes_after_midnight`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd56bd42a6feea3630f3bdb8036e6209f')"
+    ]
+  }
+}

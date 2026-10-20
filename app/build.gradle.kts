@@ -41,6 +41,7 @@ dependencies {
     implementation(projects.feature.stop)
     implementation(projects.feature.home)
     implementation(projects.feature.timetable)
+    implementation(projects.feature.settings)
     implementation(libs.datastore.preferences)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.glance.appwidget)

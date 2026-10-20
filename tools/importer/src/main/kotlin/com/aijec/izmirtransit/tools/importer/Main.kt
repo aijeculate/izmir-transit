@@ -2,6 +2,10 @@ package com.aijec.izmirtransit.tools.importer
 
 import com.aijec.izmirtransit.core.data.importer.EshotImporter
 import com.aijec.izmirtransit.core.data.importer.EshotSources
+import com.aijec.izmirtransit.core.data.importer.FerryImporter
+import com.aijec.izmirtransit.core.data.importer.ImportResult
+import com.aijec.izmirtransit.core.data.importer.RailFeed
+import com.aijec.izmirtransit.core.data.importer.RailImporter
 import com.aijec.izmirtransit.core.database.IzmirDatabase
 import com.aijec.izmirtransit.core.database.JvmDatabases
 import kotlinx.coroutines.runBlocking
@@ -14,6 +18,9 @@ import kotlin.time.measureTimedValue
  * Builds the database shipped in the app's assets from the downloaded open-data files.
  *
  *   ./gradlew :tools:importer:run --args="--raw research/raw --gtfs research/raw/bus-eshot-gtfs.zip --out build/izmir-transit.db"
+ *
+ * Rail feeds are read from `<raw>/rail/<feed>.zip` and ferries from `<raw>/ferry/`; a
+ * missing source is skipped with a warning.
  *
  * Writing through Room itself guarantees the schema and identity hash match what the app
  * expects from `createFromAsset`.
@@ -32,9 +39,20 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    val (result, parseTime) = measureTimedValue { EshotImporter.build(EshotSources.fromDirectory(rawDir, gtfs)) }
+    val (results, parseTime) = measureTimedValue {
+        buildList<ImportResult> {
+            add(EshotImporter.build(EshotSources.fromDirectory(rawDir, gtfs)))
+            for (feed in RailFeed.entries) {
+                val zip = File(rawDir, "rail/${feed.fileName}")
+                if (zip.exists()) add(RailImporter.build(feed, zip)) else println("WARNING: ${feed.name} skipped, $zip not found")
+            }
+            val ferryDir = File(rawDir, "ferry")
+            if (File(ferryDir, FerryImporter.PIERS_FILE).exists()) add(FerryImporter.build(ferryDir))
+            else println("WARNING: ferries skipped, $ferryDir has no ${FerryImporter.PIERS_FILE}")
+        }
+    }
     println("Parsed in $parseTime")
-    println(result.report)
+    results.forEach { println("== ${it.data.mode}\n${it.report}") }
 
     out.parentFile?.mkdirs()
     listOf(out, File("${out.path}-journal"), File("${out.path}-wal"), File("${out.path}-shm")).forEach { it.delete() }
@@ -42,7 +60,7 @@ fun main(args: Array<String>) {
         runBlocking {
             val database = JvmDatabases.file(out)
             try {
-                EshotImporter.importInto(database, result)
+                results.forEach { database.staticDataDao().replaceMode(it.data) }
                 JvmDatabases.vacuum(database)
             } finally {
                 database.close()

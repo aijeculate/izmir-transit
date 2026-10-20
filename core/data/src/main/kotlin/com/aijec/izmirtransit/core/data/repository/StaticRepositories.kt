@@ -8,6 +8,8 @@ import com.aijec.izmirtransit.core.model.Departure
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LineRoute
+import com.aijec.izmirtransit.core.model.OverviewRoute
+import com.aijec.izmirtransit.core.model.ScheduledDeparture
 import com.aijec.izmirtransit.core.model.ServiceDay
 import com.aijec.izmirtransit.core.model.Stop
 import com.aijec.izmirtransit.core.model.TransitMode
@@ -16,6 +18,11 @@ import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
 import com.aijec.izmirtransit.core.model.geo.PolylineCodec
 import com.aijec.izmirtransit.core.model.geo.distanceMeters
+import com.aijec.izmirtransit.core.model.geo.simplifyPolyline
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Singleton
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -25,10 +32,7 @@ import java.time.ZoneId
 import java.util.Locale
 import javax.inject.Inject
 
-// Read side of the offline data. Only ESHOT buses exist so far; the `mode` parameter
-// defaults keep call sites short until more modes arrive.
-
-private val BUS = TransitMode.BUS.name
+// Read side of the offline data. Codes are unique across modes, so lookups need no mode.
 
 class LineRepository @Inject constructor(private val database: IzmirDatabase) {
     private val dao get() = database.lineDao()
@@ -36,28 +40,57 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Map<Direction, MeasuredPolyline>>) = size > 32
     }
 
-    suspend fun line(code: String): Line? = dao.line(BUS, code)?.toModel()
+    suspend fun line(code: String): Line? = dao.line(code)?.toModel()
 
     /** Rail, sea and air connections this line serves, in a stable order. */
     suspend fun connections(code: String): List<ConnectionType> =
-        dao.connections(BUS, code).mapNotNull { ConnectionType.fromCode(it.connectionType) }.distinct().sorted()
+        dao.connections(code).mapNotNull { ConnectionType.fromCode(it.connectionType) }.distinct().sorted()
+
+    @Volatile private var overviewCache: List<OverviewRoute>? = null
+
+    /**
+     * Every line's route, simplified hard (25 m) for the all-lines overlay on the map:
+     * a few tens of thousands of points instead of 234k, decoded once and cached.
+     * Rail and ferry come last so they draw on top of the buses.
+     */
+    suspend fun overviewShapes(): List<OverviewRoute> {
+        overviewCache?.let { return it }
+        val lines = dao.allLines().associateBy { it.code }
+        val shapes = dao.allShapes().mapNotNull { shape ->
+            val line = lines[shape.lineCode] ?: return@mapNotNull null
+            OverviewRoute(
+                mode = TransitMode.valueOf(line.mode),
+                color = line.color,
+                points = simplifyPolyline(PolylineCodec.decode(shape.encodedPolyline), OVERVIEW_TOLERANCE_METERS),
+            )
+        }.sortedBy { it.mode != TransitMode.BUS }
+        overviewCache = shapes
+        return shapes
+    }
 
     /** Call after the static data is replaced, so cached shapes are re-read. */
-    fun clearCaches() = synchronized(routeCache) { routeCache.clear() }
+    fun clearCaches() {
+        synchronized(routeCache) { routeCache.clear() }
+        overviewCache = null
+    }
+
+    private companion object {
+        const val OVERVIEW_TOLERANCE_METERS = 25.0
+    }
 
     /** Turkish-aware: "izmir" finds "İZMİR". Line-number matches rank first. */
     suspend fun search(query: String, limit: Int = 30): List<Line> {
         val folded = TurkishText.fold(query)
         if (folded.isEmpty()) return emptyList()
-        return dao.search(BUS, folded, limit).map { it.toModel() }
+        return dao.search(folded, limit).map { it.toModel() }
     }
 
     /** Both directions with decoded shape and ordered stops, for the line map. */
     suspend fun routes(code: String): List<LineRoute> {
-        val shapes = dao.shapes(BUS, code).associateBy { it.direction }
+        val shapes = dao.shapes(code).associateBy { it.direction }
         return Direction.entries.mapNotNull { direction ->
             val shape = shapes[direction.datasetCode]?.let { PolylineCodec.decode(it.encodedPolyline) }.orEmpty()
-            val stops = dao.stopsInOrder(BUS, code, direction.datasetCode).map { it.toModel() }
+            val stops = dao.stopsInOrder(code, direction.datasetCode).map { it.toModel() }
             if (shape.isEmpty() && stops.isEmpty()) null else LineRoute(code, direction, shape, stops)
         }
     }
@@ -65,7 +98,7 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
     /** Measured shapes for snapping buses and estimating arrival; cached because polls repeat. */
     suspend fun measuredRoutes(code: String): Map<Direction, MeasuredPolyline> {
         synchronized(routeCache) { routeCache[code] }?.let { return it }
-        val measured = dao.shapes(BUS, code).mapNotNull { shape ->
+        val measured = dao.shapes(code).mapNotNull { shape ->
             Direction.fromDatasetCode(shape.direction)?.let { it to MeasuredPolyline(PolylineCodec.decode(shape.encodedPolyline)) }
         }.toMap()
         synchronized(routeCache) { routeCache[code] = measured }
@@ -78,18 +111,18 @@ data class NearbyStop(val stop: Stop, val distanceMeters: Double)
 class StopRepository @Inject constructor(private val database: IzmirDatabase) {
     private val dao get() = database.stopDao()
 
-    suspend fun stop(code: String): Stop? = dao.stop(BUS, code)?.toModel()
+    suspend fun stop(code: String): Stop? = dao.stop(code)?.toModel()
 
     suspend fun search(query: String, limit: Int = 30): List<Stop> {
         val folded = TurkishText.fold(query)
         if (folded.isEmpty()) return emptyList()
-        return dao.search(BUS, folded, limit).map { it.toModel() }
+        return dao.search(folded, limit).map { it.toModel() }
     }
 
     /** Computed offline from the stops table; no network needed. */
     suspend fun nearby(center: LatLng, radiusMeters: Double = 600.0, limit: Int = 30): List<NearbyStop> {
         val box = BoundingBox.around(center, radiusMeters)
-        return dao.inBox(BUS, box.minLatitude, box.maxLatitude, box.minLongitude, box.maxLongitude)
+        return dao.inBox(box.minLatitude, box.maxLatitude, box.minLongitude, box.maxLongitude)
             .map { it.toModel() }
             .map { NearbyStop(it, distanceMeters(center, it.location)) }
             .filter { it.distanceMeters <= radiusMeters }
@@ -97,22 +130,36 @@ class StopRepository @Inject constructor(private val database: IzmirDatabase) {
             .take(limit)
     }
 
-    suspend fun linesAtStop(code: String): List<Line> = dao.linesAtStop(BUS, code).map { it.toModel() }
+    suspend fun linesAtStop(code: String): List<Line> = dao.linesAtStop(code).map { it.toModel() }
+
+    /**
+     * The next timetabled departures (rail and ferry) from a station or pier, from
+     * [minute] on [serviceDay]. Empty for bus stops, which use live arrivals.
+     */
+    suspend fun scheduledDepartures(code: String, serviceDay: ServiceDay, minute: Int, limit: Int = 40): List<ScheduledDeparture> {
+        val rows = dao.scheduledDepartures(code, serviceDay.ordinal, minute, limit)
+        if (rows.isEmpty()) return emptyList()
+        val lines = dao.linesAtStop(code).associate { it.code to it.toModel() }
+        return rows.mapNotNull { row ->
+            val line = lines[row.lineCode] ?: database.lineDao().line(row.lineCode)?.toModel() ?: return@mapNotNull null
+            ScheduledDeparture(line, Direction.fromDatasetCode(row.direction) ?: Direction.OUTBOUND, row.minutesAfterMidnight, row.headsign)
+        }
+    }
 }
 
 class TimetableRepository @Inject constructor(private val database: IzmirDatabase) {
     private val dao get() = database.timetableDao()
 
     suspend fun departures(lineCode: String, serviceDay: ServiceDay, direction: Direction): List<Departure> =
-        dao.departures(BUS, lineCode, serviceDay.ordinal, direction.datasetCode).map { it.toModel() }
+        dao.departures(lineCode, serviceDay.ordinal, direction.datasetCode).map { it.toModel() }
 
     suspend fun activeAnnouncements(lineCode: String, now: LocalDateTime): List<Announcement> =
-        dao.announcements(BUS, lineCode).map { it.toModel() }.filter { it.isActiveAt(now) }
+        dao.announcements(lineCode).map { it.toModel() }.filter { it.isActiveAt(now) }
 
     /** Active announcements for any of [lineCodes], e.g. every line serving a stop. */
     suspend fun activeAnnouncementsForLines(lineCodes: List<String>, now: LocalDateTime): List<Announcement> =
         if (lineCodes.isEmpty()) emptyList()
-        else dao.announcementsForLines(BUS, lineCodes).map { it.toModel() }.filter { it.isActiveAt(now) }
+        else dao.announcementsForLines(lineCodes).map { it.toModel() }.filter { it.isActiveAt(now) }
 
     /** Which timetable applies right now, and the current minute on that timetable's clock. */
     data class ServiceMoment(val serviceDay: ServiceDay, val minutesAfterMidnight: Int)
@@ -156,5 +203,20 @@ class TimetableRepository @Inject constructor(private val database: IzmirDatabas
         /** 1445 → "00:05". */
         fun formatClock(minutesAfterMidnight: Int): String =
             "%02d:%02d".format(Locale.ROOT, (minutesAfterMidnight / 60) % 24, minutesAfterMidnight % 60)
+    }
+}
+
+/**
+ * The line shown on the Map tab, kept app-wide so switching tabs doesn't lose it. Null means
+ * the all-lines overview. Lines opened from Home or a stop are separate screens and don't
+ * change this.
+ */
+@Singleton
+class MapSelection @Inject constructor() {
+    private val _line = MutableStateFlow<String?>(null)
+    val line: StateFlow<String?> = _line.asStateFlow()
+
+    fun select(code: String?) {
+        _line.value = code
     }
 }

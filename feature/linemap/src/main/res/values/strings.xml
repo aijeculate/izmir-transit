@@ -28,4 +28,15 @@
     <string name="linemap_location_permission">Konum izni olmadan yakındaki duraklar gösterilemez.</string>
     <string name="linemap_location_off">Konum servisleri kapalı.</string>
     <string name="linemap_location_unavailable">Konum alınamadı.</string>
+    <string name="linemap_close">Hattı kapat</string>
+    <string name="linemap_back">Geri</string>
+    <string name="linemap_overview_title">İzmir toplu taşıma ağı</string>
+    <string name="linemap_overview_hint">Bir hat ya da durak ara.</string>
+    <plurals name="linemap_overview_count">
+        <item quantity="one">Yaklaşık %1$d hat. Canlı otobüsleri görmek için bir hat ara.</item>
+        <item quantity="other">Yaklaşık %1$d hat. Canlı otobüsleri görmek için bir hat ara.</item>
+    </plurals>
+    <string name="linemap_scheduled_only">Tarifeli sefer · canlı konum yok</string>
+    <string name="linemap_schedule_from">%1$s: %2$s</string>
+    <string name="linemap_schedule_none">%1$s: bugün başka sefer yok</string>
 </resources>

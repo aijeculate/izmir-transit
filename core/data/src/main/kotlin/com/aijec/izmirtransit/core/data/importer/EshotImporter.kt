@@ -110,6 +110,8 @@ object EshotImporter {
             LineEntity(
                 mode = MODE,
                 code = line.code,
+                displayCode = line.code,
+                color = null,
                 name = line.name,
                 searchText = TurkishText.fold("${line.code} ${line.name} ${line.origin} ${line.destination} ${line.routeDescription}"),
                 routeDescription = line.routeDescription,

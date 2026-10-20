@@ -79,6 +79,8 @@ class StaticDataRefresher(
     private val workDir: File,
     private val clock: Clock,
     private val minimum: MinimumCounts = MinimumCounts(),
+    /** Metro, tram, İZBAN and ferries; each is refreshed on its own after the buses. */
+    private val otherModes: OtherModesDownloader? = null,
 ) {
     /** Far below today's numbers (446 lines, 11,945 stops, 892 shapes, 63.7k departures). */
     data class MinimumCounts(val lines: Int = 300, val stops: Int = 8_000, val shapes: Int = 300, val departures: Int = 20_000)
@@ -99,10 +101,47 @@ class StaticDataRefresher(
             }
             validate(result)?.let { return Outcome.Rejected(it) }
             EshotImporter.importInto(database, result)
-            return Outcome.Updated(result.report)
+            val notes = otherModes?.let { refreshOtherModes(it) }.orEmpty()
+            return Outcome.Updated(result.report.copy(warnings = result.report.warnings + notes))
         } finally {
             dir.deleteRecursively()
         }
+    }
+
+    /**
+     * Each feed is downloaded, built and checked separately, so a broken İZBAN feed can't
+     * hold back the metro. Returns one note per mode for the report.
+     */
+    private suspend fun refreshOtherModes(other: OtherModesDownloader): List<String> {
+        val notes = ArrayList<String>()
+        val dir = File(workDir, "other-download")
+        dir.deleteRecursively()
+        try {
+            for (feed in RailFeed.entries) {
+                notes += runCatching {
+                    val zip = other.downloadRail(feed, dir)
+                    val result = withContext(Dispatchers.Default) { RailImporter.build(feed, zip, clock.instant()) }
+                    if (result.data.stops.size < 10 || result.data.stopDepartures.size < 1_000) "${feed.name}: rejected, too little data"
+                    else {
+                        database.staticDataDao().replaceMode(result.data)
+                        "${feed.name}: updated"
+                    }
+                }.getOrElse { "${feed.name}: kept old data (${it.message})" }
+            }
+            notes += runCatching {
+                val ferryDir = File(dir, "ferry")
+                other.downloadFerry(ferryDir)
+                val result = withContext(Dispatchers.Default) { FerryImporter.build(ferryDir, clock.instant()) }
+                if (result.data.stops.size < 5 || result.data.stopDepartures.size < 200) "FERRY: rejected, too little data"
+                else {
+                    database.staticDataDao().replaceMode(result.data)
+                    "FERRY: updated"
+                }
+            }.getOrElse { "FERRY: kept old data (${it.message})" }
+        } finally {
+            dir.deleteRecursively()
+        }
+        return notes
     }
 
     private fun validate(result: ImportResult): String? {
@@ -114,5 +153,50 @@ class StaticDataRefresher(
             data.departures.size < minimum.departures -> "only ${data.departures.size} departures"
             else -> null
         }
+    }
+}
+
+/**
+ * Downloads the rail GTFS feeds and the İzdeniz pier timetables. The İzdeniz API shares
+ * the İztek rate limit, so its calls go through the app-wide [pacer].
+ */
+class OtherModesDownloader(
+    client: OkHttpClient,
+    private val pacer: com.aijec.izmirtransit.core.data.live.RequestPacer,
+    private val izdenizBaseUrl: String = IZDENIZ_BASE_URL,
+) {
+    private val client = client.newBuilder()
+        .callTimeout(2, TimeUnit.MINUTES)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    suspend fun downloadRail(feed: RailFeed, dir: File): File = withContext(Dispatchers.IO) {
+        dir.mkdirs()
+        File(dir, feed.fileName).also { fetch(feed.url, it) }
+    }
+
+    /** Writes the layout [FerryImporter.build] reads: the pier list plus one file per pier and day. */
+    suspend fun downloadFerry(dir: File) {
+        withContext(Dispatchers.IO) { dir.mkdirs() }
+        val piersFile = File(dir, FerryImporter.PIERS_FILE)
+        pacer.paced { withContext(Dispatchers.IO) { fetch(izdenizBaseUrl + "iskeleler", piersFile) } }
+        val piers = FerryImporter.parsePiers(piersFile.readText()).filter { it.active }
+        for (pier in piers) for (dayId in FerryImporter.DAYS.values) {
+            val target = File(dir, FerryImporter.pierFile(pier.id, dayId))
+            pacer.paced { withContext(Dispatchers.IO) { fetch(izdenizBaseUrl + "iskelesefersaatleri/${pier.id}/$dayId", target) } }
+        }
+    }
+
+    private fun fetch(url: String, target: File) {
+        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code} for $url")
+            val bytes = response.body?.bytes() ?: throw IOException("Empty body for $url")
+            if (bytes.isEmpty()) throw IOException("Empty file from $url")
+            target.writeBytes(bytes)
+        }
+    }
+
+    companion object {
+        const val IZDENIZ_BASE_URL = "https://openapi.izmir.bel.tr/api/izdeniz/"
     }
 }
