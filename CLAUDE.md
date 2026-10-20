@@ -160,6 +160,24 @@ Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 The release APK is unsigned; a Play upload key is the user's decision. For a local R8 test, sign it with the debug key: run `zipalign -p 4`, then `java -jar build-tools/36.0.0/lib/apksigner.jar sign --ks ~/.android/debug.keystore …` (the `.bat` wrapper fails from Git Bash). The release APK is 59 MB because it bundles 4 ABIs; an App Bundle on Play delivers only one.
 
+**Install release builds on the phone, not debug.** A debuggable build runs mostly in ART's interpreter, and the map stuttered badly (median frame 150 ms when panning; simpleperf showed 99% interpreter frames). The R8 release build, signed with the debug key so the Maps key's SHA-1 still matches, pans at 5 ms per frame with no slow frames:
+
+```bash
+./gradlew :app:assembleRelease
+cd app/build/outputs/apk/release && rm -f app-release-aligned.apk app-release-signed.apk
+"$LOCALAPPDATA/Android/Sdk/build-tools/36.0.0/zipalign.exe" -p 4 app-release-unsigned.apk app-release-aligned.apk
+"$JAVA_HOME/bin/java" -jar "$LOCALAPPDATA/Android/Sdk/build-tools/36.0.0/lib/apksigner.jar" sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --out app-release-signed.apk app-release-aligned.apk
+adb install -r app-release-signed.apk
+```
+
+Release builds are `profileable`, so `simpleperf record --app com.aijec.izmirtransit` still works. Measure jank with `adb shell dumpsys gfxinfo com.aijec.izmirtransit` after `reset` and a few `input swipe`s.
+
+Map performance rules, learned the hard way:
+
+- Never enable StrictMode disk detection: Google Maps reads disk on every camera move.
+- The bus network is drawn by `RouteTileProvider` (a TileOverlay), not ~900 polylines.
+- Moving vehicles live in their own composable, so their 15 fps updates don't recompose every marker.
+
 **Device testing:** use the user's phone over wireless adb, **not the emulator**. The user asked for this, and the emulator is too slow here.
 
 - **adb's default port 5037 is unusable on this machine** because Windows has reserved TCP 5024–5123. Always set `ANDROID_ADB_SERVER_PORT=15037`.

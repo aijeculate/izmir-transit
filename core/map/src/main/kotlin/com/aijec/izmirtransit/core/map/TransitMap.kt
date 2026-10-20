@@ -41,7 +41,10 @@ import com.google.android.gms.maps.model.RoundCap
 import com.google.android.gms.maps.model.StrokeStyle
 import com.google.android.gms.maps.model.StyleSpan
 import com.google.android.gms.maps.model.TextureStyle
+import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.maps.android.compose.ComposeMapColorScheme
+import com.google.maps.android.compose.GoogleMapComposable
+import com.google.maps.android.compose.TileOverlay
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
@@ -114,14 +117,7 @@ fun TransitMap(
     // Vehicles: each poll feeds the motion model, and a ~15 fps loop moves them along the route.
     val motion = remember { BusMotion() }
     val measuredRoutes = remember(routes) { routes.filter { it.shape.size >= 2 }.associate { it.direction to MeasuredPolyline(it.shape) } }
-    var vehicles by remember { mutableStateOf<Map<Int, Pair<LatLng, Direction>>>(emptyMap()) }
     LaunchedEffect(buses, measuredRoutes) { motion.update(buses, measuredRoutes, SystemClock.elapsedRealtime()) }
-    LaunchedEffect(motion) {
-        while (isActive) {
-            vehicles = motion.positionsAt(SystemClock.elapsedRealtime())
-            delay(VEHICLE_FRAME_MILLIS)
-        }
-    }
 
     // Marker artwork.
     val chevron = rememberChevron()
@@ -165,22 +161,22 @@ fun TransitMap(
         onMapClick = { onMapClick() },
         onMapLongClick = { onMapLongClick(it.toModel()) },
     ) {
-        // --- Overview: ~900 polylines, added imperatively in batches so the UI stays responsive.
-        val drawnOverview = remember { mutableListOf<Polyline>() }
-        val busOverview = remember { mutableListOf<Polyline>() }
+        // --- Overview. The ~900 bus routes are drawn into tiles in the background (as polylines
+        // they made every pan stutter); rail and ferry stay polylines, a few dozen of them.
+        val busColor = colors.accent.copy(alpha = if (colors.isDark) 0.28f else 0.3f).toArgb()
+        val busRoutes = remember(overview) { overview.filter { it.mode == TransitMode.BUS }.map { it.points } }
+        val busTiles = remember(busRoutes, busColor) { if (busRoutes.isEmpty()) null else RouteTileProvider(busRoutes, busColor, widthPx = 1.6f) }
         // At street level the faint bus web reads as extra roads; the stop badges take over.
-        val showBusOverview = detail != StopDetail.BADGES
-        MapEffect(showBusOverview) { busOverview.forEach { it.isVisible = showBusOverview } }
+        busTiles?.let { TileOverlay(it, fadeIn = false, visible = detail != StopDetail.BADGES, zIndex = 0f) }
+
+        val drawnOverview = remember { mutableListOf<Polyline>() }
         MapEffect(overview, colors.accent, colors.isDark) { map ->
             drawnOverview.forEach { it.remove() }
             drawnOverview.clear()
-            busOverview.clear()
-            val busColor = colors.accent.copy(alpha = if (colors.isDark) 0.28f else 0.3f).toArgb()
             overview.forEachIndexed { i, route ->
-                if (route.points.size < 2) return@forEachIndexed
+                if (route.points.size < 2 || route.mode == TransitMode.BUS) return@forEachIndexed
                 val points = route.points.map { it.toGoogle() }
                 val options = when (route.mode) {
-                    TransitMode.BUS -> PolylineOptions().color(busColor).width(with(density) { 1.5.dp.toPx() }).zIndex(0f)
                     TransitMode.FERRY -> PolylineOptions()
                         .color(route.color ?: busColor)
                         .width(with(density) { 2.5.dp.toPx() })
@@ -188,12 +184,7 @@ fun TransitMap(
                         .zIndex(1f)
                     else -> PolylineOptions().color(route.color ?: busColor).width(with(density) { 4.dp.toPx() }).zIndex(2f)
                 }
-                val polyline = map.addPolyline(options.addAll(points).jointType(JointType.ROUND))
-                drawnOverview += polyline
-                if (route.mode == TransitMode.BUS) {
-                    polyline.isVisible = detail != StopDetail.BADGES
-                    busOverview += polyline
-                }
+                drawnOverview += map.addPolyline(options.addAll(points).jointType(JointType.ROUND))
                 if (i % 60 == 59) yield()
             }
         }
@@ -272,18 +263,7 @@ fun TransitMap(
         }
 
         // --- Live vehicles.
-        for ((id, position) in vehicles) {
-            key("vehicle", id) {
-                val state = remember { MarkerState(position.first.toGoogle()) }
-                state.position = position.first.toGoogle()
-                Marker(
-                    state = state,
-                    icon = if (position.second == Direction.OUTBOUND) vehicleOutbound else vehicleReturn,
-                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
-                    zIndex = 8f,
-                )
-            }
-        }
+        if (buses.isNotEmpty()) Vehicles(motion, vehicleOutbound, vehicleReturn)
 
         // --- A planned journey.
         plan?.let { journey ->
@@ -370,6 +350,34 @@ fun TransitMap(
                 zoom = camera.position.zoom,
             ),
         )
+    }
+}
+
+/**
+ * Moving vehicles, in their own composable: their positions change ~15 times a second, and
+ * only these markers should recompose for it, not every stop on the map.
+ */
+@Composable
+@GoogleMapComposable
+private fun Vehicles(motion: BusMotion, outbound: BitmapDescriptor, inbound: BitmapDescriptor) {
+    var vehicles by remember { mutableStateOf<Map<Int, Pair<LatLng, Direction>>>(emptyMap()) }
+    LaunchedEffect(motion) {
+        while (isActive) {
+            vehicles = motion.positionsAt(SystemClock.elapsedRealtime())
+            delay(VEHICLE_FRAME_MILLIS)
+        }
+    }
+    for ((id, position) in vehicles) {
+        key(id) {
+            val state = remember { MarkerState(position.first.toGoogle()) }
+            state.position = position.first.toGoogle()
+            Marker(
+                state = state,
+                icon = if (position.second == Direction.OUTBOUND) outbound else inbound,
+                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                zIndex = 8f,
+            )
+        }
     }
 }
 
