@@ -112,9 +112,11 @@ class JourneyPlanner(private val network: TransitNetwork) {
             if (marked.none { it }) break
         }
 
-        // One answer per number of rides, each faster than all with fewer rides.
+        // One answer per number of rides. Another change has to be worth it: arrive at least
+        // MIN_GAIN_PER_CHANGE sooner, or about as soon with much less walking.
         val journeys = ArrayList<Journey>()
         var fastest = NONE
+        var leastWalking = Int.MAX_VALUE
         val direct = distanceMeters(origin, destination)
         if (direct <= MAX_DIRECT_WALK_METERS) {
             val minutes = TransitNetwork.walkMinutes(direct)
@@ -131,11 +133,18 @@ class JourneyPlanner(private val network: TransitNetwork) {
                     bestStop = s
                 }
             }
-            // Another change has to be worth it.
-            val needed = if (journeys.any { it.rides.isNotEmpty() }) fastest - MIN_GAIN_PER_CHANGE else fastest
-            if (bestStop < 0 || bestTime >= needed) continue
-            fastest = bestTime
-            journeys += reconstruct(k, bestStop, bestTime, origin, destination, startMinute, rideArrival, rideFrom, walkArrival, walkFrom)
+            if (bestStop < 0) continue
+            val candidate = reconstruct(k, bestStop, bestTime, origin, destination, startMinute, rideArrival, rideFrom, walkArrival, walkFrom)
+            val firstTransit = journeys.none { it.rides.isNotEmpty() }
+            val worthIt = when {
+                firstTransit -> bestTime < fastest
+                bestTime <= fastest - MIN_GAIN_PER_CHANGE -> true
+                else -> bestTime <= fastest + WALK_TRADE_MINUTES && candidate.walkingMeters <= leastWalking - MIN_WALK_SAVED_METERS
+            }
+            if (!worthIt) continue
+            journeys += candidate
+            fastest = minOf(fastest, bestTime)
+            leastWalking = minOf(leastWalking, candidate.walkingMeters)
         }
         return journeys.sortedWith(compareBy({ it.arrivalMinute }, { it.rides.size }))
     }
@@ -230,8 +239,11 @@ class JourneyPlanner(private val network: TransitNetwork) {
         const val TRANSFER_SLACK = 1
         /** A trip with one more change is only offered if it arrives at least this much sooner. */
         const val MIN_GAIN_PER_CHANGE = 5
+        /** ...or arrives no more than this later while walking at least [MIN_WALK_SAVED_METERS] less. */
+        const val WALK_TRADE_MINUTES = 2
+        const val MIN_WALK_SAVED_METERS = 800
         /** How far people walk to the first stop and from the last one. */
-        const val ACCESS_RADIUS_METERS = 900.0
+        const val ACCESS_RADIUS_METERS = 1_200.0
         const val WIDE_ACCESS_RADIUS_METERS = 2_000.0
         /** Within this, walking all the way is offered too. */
         const val MAX_DIRECT_WALK_METERS = 2_500.0

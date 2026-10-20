@@ -103,7 +103,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 - **Map is Google Maps** (maps-compose 8.3.1, play-services-maps 20.0.0). The user asked for it because OSM is missing roads in İzmir.
   - The map lives in `:core:map` (`TransitMap`, marker artwork in `MapIcons`) and is shared by the line map and the planner.
   - maps-compose 8.4+ needs Kotlin 2.4; 8.3.x is built for Kotlin 2.3, which the 2.2 compiler can read.
-  - **Key:** `MAPS_API_KEY=…` in `local.properties`. It becomes the manifest `com.google.android.geo.API_KEY` and `BuildConfig.MAPS_API_KEY`, and is never committed.
+  - **Keys:** `MAPS_API_KEY=…` and `PLACES_API_KEY=…` in `local.properties`, never committed. The Maps key becomes the manifest `com.google.android.geo.API_KEY`; the Places key becomes `BuildConfig.PLACES_API_KEY` and falls back to the Maps key. Both are set up on the user's Google Cloud project, restricted to the app (debug SHA-1). Place search is restricted to the İzmir province rectangle.
   - **Without a key the map shows nothing at all, not even our overlays.** Enable Maps SDK for Android and Places API (New), and restrict the key to package `com.aijec.izmirtransit` plus the signing SHA-1. The debug SHA-1 is `56:1C:9E:24:1B:14:64:C0:25:E7:D5:28:21:F6:B6:E5:3A:7D:90:C2`.
 - **Look:**
   - Routes have a casing and chevrons stamped along them (direction).
@@ -116,8 +116,9 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
     - Bus times along a route are estimated at 300 m/min from first-stop departures.
     - Rail and ferry use station departures. Hop times are medians of departure-to-next-departure gaps, counting only trains that continue.
     - Trains ending early (by headsign) form their own shorter pattern.
-    - Walking transfers go up to 400 m at 75 m/min with a 1.25 detour factor. Access and egress go up to 900 m (2 km if nothing is closer).
-    - It returns one journey per number of rides, each at least 5 min faster than one with fewer rides, plus walking when under 2.5 km.
+    - Walking transfers go up to 400 m at 75 m/min with a 1.25 detour factor. Access and egress go up to 1.2 km (2 km if nothing is closer).
+    - It returns one journey per number of rides. Each needs to be at least 5 min faster than one with fewer rides, or at most 2 min slower while walking 800 m less. Walking is offered when under 2.5 km.
+    - Limit: only the earliest arrival per stop is kept, so an equally fast trip with less walking can be missed (Gaziemir → Menemen picks a 2.1 km walk). Multi-criteria RAPTOR would fix it.
     - Late at night it adds the first trips of the next service day.
   - **Destinations:** Places API (New) REST autocomplete and details (`PlacesRepository`), signed with `X-Android-Package` and `X-Android-Cert`, with one session token per search. Our stops are always searched as well.
   - **Smoke test:** `./gradlew :tools:importer:planSmoke` plans real trips on the built DB.

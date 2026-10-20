@@ -20,13 +20,15 @@ android {
         applicationId = "com.aijec.izmirtransit"
         versionCode = 1
         versionName = "0.1.0"
-        // Google Maps key from local.properties (MAPS_API_KEY=…), never committed.
+        // Google keys from local.properties (MAPS_API_KEY=…, PLACES_API_KEY=…), never committed.
+        // Places falls back to the Maps key when one key has both APIs.
         val localProperties = Properties().apply {
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
         }
         val mapsKey = localProperties.getProperty("MAPS_API_KEY").orEmpty()
         manifestPlaceholders["mapsApiKey"] = mapsKey
-        buildConfigField("String", "MAPS_API_KEY", "\"$mapsKey\"")
+        val placesKey = localProperties.getProperty("PLACES_API_KEY")?.takeIf { it.isNotBlank() } ?: mapsKey
+        buildConfigField("String", "PLACES_API_KEY", "\"$placesKey\"")
     }
     buildFeatures {
         buildConfig = true

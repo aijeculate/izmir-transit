@@ -192,7 +192,8 @@ fun LineMapScreen(
             contentPadding = if (searchAtBottom) MapPadding(start = 24.dp, top = 60.dp, end = 24.dp, bottom = 400.dp)
             else MapPadding(start = 24.dp, top = 120.dp, end = 24.dp, bottom = 330.dp),
             overview = if (state.lineCode == null) overview else emptyList(),
-            areaStops = state.areaStops,
+            // With a line chosen, only its own stops: others would bury it.
+            areaStops = if (state.lineCode == null) state.areaStops else emptyList(),
             highlightedStop = state.preview?.stop,
             pin = state.pin,
             myLocationEnabled = state.locationEnabled,
@@ -242,6 +243,7 @@ fun LineMapScreen(
                 when {
                     preview != null -> StopPreviewPanel(
                         preview,
+                        onOpenLine = { onClosePreview(); onSelectLine(it) },
                         onOpen = { onClosePreview(); onOpenStop(preview.stop.code) },
                         onPlan = { onPlanTrip(PlanDestination(preview.stop.name, preview.stop.location)) },
                         onClose = onClosePreview,
@@ -321,7 +323,7 @@ private fun layerLabel(layer: MapLayer): String = when (layer) {
 
 /** A tapped stop: what it is and which lines call there, before opening it. */
 @Composable
-private fun StopPreviewPanel(preview: StopPreview, onOpen: () -> Unit, onPlan: () -> Unit, onClose: () -> Unit) {
+private fun StopPreviewPanel(preview: StopPreview, onOpenLine: (String) -> Unit, onOpen: () -> Unit, onPlan: () -> Unit, onClose: () -> Unit) {
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth(), glass = true, padding = PaddingValues(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -338,7 +340,11 @@ private fun StopPreviewPanel(preview: StopPreview, onOpen: () -> Unit, onPlan: (
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 // A busy stop can have dozens of lines; the stop screen lists them all.
-                preview.lines.distinctBy { it.displayCode }.take(MAX_PREVIEW_LINES).forEach { LineBadge(it) }
+                // Ferry routes are all "Vapur"; their names tell them apart.
+                preview.lines.take(MAX_PREVIEW_LINES).forEach { line ->
+                    val open = Modifier.clickable { onOpenLine(line.code) }
+                    if (line.mode == TransitMode.FERRY) LineBadge(line.name, open, color = line.color) else LineBadge(line, open)
+                }
                 if (preview.lines.size > MAX_PREVIEW_LINES) {
                     Text("+${preview.lines.size - MAX_PREVIEW_LINES}", style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
                 }

@@ -47,7 +47,8 @@ class PlacesRepository @Inject constructor(
             AutocompleteRequest(
                 input = query,
                 sessionToken = sessionToken,
-                locationBias = LocationBias(Circle(Point(IZMIR.latitude, IZMIR.longitude), BIAS_RADIUS_METERS)),
+                // Restricted, not just biased: "Forum" should not offer Forum İstanbul.
+                locationRestriction = LocationRestriction(Rectangle(IZMIR_SOUTH_WEST, IZMIR_NORTH_EAST)),
             ),
         )
         val response = call(
@@ -97,13 +98,13 @@ class PlacesRepository @Inject constructor(
     private data class AutocompleteRequest(
         val input: String,
         val sessionToken: String,
-        val locationBias: LocationBias,
+        val locationRestriction: LocationRestriction,
         val languageCode: String = "tr",
         val regionCode: String = "tr",
     )
 
-    @Serializable private data class LocationBias(val circle: Circle)
-    @Serializable private data class Circle(val center: Point, val radius: Double)
+    @Serializable private data class LocationRestriction(val rectangle: Rectangle)
+    @Serializable private data class Rectangle(val low: Point, val high: Point)
     @Serializable private data class Point(val latitude: Double, val longitude: Double)
 
     @Serializable private data class AutocompleteResponse(val suggestions: List<Suggestion> = emptyList())
@@ -119,7 +120,8 @@ class PlacesRepository @Inject constructor(
 
     private companion object {
         const val BASE = "https://places.googleapis.com/v1"
-        val IZMIR = LatLng(38.42, 27.14)
-        const val BIAS_RADIUS_METERS = 50_000.0
+        /** İzmir province, Bergama to Selçuk and Çeşme to Kemalpaşa, with a margin. */
+        val IZMIR_SOUTH_WEST = Point(37.75, 26.15)
+        val IZMIR_NORTH_EAST = Point(39.40, 28.55)
     }
 }

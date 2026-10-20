@@ -167,10 +167,15 @@ fun TransitMap(
     ) {
         // --- Overview: ~900 polylines, added imperatively in batches so the UI stays responsive.
         val drawnOverview = remember { mutableListOf<Polyline>() }
+        val busOverview = remember { mutableListOf<Polyline>() }
+        // At street level the faint bus web reads as extra roads; the stop badges take over.
+        val showBusOverview = detail != StopDetail.BADGES
+        MapEffect(showBusOverview) { busOverview.forEach { it.isVisible = showBusOverview } }
         MapEffect(overview, colors.accent, colors.isDark) { map ->
             drawnOverview.forEach { it.remove() }
             drawnOverview.clear()
-            val busColor = colors.accent.copy(alpha = if (colors.isDark) 0.4f else 0.35f).toArgb()
+            busOverview.clear()
+            val busColor = colors.accent.copy(alpha = if (colors.isDark) 0.28f else 0.3f).toArgb()
             overview.forEachIndexed { i, route ->
                 if (route.points.size < 2) return@forEachIndexed
                 val points = route.points.map { it.toGoogle() }
@@ -183,7 +188,12 @@ fun TransitMap(
                         .zIndex(1f)
                     else -> PolylineOptions().color(route.color ?: busColor).width(with(density) { 4.dp.toPx() }).zIndex(2f)
                 }
-                drawnOverview += map.addPolyline(options.addAll(points).jointType(JointType.ROUND))
+                val polyline = map.addPolyline(options.addAll(points).jointType(JointType.ROUND))
+                drawnOverview += polyline
+                if (route.mode == TransitMode.BUS) {
+                    polyline.isVisible = detail != StopDetail.BADGES
+                    busOverview += polyline
+                }
                 if (i % 60 == 59) yield()
             }
         }

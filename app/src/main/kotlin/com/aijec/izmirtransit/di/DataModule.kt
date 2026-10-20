@@ -68,11 +68,11 @@ object DataModule {
         otherModes = OtherModesDownloader(client, pacer),
     )
 
-    /** The Google key (local.properties MAPS_API_KEY) plus the app identity it is restricted to. */
+    /** The Places key (local.properties PLACES_API_KEY) plus the app identity it is restricted to. */
     @Provides
     @Singleton
     fun googleApiConfig(@ApplicationContext context: Context): GoogleApiConfig =
-        GoogleApiConfig(BuildConfig.MAPS_API_KEY, context.packageName, signingCertificateSha1(context))
+        GoogleApiConfig(BuildConfig.PLACES_API_KEY, context.packageName, signingCertificateSha1(context))
 
     /** SHA-1 of the signing certificate as Google wants it: upper-case hex, no colons. */
     private fun signingCertificateSha1(context: Context): String = runCatching {
