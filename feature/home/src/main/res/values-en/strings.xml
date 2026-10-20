@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home_favourites">Favourites</string>
-    <string name="home_favourites_empty">Add stops and lines you use with the ♥ button; live arrivals for your stops appear here.</string>
-    <string name="home_nearby">Stops near me</string>
+    <string name="home_favourites_empty">Add stops and lines with ♥ to see their live arrivals here.</string>
+    <string name="home_nearby">Near you</string>
     <string name="home_nearby_refresh">Refresh location</string>
     <string name="home_nearby_locating">Finding your location…</string>
     <string name="home_nearby_permission">Allow location to see stops near you. It is only used while the app is open, on your device.</string>
@@ -24,4 +24,8 @@
     </plurals>
     <string name="home_eta_now">Arriving</string>
     <string name="home_eta_minutes">~%1$d min</string>
+    <string name="home_greeting_morning">Good morning</string>
+    <string name="home_greeting_day">Good afternoon</string>
+    <string name="home_greeting_evening">Good evening</string>
+    <string name="home_greeting_night">Good night</string>
 </resources>

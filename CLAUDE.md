@@ -29,6 +29,13 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - Rejected or failed downloads keep the existing data.
   - On an app update the shipped asset is reinstalled, so the data is never older than the build.
 - **Release build:** R8 shrinking and resource shrinking. There's an adaptive bus icon with a monochrome layer for themed icons.
+- **Design ("calm glass", chosen by the user on 20 Oct 2026):** a fixed palette, deliberately not Material You dynamic colour.
+  - Light: a soft blue-grey canvas `#EEF1F5`, white panels with a 22 dp radius, and one blue accent.
+  - Dark: the same structure in deep slate.
+  - Over the map, panels are slightly see-through ("glass").
+  - Type is Inter, bundled as a variable font under `core/ui/res/font` (OFL licence in `core/ui/licenses`), with tabular numbers for times.
+  - Build screens from the `:core:ui` components (`Panel`, `CalmRow`, `LineBadge`, `PillSearchField`, `SegmentedControl`, `ScreenHeader`, `EtaText`, `FloatingTabBar`, `PillButton`, `TextAction`, `CircleIconButton`) rather than stock Material components such as TopAppBar, Card, NavigationBar or TabRow. Stock components are what made it look generic.
+  - The light map style is OpenFreeMap `positron`. The light theme hasn't been checked on the device yet (the user's phone runs dark mode).
 
 | Module | What it holds |
 | --- | --- |

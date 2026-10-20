@@ -3,8 +3,8 @@
 <resources>
     <string name="home_title" translatable="false">İzmir Transit</string>
     <string name="home_favourites">Favoriler</string>
-    <string name="home_favourites_empty">Sık kullandığın durak ve hatları ♥ simgesiyle buraya ekle; durakların canlı varış süreleri burada görünür.</string>
-    <string name="home_nearby">Yakınımdaki duraklar</string>
+    <string name="home_favourites_empty">Durak ve hatları ♥ ile ekle; canlı varışlar burada görünür.</string>
+    <string name="home_nearby">Yakınında</string>
     <string name="home_nearby_refresh">Konumu yenile</string>
     <string name="home_nearby_locating">Konum bulunuyor…</string>
     <string name="home_nearby_permission">Yakınındaki durakları görmek için konum izni ver. Konum yalnızca uygulama açıkken ve cihazında kullanılır.</string>
@@ -26,4 +26,8 @@
     </plurals>
     <string name="home_eta_now">Geliyor</string>
     <string name="home_eta_minutes">~%1$d dk</string>
+    <string name="home_greeting_morning">Günaydın</string>
+    <string name="home_greeting_day">İyi günler</string>
+    <string name="home_greeting_evening">İyi akşamlar</string>
+    <string name="home_greeting_night">İyi geceler</string>
 </resources>

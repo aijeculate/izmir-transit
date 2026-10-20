@@ -45,7 +45,7 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.geometry.LatLng as MapLatLng
 
 // OpenFreeMap: free OpenStreetMap vector tiles, no API key. Attribution comes from the style.
-private const val LIGHT_STYLE = "https://tiles.openfreemap.org/styles/liberty"
+private const val LIGHT_STYLE = "https://tiles.openfreemap.org/styles/positron"
 private const val DARK_STYLE = "https://tiles.openfreemap.org/styles/dark"
 
 private val IZMIR_CENTER = MapLatLng(38.4237, 27.1428)

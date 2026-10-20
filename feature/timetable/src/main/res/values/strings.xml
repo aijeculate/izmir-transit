@@ -15,4 +15,7 @@
         <item quantity="one">%1$d sefer</item>
         <item quantity="other">%1$d sefer</item>
     </plurals>
+    <string name="timetable_next_title">Sıradaki sefer</string>
+    <string name="timetable_now">şimdi</string>
+    <string name="timetable_in_minutes">%1$d dk sonra</string>
 </resources>

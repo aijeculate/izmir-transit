@@ -8,6 +8,11 @@
     <string name="ui_age_minutes">%1$d dk</string>
     <string name="ui_back">Geri</string>
     <string name="ui_announcement">Duyuru</string>
+    <string name="ui_favourite_add">Favorilere ekle</string>
+    <string name="ui_favourite_remove">Favorilerden çıkar</string>
+    <string name="ui_clear">Temizle</string>
+    <string name="ui_eta_now">Geliyor</string>
+    <string name="ui_eta_unit">dk</string>
     <string name="ui_announcement_line">%1$s numaralı hat</string>
     <string name="ui_announcement_until">%1$s tarihine kadar</string>
 </resources>

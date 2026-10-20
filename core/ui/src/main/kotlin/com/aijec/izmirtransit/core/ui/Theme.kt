@@ -1,49 +1,179 @@
 package com.aijec.izmirtransit.core.ui
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aijec.izmirtransit.core.model.Direction
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF0B57D0),
-    secondary = Color(0xFF00696D),
-    tertiary = Color(0xFFB3261E),
+// "Calm glass": a soft blue-grey canvas, white rounded panels floating on it (or on the
+// map), one blue accent. A fixed palette, deliberately not Material You dynamic colour,
+// so the app has its own identity rather than the wallpaper's.
+
+/** Colours Material's scheme has no slot for. Read with [Calm.colors]. */
+@Immutable
+data class CalmColors(
+    val canvas: Color,
+    val panel: Color,
+    /** Panels floating over the map: slightly see-through. */
+    val panelGlass: Color,
+    val hairline: Color,
+    val text: Color,
+    val textSecondary: Color,
+    val accent: Color,
+    val onAccent: Color,
+    val accentSoft: Color,
+    val onAccentSoft: Color,
+    val heart: Color,
+    val warningSoft: Color,
+    val onWarningSoft: Color,
+    val pressed: Color,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFA8C7FA),
-    secondary = Color(0xFF4CD9DE),
-    tertiary = Color(0xFFF2B8B5),
+private val LightCalm = CalmColors(
+    canvas = Color(0xFFEEF1F5),
+    panel = Color(0xFFFFFFFF),
+    panelGlass = Color(0xF2FFFFFF),
+    hairline = Color(0xFFE1E6ED),
+    text = Color(0xFF1C2430),
+    textSecondary = Color(0xFF6B7685),
+    accent = Color(0xFF1F6FD1),
+    onAccent = Color(0xFFFFFFFF),
+    accentSoft = Color(0xFFE6F0FB),
+    onAccentSoft = Color(0xFF0C447C),
+    heart = Color(0xFFD4537E),
+    warningSoft = Color(0xFFFBF1DE),
+    onWarningSoft = Color(0xFF6B4508),
+    pressed = Color(0x0F1C2430),
 )
 
-/** Material 3 with dynamic colour on Android 12+, light and dark. */
+private val DarkCalm = CalmColors(
+    canvas = Color(0xFF0E1217),
+    panel = Color(0xFF192028),
+    panelGlass = Color(0xF2192028),
+    hairline = Color(0xFF26303B),
+    text = Color(0xFFE8EDF3),
+    textSecondary = Color(0xFF97A2B0),
+    accent = Color(0xFF7DB0FF),
+    onAccent = Color(0xFF0B1A2E),
+    accentSoft = Color(0xFF1C2F47),
+    onAccentSoft = Color(0xFFCFE2FF),
+    heart = Color(0xFFF08DAE),
+    warningSoft = Color(0xFF3A2D14),
+    onWarningSoft = Color(0xFFF5D9A3),
+    pressed = Color(0x14E8EDF3),
+)
+
+private val LocalCalmColors = staticCompositionLocalOf { LightCalm }
+
+object Calm {
+    val colors: CalmColors
+        @Composable @ReadOnlyComposable get() = LocalCalmColors.current
+
+    /** Corner radii: panels are soft, controls are pills. */
+    val PanelShape = RoundedCornerShape(22.dp)
+    val CellShape = RoundedCornerShape(14.dp)
+    val PillShape = RoundedCornerShape(50)
+}
+
+/** Inter, bundled (works offline, full Turkish character set), as a variable font. */
+@OptIn(ExperimentalTextApi::class)
+private fun inter(weight: Int) = Font(
+    R.font.inter_variable,
+    weight = FontWeight(weight),
+    variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
+)
+
+val Inter = FontFamily(inter(400), inter(500), inter(600), inter(700))
+
+/** Use for anything that counts or ticks (ETAs, times) so digits don't jiggle. */
+val TabularNumbers = "tnum"
+
+private fun style(size: Int, weight: Int, line: Int, tracking: Double = 0.0) = TextStyle(
+    fontFamily = Inter,
+    fontWeight = FontWeight(weight),
+    fontSize = size.sp,
+    lineHeight = line.sp,
+    letterSpacing = tracking.sp,
+)
+
+private val CalmTypography = Typography(
+    displaySmall = style(32, 600, 38, -0.8),
+    headlineMedium = style(28, 600, 34, -0.6),
+    headlineSmall = style(24, 600, 30, -0.4),
+    titleLarge = style(20, 600, 26, -0.3),
+    titleMedium = style(17, 600, 22, -0.2),
+    titleSmall = style(15, 600, 20, -0.1),
+    bodyLarge = style(16, 400, 22),
+    bodyMedium = style(15, 400, 20),
+    bodySmall = style(13, 400, 18),
+    labelLarge = style(15, 500, 20),
+    labelMedium = style(13, 500, 16),
+    labelSmall = style(12, 500, 16),
+)
+
 @Composable
 fun IzmirTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val colorScheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColors
-        else -> LightColors
+    val calm = if (darkTheme) DarkCalm else LightCalm
+    // Material components (text fields, progress, dialogs) pick up the same palette.
+    val scheme = if (darkTheme) {
+        darkColorScheme(
+            primary = calm.accent, onPrimary = calm.onAccent,
+            primaryContainer = calm.accentSoft, onPrimaryContainer = calm.onAccentSoft,
+            secondaryContainer = calm.accentSoft, onSecondaryContainer = calm.onAccentSoft,
+            tertiary = calm.onWarningSoft, tertiaryContainer = calm.warningSoft, onTertiaryContainer = calm.onWarningSoft,
+            background = calm.canvas, onBackground = calm.text,
+            surface = calm.panel, onSurface = calm.text,
+            surfaceVariant = calm.canvas, onSurfaceVariant = calm.textSecondary,
+            surfaceContainer = calm.panel, surfaceContainerHigh = calm.panel, surfaceContainerLow = calm.panel,
+            outline = calm.hairline, outlineVariant = calm.hairline,
+        )
+    } else {
+        lightColorScheme(
+            primary = calm.accent, onPrimary = calm.onAccent,
+            primaryContainer = calm.accentSoft, onPrimaryContainer = calm.onAccentSoft,
+            secondaryContainer = calm.accentSoft, onSecondaryContainer = calm.onAccentSoft,
+            tertiary = calm.onWarningSoft, tertiaryContainer = calm.warningSoft, onTertiaryContainer = calm.onWarningSoft,
+            background = calm.canvas, onBackground = calm.text,
+            surface = calm.panel, onSurface = calm.text,
+            surfaceVariant = calm.canvas, onSurfaceVariant = calm.textSecondary,
+            surfaceContainer = calm.panel, surfaceContainerHigh = calm.panel, surfaceContainerLow = calm.panel,
+            outline = calm.hairline, outlineVariant = calm.hairline,
+        )
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    CompositionLocalProvider(LocalCalmColors provides calm) {
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = CalmTypography,
+            shapes = Shapes(small = Calm.CellShape, medium = Calm.PanelShape, large = Calm.PanelShape),
+            content = content,
+        )
+    }
 }
 
 /**
- * Fixed direction colours, deliberately not dynamic: they must stay distinguishable from
+ * Fixed direction colours, deliberately not themed: they must stay distinguishable from
  * each other and from the map in both themes.
  */
 object TransitColors {
-    val Outbound = Color(0xFF1A73E8)
+    val Outbound = Color(0xFF1F6FD1)
     val Return = Color(0xFFE8710A)
 
     fun forDirection(direction: Direction): Color = if (direction == Direction.OUTBOUND) Outbound else Return

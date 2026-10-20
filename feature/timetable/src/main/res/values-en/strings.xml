@@ -14,4 +14,7 @@
         <item quantity="one">%1$d departure</item>
         <item quantity="other">%1$d departures</item>
     </plurals>
+    <string name="timetable_next_title">Next departure</string>
+    <string name="timetable_now">now</string>
+    <string name="timetable_in_minutes">in %1$d min</string>
 </resources>

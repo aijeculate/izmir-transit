@@ -6,33 +6,37 @@ import android.provider.Settings
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,10 +44,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -54,10 +60,24 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aijec.izmirtransit.core.location.LocationProvider
 import com.aijec.izmirtransit.core.model.ApproachingBus
 import com.aijec.izmirtransit.core.model.EtaBasis
+import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.LiveStatus
+import com.aijec.izmirtransit.core.ui.Calm
+import com.aijec.izmirtransit.core.ui.CalmRow
+import com.aijec.izmirtransit.core.ui.EtaText
+import com.aijec.izmirtransit.core.ui.FloatingBarClearance
+import com.aijec.izmirtransit.core.ui.Hairline
 import com.aijec.izmirtransit.core.ui.LineBadge
+import com.aijec.izmirtransit.core.ui.Panel
+import com.aijec.izmirtransit.core.ui.PillButton
+import com.aijec.izmirtransit.core.ui.SectionLabel
 import com.aijec.izmirtransit.core.ui.liveErrorText
+import com.aijec.izmirtransit.core.ui.rememberNow
+import com.aijec.izmirtransit.core.ui.tabular
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun HomeRoute(
@@ -82,7 +102,6 @@ fun HomeRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     favourites: FavouritesState,
@@ -92,83 +111,197 @@ fun HomeScreen(
     onOpenStop: (String) -> Unit,
     onOpenLine: (String) -> Unit,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.home_title)) }) }) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item("favourites-header") { SectionHeader(stringResource(R.string.home_favourites)) }
-            if (favourites.loaded && favourites.stops.isEmpty() && favourites.lines.isEmpty()) {
-                item("favourites-empty") { HintCard(stringResource(R.string.home_favourites_empty)) }
-            }
-            items(favourites.stops, key = { "fav-stop-${it.stop.code}" }) { favourite ->
-                FavouriteStopCard(favourite, arrivals[favourite.stop.code], onClick = { onOpenStop(favourite.stop.code) })
-            }
-            items(favourites.lines, key = { "fav-line-${it.code}" }) { line ->
-                Card(Modifier.fillMaxWidth().clickable { onOpenLine(line.code) }) {
-                    Row(Modifier.padding(16.dp).heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LineBadge(line.code)
-                        Spacer(Modifier.width(12.dp))
-                        Text(line.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(Calm.colors.canvas)
+            .windowInsetsPadding(WindowInsets.statusBars),
+        // The list scrolls behind the floating tab bar and the gesture bar.
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 12.dp,
+            bottom = 24.dp + FloatingBarClearance + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+        ),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item("header") { Greeting() }
 
-            item("nearby-header") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SectionHeader(stringResource(R.string.home_nearby), Modifier.weight(1f))
-                    if (nearby is NearbyState.Found || nearby is NearbyState.Unavailable) {
-                        IconButton(onClick = onRefreshNearby) {
-                            Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.home_nearby_refresh))
-                        }
+        item("fav-label") { SectionLabel(stringResource(R.string.home_favourites)) }
+        if (favourites.loaded && favourites.stops.isEmpty() && favourites.lines.isEmpty()) {
+            item("fav-empty") { EmptyFavourites() }
+        }
+        items(favourites.stops, key = { "fav-stop-${it.stop.code}" }) { favourite ->
+            FavouriteStopPanel(favourite, arrivals[favourite.stop.code], onClick = { onOpenStop(favourite.stop.code) })
+        }
+        if (favourites.lines.isNotEmpty()) {
+            item("fav-lines") { FavouriteLinesPanel(favourites.lines, onOpenLine) }
+        }
+
+        item("nearby-label") {
+            SectionLabel(stringResource(R.string.home_nearby)) {
+                if (nearby is NearbyState.Found || nearby is NearbyState.Unavailable) {
+                    Box(
+                        Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable(role = Role.Button, onClick = onRefreshNearby),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.home_nearby_refresh),
+                            tint = Calm.colors.accent,
+                            modifier = Modifier.size(20.dp),
+                        )
                     }
                 }
             }
-            nearbySection(nearby, onRefreshNearby, onOpenStop)
+        }
+        nearbySection(nearby, onRefreshNearby, onOpenStop)
+    }
+}
+
+/** Date line and a time-of-day greeting in İzmir time. */
+@Composable
+private fun Greeting() {
+    val now by rememberNow()
+    val local = LocalDateTime.ofInstant(now, ZoneId.of("Europe/Istanbul"))
+    val locale = LocalConfiguration.current.locales[0]
+    val greeting = stringResource(
+        when (local.hour) {
+            in 5..11 -> R.string.home_greeting_morning
+            in 12..17 -> R.string.home_greeting_day
+            in 18..22 -> R.string.home_greeting_evening
+            else -> R.string.home_greeting_night
+        },
+    )
+    Column(Modifier.padding(horizontal = 4.dp, vertical = 8.dp)) {
+        Text(
+            local.format(DateTimeFormatter.ofPattern("EEEE · HH:mm", locale)),
+            style = MaterialTheme.typography.labelMedium.tabular(),
+            color = Calm.colors.textSecondary,
+        )
+        Text(greeting, style = MaterialTheme.typography.displaySmall, color = Calm.colors.text)
+    }
+}
+
+@Composable
+private fun EmptyFavourites() {
+    Panel(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = Calm.colors.heart, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.home_favourites_empty), style = MaterialTheme.typography.bodyMedium, color = Calm.colors.textSecondary)
         }
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.nearbySection(
-    nearby: NearbyState,
-    onRefresh: () -> Unit,
-    onOpenStop: (String) -> Unit,
-) {
-    when (nearby) {
-        NearbyState.Idle, NearbyState.Locating -> item("nearby-locating") {
-            Column {
-                Text(stringResource(R.string.home_nearby_locating), style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.size(4.dp))
-                LinearProgressIndicator(Modifier.fillMaxWidth())
+@Composable
+private fun FavouriteStopPanel(favourite: FavouriteStop, arrivals: LiveSnapshot<List<ApproachingBus>>?, onClick: () -> Unit) {
+    val snapshot = arrivals ?: LoadingArrivals
+    val colors = Calm.colors
+    Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
+        CalmRow(onClick = onClick, padding = PaddingValues(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 6.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(favourite.stop.name, style = MaterialTheme.typography.titleMedium, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    linesText(favourite.lineCodes, favourite.stop.code),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.textSecondary)
+        }
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val buses = snapshot.data.orEmpty()
+            when {
+                snapshot.status == LiveStatus.LOADING -> {
+                    Spacer(Modifier.height(4.dp))
+                    LinearProgressIndicator(Modifier.fillMaxWidth(), color = colors.accent, trackColor = colors.accentSoft)
+                }
+                snapshot.status == LiveStatus.UNAVAILABLE -> Text(liveErrorText(snapshot.lastError), style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+                buses.isEmpty() -> Text(stringResource(R.string.home_arrivals_none), style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+                else -> buses.take(3).forEach { bus ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LineBadge(bus.lineCode)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            pluralStringResource(R.plurals.home_stops_away, bus.stopsRemaining, bus.stopsRemaining),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.textSecondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        EtaText(bus.eta.minutes, uncertain = bus.eta.basis == EtaBasis.UNRELIABLE)
+                    }
+                }
+            }
+            if (snapshot.status == LiveStatus.STALE) {
+                Text(liveErrorText(snapshot.lastError), style = MaterialTheme.typography.bodySmall, color = colors.onWarningSoft)
             }
         }
-        NearbyState.PermissionNeeded -> item("nearby-permission") { PermissionCard(onGranted = onRefresh) }
+    }
+}
+
+@Composable
+private fun FavouriteLinesPanel(lines: List<Line>, onOpenLine: (String) -> Unit) {
+    Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
+        lines.forEachIndexed { index, line ->
+            if (index > 0) Hairline()
+            CalmRow(onClick = { onOpenLine(line.code) }) {
+                LineBadge(line.code, strong = true)
+                Spacer(Modifier.width(12.dp))
+                Text(line.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Calm.colors.textSecondary)
+            }
+        }
+    }
+}
+
+private fun LazyListScope.nearbySection(nearby: NearbyState, onRefresh: () -> Unit, onOpenStop: (String) -> Unit) {
+    when (nearby) {
+        NearbyState.Idle, NearbyState.Locating -> item("nearby-locating") {
+            Panel(Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.home_nearby_locating), style = MaterialTheme.typography.bodyMedium, color = Calm.colors.textSecondary)
+                Spacer(Modifier.height(10.dp))
+                LinearProgressIndicator(Modifier.fillMaxWidth(), color = Calm.colors.accent, trackColor = Calm.colors.accentSoft)
+            }
+        }
+        NearbyState.PermissionNeeded -> item("nearby-permission") { PermissionPanel(onGranted = onRefresh) }
         NearbyState.LocationOff -> item("nearby-off") {
-            HintCard(stringResource(R.string.home_nearby_location_off), action = stringResource(R.string.home_nearby_retry), onAction = onRefresh)
+            MessagePanel(stringResource(R.string.home_nearby_location_off), stringResource(R.string.home_nearby_retry), onRefresh)
         }
         NearbyState.Unavailable -> item("nearby-unavailable") {
-            HintCard(stringResource(R.string.home_nearby_unavailable), action = stringResource(R.string.home_nearby_retry), onAction = onRefresh)
+            MessagePanel(stringResource(R.string.home_nearby_unavailable), stringResource(R.string.home_nearby_retry), onRefresh)
         }
         is NearbyState.Found ->
             if (nearby.stops.isEmpty()) {
-                item("nearby-none") { HintCard(stringResource(R.string.home_nearby_none)) }
+                item("nearby-none") { MessagePanel(stringResource(R.string.home_nearby_none)) }
             } else {
-                items(nearby.stops, key = { "near-${it.stop.code}" }) { item ->
-                    Card(Modifier.fillMaxWidth().clickable { onOpenStop(item.stop.code) }) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(item.stop.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                item("nearby-list") {
+                    Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
+                        nearby.stops.forEachIndexed { index, item ->
+                            if (index > 0) Hairline()
+                            CalmRow(onClick = { onOpenStop(item.stop.code) }) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(item.stop.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        linesText(item.lineCodes, item.stop.code),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Calm.colors.textSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Spacer(Modifier.width(12.dp))
                                 Text(
-                                    linesText(item.lineCodes, item.stop.code),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                                    stringResource(R.string.home_distance_m, item.distanceMeters),
+                                    style = MaterialTheme.typography.labelMedium.tabular(),
+                                    color = Calm.colors.textSecondary,
                                 )
                             }
-                            Spacer(Modifier.width(12.dp))
-                            Text(stringResource(R.string.home_distance_m, item.distanceMeters), style = MaterialTheme.typography.titleSmall)
                         }
                     }
                 }
@@ -181,55 +314,12 @@ private fun linesText(lineCodes: List<String>, stopCode: String): String =
     if (lineCodes.isEmpty()) stringResource(R.string.home_stop_code, stopCode)
     else stringResource(R.string.home_stop_code_lines, stopCode, lineCodes.joinToString(", "))
 
-@Composable
-private fun FavouriteStopCard(favourite: FavouriteStop, arrivals: LiveSnapshot<List<ApproachingBus>>?, onClick: () -> Unit) {
-    val snapshot = arrivals ?: LoadingArrivals
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(favourite.stop.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                linesText(favourite.lineCodes, favourite.stop.code),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val buses = snapshot.data.orEmpty()
-            when {
-                snapshot.status == LiveStatus.LOADING -> Text(stringResource(R.string.home_arrivals_loading), style = MaterialTheme.typography.bodyMedium)
-                snapshot.status == LiveStatus.UNAVAILABLE -> Text(liveErrorText(snapshot.lastError), color = MaterialTheme.colorScheme.error)
-                buses.isEmpty() -> Text(stringResource(R.string.home_arrivals_none), style = MaterialTheme.typography.bodyMedium)
-                else -> buses.take(3).forEach { bus ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        LineBadge(bus.lineCode)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            pluralStringResource(R.plurals.home_stops_away, bus.stopsRemaining, bus.stopsRemaining),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            if (bus.eta.minutes <= 0) stringResource(R.string.home_eta_now) else stringResource(R.string.home_eta_minutes, bus.eta.minutes),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (bus.eta.basis == EtaBasis.UNRELIABLE) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            }
-            if (snapshot.status == LiveStatus.STALE) {
-                Text(liveErrorText(snapshot.lastError), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
-            }
-        }
-    }
-}
-
 /**
  * Asks for location only when the user taps the button. If Android stops showing the
  * dialog (denied twice), the button opens the app's settings instead.
  */
 @Composable
-private fun PermissionCard(onGranted: () -> Unit) {
+private fun PermissionPanel(onGranted: () -> Unit) {
     val activity = LocalActivity.current
     val context = LocalContext.current
     var permanentlyDenied by rememberSaveable { mutableStateOf(false) }
@@ -240,7 +330,7 @@ private fun PermissionCard(onGranted: () -> Unit) {
             permanentlyDenied = activity != null && LocationProvider.PERMISSIONS.none { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) }
         }
     }
-    HintCard(
+    MessagePanel(
         text = stringResource(if (permanentlyDenied) R.string.home_nearby_permission_settings else R.string.home_nearby_permission),
         action = stringResource(if (permanentlyDenied) R.string.home_nearby_open_settings else R.string.home_nearby_allow),
         onAction = {
@@ -257,24 +347,12 @@ private fun PermissionCard(onGranted: () -> Unit) {
 }
 
 @Composable
-private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(top = 16.dp, bottom = 4.dp),
-    )
-}
-
-@Composable
-private fun HintCard(text: String, action: String? = null, onAction: () -> Unit = {}) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text, style = MaterialTheme.typography.bodyMedium)
-            if (action != null) {
-                FilledTonalButton(onClick = onAction) { Text(action) }
-            }
+private fun MessagePanel(text: String, action: String? = null, onAction: () -> Unit = {}) {
+    Panel(Modifier.fillMaxWidth()) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = Calm.colors.textSecondary)
+        if (action != null) {
+            Spacer(Modifier.height(14.dp))
+            PillButton(action, onAction)
         }
     }
 }
-
