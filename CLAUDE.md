@@ -98,6 +98,31 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
     - The widget uses the first favourite *bus* stop only.
     - The weekly refresh scrapes İZBAN too; if the site fails, the existing İZBAN data is kept (the 2023 GTFS times are never used again).
 
+**Added 21 Oct 2026 (after real-world use):**
+
+- **Map is Google Maps** (maps-compose 8.3.1, play-services-maps 20.0.0). The user asked for it because OSM is missing roads in İzmir.
+  - The map lives in `:core:map` (`TransitMap`, marker artwork in `MapIcons`) and is shared by the line map and the planner.
+  - maps-compose 8.4+ needs Kotlin 2.4; 8.3.x is built for Kotlin 2.3, which the 2.2 compiler can read.
+  - **Key:** `MAPS_API_KEY=…` in `local.properties`. It becomes the manifest `com.google.android.geo.API_KEY` and `BuildConfig.MAPS_API_KEY`, and is never committed.
+  - **Without a key the map shows nothing at all, not even our overlays.** Enable Maps SDK for Android and Places API (New), and restrict the key to package `com.aijec.izmirtransit` plus the signing SHA-1. The debug SHA-1 is `56:1C:9E:24:1B:14:64:C0:25:E7:D5:28:21:F6:B6:E5:3A:7D:90:C2`.
+- **Look:**
+  - Routes have a casing and chevrons stamped along them (direction).
+  - Stops are rounded mode-pictogram badges (rings when zoomed out), and buses are pictogram discs.
+  - Rail and ferry use the colours from `TransitColors.forMode`.
+- **Stops in view:** at zoom ≥ 15 every stop in the viewport is drawn (`StopRepository.inArea`, max 300). Tapping a stop opens a preview card with lines, Open and Directions here. Long-press drops a pin.
+- **Layers button:** bus lines, metro, tram, İZBAN, ferry and stops, saved in DataStore as the hidden set (`MapLayer`, `SettingsRepository.setMapLayer`).
+- **Trip planner** (`:feature:planner`, engine in `core/data/routing`):
+  - **Engine:** RAPTOR over a per-service-day `TransitNetwork`, built from the DB by `NetworkRepository` (about 0.6 s on desktop, cached). A plan takes 5–30 ms.
+    - Bus times along a route are estimated at 300 m/min from first-stop departures.
+    - Rail and ferry use station departures. Hop times are medians of departure-to-next-departure gaps, counting only trains that continue.
+    - Trains ending early (by headsign) form their own shorter pattern.
+    - Walking transfers go up to 400 m at 75 m/min with a 1.25 detour factor. Access and egress go up to 900 m (2 km if nothing is closer).
+    - It returns one journey per number of rides, each at least 5 min faster than one with fewer rides, plus walking when under 2.5 km.
+    - Late at night it adds the first trips of the next service day.
+  - **Destinations:** Places API (New) REST autocomplete and details (`PlacesRepository`), signed with `X-Android-Package` and `X-Android-Cert`, with one session token per search. Our stops are always searched as well.
+  - **Smoke test:** `./gradlew :tools:importer:planSmoke` plans real trips on the built DB.
+- The timetable crash (duplicate lazy-grid keys when two departures share a minute) is fixed. Rail and ferry timetables have a "departing from" station picker.
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
@@ -123,11 +148,12 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 ```bash
-./gradlew test                                  # 92 JVM tests, fixtures are real API responses (night_* and day_*)
+./gradlew test                                  # 96 JVM tests, fixtures are real API responses (night_* and day_*)
 ./gradlew lintDebug                             # 0 errors; known warnings: LogNotTimber, ObsoleteSdkInt (aapt2 rejects plain mipmap-anydpi)
 ./gradlew :tools:importer:run                   # research/raw (+ rail/*.zip, ferry/*.json) → build/izmir-transit.db (~13 MB, ~10 s)
 ./gradlew :tools:importer:refreshSmoke          # real download + import + validation
 ./gradlew :tools:importer:downloadIzban         # current İZBAN timetable → research/raw/izban-web (~4 min)
+./gradlew :tools:importer:planSmoke             # plans a few real trips with the trip planner
 ./gradlew :app:assembleDebug :app:assembleRelease
 ```
 
