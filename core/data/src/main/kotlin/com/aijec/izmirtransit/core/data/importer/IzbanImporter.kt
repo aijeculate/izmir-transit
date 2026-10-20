@@ -199,7 +199,7 @@ object IzbanImporter {
         val departures = trips
             .groupBy({ it.first to it.second }, { it.third.first().minute })
             .flatMap { (key, minutes) ->
-                minutes.sorted().mapIndexed { i, minute ->
+                minutes.distinct().sorted().mapIndexed { i, minute ->
                     DepartureEntity(MODE, lineCode, key.first.ordinal, key.second.datasetCode, i, minute, wheelchairAccessible = true, bikeRack = false, electric = true)
                 }
             }

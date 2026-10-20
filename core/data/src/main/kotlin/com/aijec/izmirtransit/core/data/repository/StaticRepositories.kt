@@ -153,6 +153,17 @@ class TimetableRepository @Inject constructor(private val database: IzmirDatabas
     suspend fun departures(lineCode: String, serviceDay: ServiceDay, direction: Direction): List<Departure> =
         dao.departures(lineCode, serviceDay.ordinal, direction.datasetCode).map { it.toModel() }
 
+    /**
+     * A rail or ferry line's timetable at one station: what the station board shows, for the
+     * whole day. Rail trips start at different stations, so "from the first stop" alone
+     * would miss trains (an İZBAN train can start at Menemen).
+     */
+    suspend fun departuresAt(stopCode: String, lineCode: String, serviceDay: ServiceDay, direction: Direction): List<Departure> =
+        database.stopDao().lineDeparturesAt(stopCode, lineCode, direction.datasetCode, serviceDay.ordinal)
+            .map { it.minutesAfterMidnight }
+            .distinct()
+            .map { Departure(lineCode, direction, serviceDay, it, wheelchairAccessible = false, bikeRack = false, electric = false) }
+
     suspend fun activeAnnouncements(lineCode: String, now: LocalDateTime): List<Announcement> =
         dao.announcements(lineCode).map { it.toModel() }.filter { it.isActiveAt(now) }
 

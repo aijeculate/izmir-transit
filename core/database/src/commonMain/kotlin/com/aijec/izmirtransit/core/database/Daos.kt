@@ -168,6 +168,16 @@ interface StopDao {
         """,
     )
     suspend fun scheduledDepartures(stopCode: String, serviceDay: Int, fromMinute: Int, limit: Int): List<StopDepartureEntity>
+
+    /** One line's whole-day timetable at one station, in one direction. */
+    @Query(
+        """
+        SELECT * FROM stop_departures
+        WHERE stop_code = :stopCode AND line_code = :lineCode AND direction = :direction AND service_day = :serviceDay
+        ORDER BY minutes_after_midnight
+        """,
+    )
+    suspend fun lineDeparturesAt(stopCode: String, lineCode: String, direction: Int, serviceDay: Int): List<StopDepartureEntity>
 }
 
 @Dao

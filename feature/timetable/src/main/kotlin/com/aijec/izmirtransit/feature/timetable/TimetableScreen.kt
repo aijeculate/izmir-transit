@@ -23,7 +23,19 @@ import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.aijec.izmirtransit.core.model.Stop
+import com.aijec.izmirtransit.core.ui.CalmRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +67,7 @@ import com.aijec.izmirtransit.core.ui.tabular
 @Composable
 fun TimetableRoute(onBack: () -> Unit, viewModel: TimetableViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    TimetableScreen(state, onBack, viewModel::selectDay, viewModel::selectDirection)
+    TimetableScreen(state, onBack, viewModel::selectDay, viewModel::selectDirection, viewModel::selectStation)
 }
 
 @Composable
@@ -64,10 +76,12 @@ fun TimetableScreen(
     onBack: () -> Unit,
     onSelectDay: (ServiceDay) -> Unit,
     onSelectDirection: (Direction) -> Unit,
+    onSelectStation: (String) -> Unit = {},
 ) {
     val gridState = rememberLazyGridState()
-    // Header items (header, announcements, controls, summary) come before the times.
-    val headerCount = 1 + state.announcements.size + 3
+    var choosingStation by remember { mutableStateOf(false) }
+    // Header items (header, announcements, controls, station, summary) come before the times.
+    val headerCount = 1 + state.announcements.size + 3 + (if (state.station != null) 1 else 0)
     val nextIndex = (state.next as? NextDeparture.At)?.index
     LaunchedEffect(state.serviceDay, state.direction, nextIndex != null) {
         if (nextIndex != null) gridState.animateScrollToItem(headerCount + (nextIndex - 4).coerceAtLeast(0))
@@ -118,8 +132,23 @@ fun TimetableScreen(
             )
         }
         fullWidth("directions") { DirectionPicker(state, onSelectDirection) }
+        state.station?.let { station ->
+            fullWidth("station") {
+                Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
+                    CalmRow(onClick = { choosingStation = true }) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.timetable_from_station), style = MaterialTheme.typography.labelMedium, color = Calm.colors.textSecondary)
+                            Text(station.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.timetable_change_station), tint = Calm.colors.textSecondary)
+                    }
+                }
+            }
+        }
         fullWidth("summary") { Summary(state) }
-        itemsIndexed(state.departures, key = { _, d -> "${d.direction}-${d.minutesAfterMidnight}-${d.wheelchairAccessible}" }) { index, departure ->
+        // Keyed by position: two departures can share a minute (İZBAN, some bus lines), and
+        // duplicate keys crash the grid.
+        itemsIndexed(state.departures, key = { index, _ -> "time-$index" }) { index, departure ->
             val next = state.next
             val status = when {
                 next == null -> TimeStatus.Normal
@@ -129,6 +158,37 @@ fun TimetableScreen(
                 else -> TimeStatus.Normal
             }
             TimeCell(TimetableRepository.formatClock(departure.minutesAfterMidnight), status)
+        }
+    }
+    if (choosingStation) {
+        StationSheet(state.stations, state.station, onDismiss = { choosingStation = false }) { code ->
+            choosingStation = false
+            onSelectStation(code)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StationSheet(stations: List<Stop>, selected: Stop?, onDismiss: () -> Unit, onChoose: (String) -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Calm.colors.panel) {
+        Text(
+            stringResource(R.string.timetable_from_station),
+            style = MaterialTheme.typography.titleMedium,
+            color = Calm.colors.text,
+            modifier = Modifier.padding(start = 20.dp, bottom = 8.dp),
+        )
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            items(stations, key = { it.code }) { station ->
+                CalmRow(onClick = { onChoose(station.code) }, padding = PaddingValues(horizontal = 20.dp, vertical = 14.dp)) {
+                    Text(
+                        station.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (station.code == selected?.code) Calm.colors.accent else Calm.colors.text,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
     }
 }

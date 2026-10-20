@@ -17,4 +17,6 @@
     <string name="timetable_next_title">Next departure</string>
     <string name="timetable_now">now</string>
     <string name="timetable_in_minutes">in %1$d min</string>
+    <string name="timetable_from_station">Departing from</string>
+    <string name="timetable_change_station">Change station</string>
 </resources>

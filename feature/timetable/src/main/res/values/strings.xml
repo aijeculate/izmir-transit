@@ -18,4 +18,6 @@
     <string name="timetable_next_title">Sıradaki sefer</string>
     <string name="timetable_now">şimdi</string>
     <string name="timetable_in_minutes">%1$d dk sonra</string>
+    <string name="timetable_from_station">Kalkış istasyonu</string>
+    <string name="timetable_change_station">İstasyonu değiştir</string>
 </resources>
