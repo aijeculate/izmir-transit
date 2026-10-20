@@ -3,6 +3,8 @@ package com.aijec.izmirtransit.feature.stop
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aijec.izmirtransit.core.data.alerts.AlertRequest
+import com.aijec.izmirtransit.core.data.alerts.ArrivalAlerts
 import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
 import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
 import com.aijec.izmirtransit.core.data.repository.StopRepository
@@ -41,6 +43,7 @@ class StopViewModel @Inject constructor(
     private val favourites: FavouritesRepository,
     private val timetable: TimetableRepository,
     private val clock: Clock,
+    private val alerts: ArrivalAlerts,
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val stopCode: String = checkNotNull(savedState[STOP_CODE_ARG]) { "stopCode argument missing" }
@@ -58,6 +61,23 @@ class StopViewModel @Inject constructor(
     fun toggleFavourite() {
         viewModelScope.launch { favourites.setStop(stopCode, !isFavourite.value) }
     }
+
+    /** The arrival alert currently running, if any (one at a time, app-wide). */
+    val activeAlert: StateFlow<AlertRequest?> = alerts.active
+
+    fun startAlert(bus: ApproachingBus, alertAtStops: Int) {
+        alerts.start(
+            AlertRequest(
+                busId = bus.busId,
+                lineCode = bus.lineCode,
+                stopCode = stopCode,
+                stopName = _state.value.stop?.name ?: stopCode,
+                alertAtStops = alertAtStops,
+            ),
+        )
+    }
+
+    fun stopAlert() = alerts.stop()
 
     init {
         viewModelScope.launch {

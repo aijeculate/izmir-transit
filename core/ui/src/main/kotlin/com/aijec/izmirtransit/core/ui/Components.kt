@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aijec.izmirtransit.core.model.Announcement
+import com.aijec.izmirtransit.core.model.ConnectionType
 import com.aijec.izmirtransit.core.model.LiveError
 import kotlinx.coroutines.delay
 import java.time.Duration
@@ -342,6 +343,38 @@ fun AnnouncementCard(announcement: Announcement, showLine: Boolean, modifier: Mo
                     stringResource(R.string.ui_announcement_until, end.format(DateTimeFormatter.ofPattern("d MMMM HH:mm", LocalConfiguration.current.locales[0]))),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onWarningSoft.copy(alpha = 0.8f),
+                )
+            }
+        }
+    }
+}
+
+/** "Metro", "İZBAN", … as quiet outlined pills. */
+@Composable
+fun ConnectionChips(types: List<ConnectionType>, modifier: Modifier = Modifier) {
+    if (types.isEmpty()) return
+    val colors = Calm.colors
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.ui_connects_to), style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
+        types.forEach { type ->
+            Box(
+                Modifier
+                    .clip(Calm.PillShape)
+                    .border(1.dp, colors.hairline, Calm.PillShape)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    stringResource(
+                        when (type) {
+                            ConnectionType.METRO -> R.string.ui_connection_metro
+                            ConnectionType.IZBAN -> R.string.ui_connection_izban
+                            ConnectionType.FERRY -> R.string.ui_connection_ferry
+                            ConnectionType.AIRPORT -> R.string.ui_connection_airport
+                            ConnectionType.BUS_TERMINAL -> R.string.ui_connection_terminal
+                        },
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.text,
                 )
             }
         }

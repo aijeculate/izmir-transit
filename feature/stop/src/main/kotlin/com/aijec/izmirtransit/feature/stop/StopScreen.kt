@@ -1,5 +1,11 @@
 package com.aijec.izmirtransit.feature.stop
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,19 +26,29 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aijec.izmirtransit.core.model.ApproachingBus
@@ -44,6 +60,7 @@ import com.aijec.izmirtransit.core.model.LiveStatus
 import com.aijec.izmirtransit.core.ui.AnnouncementCard
 import com.aijec.izmirtransit.core.ui.Calm
 import com.aijec.izmirtransit.core.ui.CalmRow
+import com.aijec.izmirtransit.core.ui.CircleIconButton
 import com.aijec.izmirtransit.core.ui.Dot
 import com.aijec.izmirtransit.core.ui.EtaText
 import com.aijec.izmirtransit.core.ui.FavouriteButton
@@ -62,7 +79,48 @@ fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopV
     val state by viewModel.state.collectAsStateWithLifecycle()
     val arrivals by viewModel.arrivals.collectAsStateWithLifecycle()
     val isFavourite by viewModel.isFavourite.collectAsStateWithLifecycle()
-    StopScreen(state, arrivals, isFavourite, viewModel::toggleFavourite, onBack, onOpenLine)
+    val activeAlert by viewModel.activeAlert.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Choosing a bell opens the threshold sheet; on Android 13+ notifications need permission first.
+    var choosing by remember { mutableStateOf<ApproachingBus?>(null) }
+    var pending by remember { mutableStateOf<Pair<ApproachingBus, Int>?>(null) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val request = pending
+        pending = null
+        if (granted && request != null) {
+            viewModel.startAlert(request.first, request.second)
+        } else if (!granted) {
+            Toast.makeText(context, R.string.stop_alert_permission, Toast.LENGTH_LONG).show()
+        }
+    }
+    fun start(bus: ApproachingBus, atStops: Int) {
+        val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        if (needsPermission) {
+            pending = bus to atStops
+            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.startAlert(bus, atStops)
+        }
+    }
+
+    StopScreen(
+        state = state,
+        arrivals = arrivals,
+        isFavourite = isFavourite,
+        onToggleFavourite = viewModel::toggleFavourite,
+        onBack = onBack,
+        onOpenLine = onOpenLine,
+        alertBusId = activeAlert?.takeIf { it.stopCode == state.stopCode }?.busId,
+        onBell = { bus -> if (activeAlert?.busId == bus.busId) viewModel.stopAlert() else choosing = bus },
+    )
+    choosing?.let { bus ->
+        AlertSheet(bus, onDismiss = { choosing = null }, onChoose = { atStops ->
+            choosing = null
+            start(bus, atStops)
+        })
+    }
 }
 
 @Composable
@@ -73,6 +131,8 @@ fun StopScreen(
     onToggleFavourite: () -> Unit,
     onBack: () -> Unit,
     onOpenLine: (String) -> Unit,
+    alertBusId: Int? = null,
+    onBell: (ApproachingBus) -> Unit = {},
 ) {
     val linesByCode = state.lines.associateBy { it.code }
     LazyColumn(
@@ -99,7 +159,7 @@ fun StopScreen(
         item("arrivals-label") {
             SectionLabel(stringResource(R.string.stop_arrivals_title), Modifier.padding(horizontal = 16.dp))
         }
-        item("arrivals") { ArrivalsPanel(arrivals, linesByCode, onOpenLine) }
+        item("arrivals") { ArrivalsPanel(arrivals, linesByCode, onOpenLine, alertBusId, onBell) }
         if (!arrivals.data.isNullOrEmpty()) {
             item("note") {
                 Text(
@@ -127,7 +187,13 @@ private fun ServingLines(lines: List<Line>, onOpenLine: (String) -> Unit) {
 }
 
 @Composable
-private fun ArrivalsPanel(arrivals: LiveSnapshot<List<ApproachingBus>>, linesByCode: Map<String, Line>, onOpenLine: (String) -> Unit) {
+private fun ArrivalsPanel(
+    arrivals: LiveSnapshot<List<ApproachingBus>>,
+    linesByCode: Map<String, Line>,
+    onOpenLine: (String) -> Unit,
+    alertBusId: Int?,
+    onBell: (ApproachingBus) -> Unit,
+) {
     val now by rememberNow()
     val age = arrivals.lastUpdated?.let { formatAge(it, now) }.orEmpty()
     val colors = Calm.colors
@@ -156,13 +222,13 @@ private fun ArrivalsPanel(arrivals: LiveSnapshot<List<ApproachingBus>>, linesByC
         }
         buses.forEach { bus ->
             Hairline()
-            ArrivalRow(bus, linesByCode[bus.lineCode], onClick = { onOpenLine(bus.lineCode) })
+            ArrivalRow(bus, linesByCode[bus.lineCode], onClick = { onOpenLine(bus.lineCode) }, alerting = bus.busId == alertBusId, onBell = { onBell(bus) })
         }
     }
 }
 
 @Composable
-private fun ArrivalRow(bus: ApproachingBus, line: Line?, onClick: () -> Unit) {
+private fun ArrivalRow(bus: ApproachingBus, line: Line?, onClick: () -> Unit, alerting: Boolean, onBell: () -> Unit) {
     val colors = Calm.colors
     val towards = when {
         line == null -> bus.lineName
@@ -194,7 +260,18 @@ private fun ArrivalRow(bus: ApproachingBus, line: Line?, onClick: () -> Unit) {
                 color = colors.textSecondary,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        // Too close to warn about: the bus is already at or next to the stop.
+        if (bus.stopsRemaining > 1 || alerting) {
+            CircleIconButton(
+                if (alerting) Icons.Filled.Notifications else Icons.Outlined.Notifications,
+                contentDescription = stringResource(if (alerting) R.string.stop_alert_cancel else R.string.stop_alert_set),
+                onClick = onBell,
+                tint = if (alerting) colors.accent else colors.textSecondary,
+                plain = true,
+            )
+        } else {
+            Spacer(Modifier.width(12.dp))
+        }
         EtaText(
             bus.eta.minutes,
             uncertain = unreliable,
@@ -207,4 +284,44 @@ private fun ArrivalRow(bus: ApproachingBus, line: Line?, onClick: () -> Unit) {
 private fun features(bus: ApproachingBus): String = buildString {
     if (bus.wheelchairAccessible) append(" · ").append(stringResource(R.string.stop_wheelchair))
     if (bus.bikeRack) append(" · ").append(stringResource(R.string.stop_bike))
+}
+
+/** "Alert me N stops before": only thresholds the bus hasn't already passed. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AlertSheet(bus: ApproachingBus, onDismiss: () -> Unit, onChoose: (Int) -> Unit) {
+    val colors = Calm.colors
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = colors.panel) {
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LineBadge(bus.lineCode, strong = true)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.stop_alert_title), style = MaterialTheme.typography.titleMedium, color = colors.text)
+            }
+            Text(
+                pluralStringResource(R.plurals.stop_stops_away, bus.stopsRemaining, bus.stopsRemaining),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textSecondary,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            )
+            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
+                listOf(1, 2, 3, 5).filter { it < bus.stopsRemaining }.forEachIndexed { index, stops ->
+                    if (index > 0) Hairline()
+                    CalmRow(onClick = { onChoose(stops) }) {
+                        Text(
+                            pluralStringResource(R.plurals.stop_alert_option, stops, stops),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colors.text,
+                        )
+                    }
+                }
+            }
+            Text(
+                stringResource(R.string.stop_alert_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+                modifier = Modifier.padding(top = 12.dp, start = 4.dp),
+            )
+        }
+    }
 }

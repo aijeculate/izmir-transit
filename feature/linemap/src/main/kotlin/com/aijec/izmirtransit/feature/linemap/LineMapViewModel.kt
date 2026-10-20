@@ -11,6 +11,7 @@ import com.aijec.izmirtransit.core.data.repository.TimetableRepository
 import com.aijec.izmirtransit.core.location.LocationProvider
 import com.aijec.izmirtransit.core.location.LocationResult
 import com.aijec.izmirtransit.core.model.Announcement
+import com.aijec.izmirtransit.core.model.ConnectionType
 import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.LineRoute
@@ -43,6 +44,7 @@ data class LineMapUiState(
     val line: Line? = null,
     val routes: List<LineRoute> = emptyList(),
     val announcements: List<Announcement> = emptyList(),
+    val connections: List<ConnectionType> = emptyList(),
     val loadingRoute: Boolean = true,
     val query: String = "",
     val lineResults: List<Line> = emptyList(),
@@ -102,7 +104,10 @@ class LineMapViewModel @Inject constructor(
                 val line = lines.line(code)
                 val routes = lines.routes(code)
                 val announcements = timetable.activeAnnouncements(code, TimetableRepository.localNow(clock))
-                _state.update { it.copy(line = line, routes = routes, announcements = announcements, loadingRoute = false) }
+                val connections = lines.connections(code)
+                _state.update {
+                    it.copy(line = line, routes = routes, announcements = announcements, connections = connections, loadingRoute = false)
+                }
             }
         }
         viewModelScope.launch {

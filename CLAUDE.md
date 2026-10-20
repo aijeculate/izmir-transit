@@ -28,6 +28,23 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - It downloads the CSVs and GTFS, imports them, checks the minimum counts, then swaps the data in one transaction.
   - Rejected or failed downloads keep the existing data.
   - On an app update the shipped asset is reinstalled, so the data is never older than the build.
+- **Connection hints:** the line panel shows chips such as "Connects to: Metro · Ferry", from `connections`. `ConnectionType` codes: 1 metro, 2 İZBAN, 3 ferry, 4 airport, 5 bus terminal. 4 and 5 are confirmed by their lines; 1–3 follow the dataset's documented order, and 3 matches the İskele lines.
+- **Smooth bus motion:** `BusMotion` (core:data, unit-tested) tracks each bus as a distance along its route.
+  - Speed comes from successive real updates, and the bus is extrapolated between them, capped at 45 s.
+  - A correction glides over 1.5 s instead of snapping. Off-route buses are drawn as reported.
+  - `TransitMap` redraws the bus layer at about 15 fps. Positions really change only about every 30 s, so this matters.
+- **Arrival alerts ("notify me N stops away"):**
+  - A bell on each arrival on the stop screen opens a sheet with 1, 2, 3 or 5 stops before.
+  - `ArrivalAlertService` is a foreground service of type `specialUse`. That type must be declared in Play Console with the same justification text as in the manifest.
+  - It polls `hattinyaklasanotobusleri` every 20 s through the shared pacer, with an ongoing notification and a Stop action.
+  - It alerts via `ArrivalWatch` (core:data, unit-tested) and ends when the bus leaves the feed or after 60 minutes.
+  - It needs `POST_NOTIFICATIONS`, which is requested on first use.
+  - Tapping a notification opens the stop (`MainActivity.EXTRA_OPEN_STOP`).
+- **Home-screen widget** (`FavouriteStopWidget`, Glance):
+  - Shows the first favourite stop and its next three arrivals, in the calm palette, light and dark.
+  - Has a refresh button and refreshes every 15 minutes via WorkManager, only while a widget exists.
+  - Tapping it opens the stop.
+- **Quiet rate limits:** `pollLive` ignores up to 2 consecutive 429s while data is fresh, because the daytime capture showed occasional 429s even at 1 req/s.
 - **Release build:** R8 shrinking and resource shrinking. There's an adaptive bus icon with a monochrome layer for themed icons.
 - **Design ("calm glass", chosen by the user on 20 Oct 2026):** a fixed palette, deliberately not Material You dynamic colour.
   - Light: a soft blue-grey canvas `#EEF1F5`, white panels with a 22 dp radius, and one blue accent.
@@ -62,7 +79,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 ```bash
-./gradlew test                                  # 72 JVM tests, fixtures are real API responses (night_* and day_*)
+./gradlew test                                  # 84 JVM tests, fixtures are real API responses (night_* and day_*)
 ./gradlew lintDebug                             # 0 errors; known warnings: LogNotTimber, ObsoleteSdkInt (aapt2 rejects plain mipmap-anydpi)
 ./gradlew :tools:importer:run                   # research/raw → build/izmir-transit.db (~9 MB, ~10 s)
 ./gradlew :tools:importer:refreshSmoke          # real download + import + validation
@@ -99,12 +116,16 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - the release build's UI;
 - the worker running on the phone (its logic is verified on the desktop by `refreshSmoke`).
 
+**Not yet verified on the device:**
+
+- arrival alerts end to end (the notification permission isn't granted on the user's phone);
+- the widget on the home screen (a user has to place it);
+- the light theme.
+
 **Later (from the brief):**
 
-- home-screen widget;
-- "notify me N stops away";
-- connection hints (the `connections` table is already imported; the `BAGLANTI_TIP_ID` meanings are unknown);
 - Phase 2 modes;
+- per-line ETA speeds (see gotcha 12);
 - dark map tuning and TalkBack review;
 - public holidays (currently treated as weekdays or Saturdays).
 

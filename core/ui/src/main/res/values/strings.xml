@@ -15,4 +15,10 @@
     <string name="ui_eta_unit">dk</string>
     <string name="ui_announcement_line">%1$s numaralı hat</string>
     <string name="ui_announcement_until">%1$s tarihine kadar</string>
+    <string name="ui_connects_to">Bağlantı</string>
+    <string name="ui_connection_metro">Metro</string>
+    <string name="ui_connection_izban">İZBAN</string>
+    <string name="ui_connection_ferry">Vapur</string>
+    <string name="ui_connection_airport">Havalimanı</string>
+    <string name="ui_connection_terminal">Otogar</string>
 </resources>

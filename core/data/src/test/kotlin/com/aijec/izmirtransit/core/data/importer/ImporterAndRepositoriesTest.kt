@@ -141,6 +141,12 @@ class ImporterAndRepositoriesTest {
     }
 
     @Test
+    fun `connections decode to types`() = runBlocking {
+        assertEquals(listOf(com.aijec.izmirtransit.core.model.ConnectionType.METRO), lines.connections("5"))
+        assertEquals(emptyList(), lines.connections("6"))
+    }
+
+    @Test
     fun `announcements for several lines at once`() = runBlocking {
         val now = LocalDateTime.of(2026, 10, 20, 12, 0)
         assertEquals(listOf("Geçici güzergah"), timetable.activeAnnouncementsForLines(listOf("5", "6"), now).map { it.title })

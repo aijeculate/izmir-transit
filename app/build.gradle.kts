@@ -43,6 +43,7 @@ dependencies {
     implementation(projects.feature.timetable)
     implementation(libs.datastore.preferences)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

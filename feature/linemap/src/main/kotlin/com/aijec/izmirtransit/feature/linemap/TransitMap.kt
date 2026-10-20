@@ -2,9 +2,7 @@ package com.aijec.izmirtransit.feature.linemap
 
 import android.annotation.SuppressLint
 import android.graphics.RectF
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.tween
+import android.os.SystemClock
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -16,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -25,7 +25,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.aijec.izmirtransit.core.data.live.BusMotion
 import com.aijec.izmirtransit.core.model.Direction
+import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
 import com.aijec.izmirtransit.core.model.LineRoute
 import com.aijec.izmirtransit.core.model.LiveBus
 import com.aijec.izmirtransit.core.model.Stop
@@ -49,7 +51,8 @@ private const val LIGHT_STYLE = "https://tiles.openfreemap.org/styles/positron"
 private const val DARK_STYLE = "https://tiles.openfreemap.org/styles/dark"
 
 private val IZMIR_CENTER = MapLatLng(38.4237, 27.1428)
-private const val BUS_ANIMATION_MILLIS = 1_200
+/** About 15 fps: smooth for slow-moving markers, cheap on battery. */
+private const val BUS_FRAME_MILLIS = 66L
 
 /**
  * MapLibre map showing one line: both directions' routes, their stops, and live buses that
@@ -79,8 +82,10 @@ fun TransitMap(
         val mapView = remember { MapView(context) }
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
         var style by remember { mutableStateOf<Style?>(null) }
-        // Where each bus marker is drawn right now; animations start from here.
-        val displayed = remember { HashMap<Int, Pair<LatLng, Direction>>() }
+        val motion = remember { BusMotion() }
+        val measuredRoutes = remember(routes) {
+            routes.filter { it.shape.size >= 2 }.associate { it.direction to MeasuredPolyline(it.shape) }
+        }
 
         MapViewLifecycle(mapView)
 
@@ -165,28 +170,20 @@ fun TransitMap(
             }
         }
 
-        LaunchedEffect(style, buses) {
+        // Each poll feeds the motion model; a render loop then moves buses along their routes
+        // between polls, so they glide rather than jump (see BusMotion).
+        LaunchedEffect(buses, measuredRoutes) {
+            motion.update(buses, measuredRoutes, SystemClock.elapsedRealtime())
+        }
+        LaunchedEffect(style) {
             val s = style ?: return@LaunchedEffect
-            val start = HashMap(displayed)
-            val targets = buses.associate { it.busId to (it.position to it.direction) }
-            fun draw(fraction: Float) {
-                displayed.clear()
-                targets.forEach { (id, target) ->
-                    val from = start[id]?.first ?: target.first
-                    displayed[id] = LatLng(
-                        from.latitude + (target.first.latitude - from.latitude) * fraction,
-                        from.longitude + (target.first.longitude - from.longitude) * fraction,
-                    ) to target.second
-                }
+            while (isActive) {
+                val drawn = motion.positionsAt(SystemClock.elapsedRealtime()).values
                 for (direction in Direction.entries) {
-                    s.source(busSource(direction))?.setGeoJson(points(displayed.values.filter { it.second == direction }.map { it.first }))
+                    s.source(busSource(direction))?.setGeoJson(points(drawn.filter { it.second == direction }.map { it.first }))
                 }
+                delay(BUS_FRAME_MILLIS)
             }
-            val moving = targets.any { (id, target) -> start[id]?.first != null && start[id]?.first != target.first }
-            if (moving) {
-                animate(0f, 1f, animationSpec = tween(BUS_ANIMATION_MILLIS, easing = FastOutSlowInEasing)) { value, _ -> draw(value) }
-            }
-            draw(1f)
         }
     }
 }

@@ -57,6 +57,24 @@ data class Departure(
     val electric: Boolean,
 )
 
+/**
+ * Rail, sea and air connections a bus line serves (the "baglantili hatlar" dataset).
+ * Codes 4 and 5 are confirmed by their lines (all airport / all Otogar lines); 1–3 follow
+ * the dataset's documented order "metro, İZBAN, ferry, airport, bus terminal", and 3
+ * matches its lines all ending at ferry piers (İskele).
+ */
+enum class ConnectionType(val code: Int) {
+    METRO(1),
+    IZBAN(2),
+    FERRY(3),
+    AIRPORT(4),
+    BUS_TERMINAL(5);
+
+    companion object {
+        fun fromCode(code: Int): ConnectionType? = entries.firstOrNull { it.code == code }
+    }
+}
+
 data class Announcement(
     val lineCode: String,
     val title: String,

@@ -65,6 +65,21 @@ class PacingAndPollingTest {
     }
 
     @Test
+    fun `a lone 429 is retried quietly, repeated ones turn stale`() = runTest {
+        val clock = Clock.fixed(Instant.parse("2026-10-20T09:00:00Z"), ZoneOffset.UTC)
+        val busy = FetchResult.Failure(LiveError.RATE_LIMITED, retryable = true)
+        val results = ArrayDeque(listOf(FetchResult.Success(listOf(1)), busy, FetchResult.Success(listOf(2)), busy, busy, busy))
+        val snapshots = pollLive(15.seconds, clock) { results.removeFirst() }.take(7).toList()
+
+        assertEquals(
+            listOf(LiveStatus.LOADING, LiveStatus.FRESH, LiveStatus.FRESH, LiveStatus.FRESH, LiveStatus.FRESH, LiveStatus.FRESH, LiveStatus.STALE),
+            snapshots.map { it.status },
+        )
+        assertEquals(null, snapshots[2].lastError)
+        assertEquals(LiveError.RATE_LIMITED, snapshots[6].lastError)
+    }
+
+    @Test
     fun `failure before any data is unavailable`() = runTest {
         val snapshots = pollLive(15.seconds, Clock.systemUTC()) {
             FetchResult.Failure(LiveError.SERVER, retryable = false)

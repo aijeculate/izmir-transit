@@ -25,6 +25,19 @@ class GeoTest {
     }
 
     @Test
+    fun `pointAt walks along the line and clamps at the ends`() {
+        val line = MeasuredPolyline(listOf(LatLng(38.4, 27.1), LatLng(38.4, 27.1115), LatLng(38.41, 27.1115)))
+        val half = line.pointAt(line.lengthMeters / 4)
+        assertEquals(38.4, half.latitude, 1e-9)
+        assertTrue(half.longitude > 27.1 && half.longitude < 27.1115)
+        assertEquals(LatLng(38.4, 27.1), line.pointAt(-5.0))
+        assertEquals(LatLng(38.41, 27.1115), line.pointAt(line.lengthMeters + 100))
+        // Round trip with project().
+        val p = line.pointAt(1500.0)
+        assertEquals(1500.0, assertNotNull(line.project(p)).distanceAlongMeters, 1.0)
+    }
+
+    @Test
     fun `polyline codec round-trips to 1e-5`() {
         val points = listOf(LatLng(38.45342667, 27.097125), LatLng(38.3971, 27.06865833), LatLng(38.4, 26.99))
         val decoded = PolylineCodec.decode(PolylineCodec.encode(points))

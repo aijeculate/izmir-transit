@@ -3,4 +3,31 @@
     <string name="app_name" translatable="false">İzmir Transit</string>
     <string name="tab_home">Ana sayfa</string>
     <string name="tab_map">Harita</string>
+    <string name="alert_channel_tracking">Otobüs takibi</string>
+    <string name="alert_channel_alerts">Varış uyarıları</string>
+    <string name="alert_title">%1$s yaklaşıyor</string>
+    <string name="alert_near">%1$s hattı %2$d durak uzakta (%3$s). Hazırlan!</string>
+    <string name="alert_arrived">%1$s %2$s durağına ulaşmış görünüyor.</string>
+    <string name="alert_lost">%1$s artık takip edilemiyor (%2$s). Canlı veride görünmüyor.</string>
+    <string name="alert_timeout">%1$s bir saattir takip ediliyordu; takip durduruldu.</string>
+    <string name="alert_tracking_title">%1$s → %2$s</string>
+    <string name="alert_tracking_waiting">Takip ediliyor; %1$d durak kala haber verilecek</string>
+    <plurals name="alert_tracking_stops">
+        <item quantity="one">%1$d durak kaldı · %2$d durak kala haber verilecek</item>
+        <item quantity="other">%1$d durak kaldı · %2$d durak kala haber verilecek</item>
+    </plurals>
+    <string name="alert_stop">Durdur</string>
+    <string name="widget_title">Favori durak</string>
+    <string name="widget_description">İlk favori durağının sıradaki otobüsleri</string>
+    <string name="widget_no_favourite">Uygulamada bir durağı ♥ ile favorilere ekle.</string>
+    <string name="widget_refresh">Yenile</string>
+    <string name="widget_unavailable">Canlı veri alınamadı.</string>
+    <string name="widget_none">Şu anda yaklaşan otobüs yok.</string>
+    <string name="widget_updated">%1$s itibarıyla</string>
+    <string name="widget_now">Geliyor</string>
+    <string name="widget_minutes">%1$d dk</string>
+    <plurals name="widget_stops">
+        <item quantity="one">%1$d durak</item>
+        <item quantity="other">%1$d durak</item>
+    </plurals>
 </resources>

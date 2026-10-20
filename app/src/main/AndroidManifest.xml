@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Arrival alerts: an ongoing notification while following a bus, then an alert. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:name=".IzmirTransitApp"
@@ -19,5 +23,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".widget.FavouriteStopWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/favourite_stop_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".alerts.ArrivalAlertService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <!-- Declared in Play Console as well when publishing. -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Follows one bus the user chose and alerts them when it is a set number of stops from their stop; stops after an hour." />
+        </service>
     </application>
 </manifest>

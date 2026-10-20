@@ -22,4 +22,13 @@
     <string name="stop_eta_note">Times are estimates based on each bus\'s position along its route.</string>
     <string name="stop_favourite_add">Add to favourites</string>
     <string name="stop_favourite_remove">Remove from favourites</string>
+    <string name="stop_alert_set">Alert me when it\'s close</string>
+    <string name="stop_alert_cancel">Cancel alert</string>
+    <string name="stop_alert_title">Alert me when it\'s close</string>
+    <plurals name="stop_alert_option">
+        <item quantity="one">%1$d stop before</item>
+        <item quantity="other">%1$d stops before</item>
+    </plurals>
+    <string name="stop_alert_note">This bus is followed and you get a notification when it reaches the number of stops you chose. Works with the phone locked; lasts up to an hour.</string>
+    <string name="stop_alert_permission">Alerts need notification permission.</string>
 </resources>

@@ -70,6 +70,21 @@ class MeasuredPolyline(val points: List<LatLng>) {
 
     val lengthMeters: Double get() = if (points.isEmpty()) 0.0 else cumulative.last()
 
+    /** The point [distanceMeters] along the line, clamped to its ends. */
+    fun pointAt(distanceMeters: Double): LatLng {
+        require(points.isNotEmpty()) { "Empty polyline" }
+        if (distanceMeters <= 0 || points.size == 1) return points.first()
+        if (distanceMeters >= lengthMeters) return points.last()
+        var index = cumulative.binarySearch(distanceMeters)
+        if (index >= 0) return points[index]
+        index = -index - 2 // segment start
+        val a = points[index]
+        val b = points[index + 1]
+        val segment = cumulative[index + 1] - cumulative[index]
+        val t = if (segment == 0.0) 0.0 else (distanceMeters - cumulative[index]) / segment
+        return LatLng(a.latitude + t * (b.latitude - a.latitude), a.longitude + t * (b.longitude - a.longitude))
+    }
+
     fun project(point: LatLng): PolylineProjection? {
         if (points.isEmpty()) return null
         if (points.size == 1) {

@@ -50,35 +50,38 @@ class LiveBusRepository @Inject constructor(
     /** Buses approaching a stop, sorted by stops remaining, each with an approximate ETA. */
     fun observeStop(stopCode: String, interval: Duration = DEFAULT_INTERVAL): Flow<LiveSnapshot<List<ApproachingBus>>> = flow {
         val stopLocation = stops.stop(stopCode)?.location
-        emitAll(
-            pollLive(interval, clock) {
-                when (val result = source.approachingBuses(stopCode)) {
-                    is FetchResult.Failure -> result
-                    is FetchResult.Success -> {
-                        val buses = result.value
-                            .distinctBy { it.busId to it.lineCode }
-                            .filter { ghostFilter.isPlausible(it.position, lines.measuredRoutes(it.lineCode)) }
-                            .map { bus ->
-                                val route = lines.measuredRoutes(bus.lineCode)[bus.direction]
-                                ApproachingBus(
-                                    busId = bus.busId,
-                                    lineCode = bus.lineCode,
-                                    lineName = bus.lineName,
-                                    direction = bus.direction,
-                                    stopsRemaining = bus.stopsRemaining,
-                                    position = bus.position,
-                                    wheelchairAccessible = bus.wheelchairAccessible,
-                                    bikeRack = bus.bikeRack,
-                                    eta = etaEstimator.estimate(bus.position, bus.stopsRemaining, stopLocation, route),
-                                )
-                            }
-                            .sortedWith(compareBy({ it.stopsRemaining }, { it.eta.minutes }))
-                        FetchResult.Success(buses, result.skippedRecords)
-                    }
-                }
-            },
-        )
+        emitAll(pollLive(interval, clock) { fetchArrivals(stopCode, stopLocation) })
     }
+
+    /** A single fetch of [observeStop]'s data, for places that can't poll (the widget). */
+    suspend fun stopArrivalsOnce(stopCode: String): FetchResult<List<ApproachingBus>> =
+        fetchArrivals(stopCode, stops.stop(stopCode)?.location)
+
+    private suspend fun fetchArrivals(stopCode: String, stopLocation: LatLng?): FetchResult<List<ApproachingBus>> =
+        when (val result = source.approachingBuses(stopCode)) {
+            is FetchResult.Failure -> result
+            is FetchResult.Success -> {
+                val buses = result.value
+                    .distinctBy { it.busId to it.lineCode }
+                    .filter { ghostFilter.isPlausible(it.position, lines.measuredRoutes(it.lineCode)) }
+                    .map { bus ->
+                        val route = lines.measuredRoutes(bus.lineCode)[bus.direction]
+                        ApproachingBus(
+                            busId = bus.busId,
+                            lineCode = bus.lineCode,
+                            lineName = bus.lineName,
+                            direction = bus.direction,
+                            stopsRemaining = bus.stopsRemaining,
+                            position = bus.position,
+                            wheelchairAccessible = bus.wheelchairAccessible,
+                            bikeRack = bus.bikeRack,
+                            eta = etaEstimator.estimate(bus.position, bus.stopsRemaining, stopLocation, route),
+                        )
+                    }
+                    .sortedWith(compareBy({ it.stopsRemaining }, { it.eta.minutes }))
+                FetchResult.Success(buses, result.skippedRecords)
+            }
+        }
 
     companion object {
         /** Brief: 10–15 s. Each screen's poll costs one request from the shared 1/s budget. */

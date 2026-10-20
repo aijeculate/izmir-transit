@@ -60,6 +60,7 @@ import com.aijec.izmirtransit.core.ui.AnnouncementCard
 import com.aijec.izmirtransit.core.ui.Calm
 import com.aijec.izmirtransit.core.ui.CalmRow
 import com.aijec.izmirtransit.core.ui.CircleIconButton
+import com.aijec.izmirtransit.core.ui.ConnectionChips
 import com.aijec.izmirtransit.core.ui.Dot
 import com.aijec.izmirtransit.core.ui.FavouriteButton
 import com.aijec.izmirtransit.core.ui.FloatingBarClearance
@@ -283,6 +284,7 @@ private fun LinePanel(
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 DirectionLegend(Direction.OUTBOUND, stringResource(R.string.linemap_towards, line.destination))
                 DirectionLegend(Direction.RETURN, stringResource(R.string.linemap_towards, line.origin))
+                ConnectionChips(state.connections, Modifier.padding(top = 4.dp))
             }
         }
         if (state.announcements.isNotEmpty()) {

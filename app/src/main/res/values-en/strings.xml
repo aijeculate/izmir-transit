@@ -2,4 +2,31 @@
 <resources>
     <string name="tab_home">Home</string>
     <string name="tab_map">Map</string>
+    <string name="alert_channel_tracking">Bus tracking</string>
+    <string name="alert_channel_alerts">Arrival alerts</string>
+    <string name="alert_title">%1$s is coming</string>
+    <string name="alert_near">Line %1$s is %2$d stops from %3$s. Get ready.</string>
+    <string name="alert_arrived">%1$s seems to have reached %2$s.</string>
+    <string name="alert_lost">%1$s can no longer be followed (%2$s): it left the live feed.</string>
+    <string name="alert_timeout">Stopped following %1$s after an hour.</string>
+    <string name="alert_tracking_title">%1$s → %2$s</string>
+    <string name="alert_tracking_waiting">Following; you\'ll be alerted %1$d stops before</string>
+    <plurals name="alert_tracking_stops">
+        <item quantity="one">%1$d stop away · alert at %2$d</item>
+        <item quantity="other">%1$d stops away · alert at %2$d</item>
+    </plurals>
+    <string name="alert_stop">Stop</string>
+    <string name="widget_title">Favourite stop</string>
+    <string name="widget_description">Next buses at your first favourite stop</string>
+    <string name="widget_no_favourite">Add a stop with ♥ in the app.</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_unavailable">Live data unavailable.</string>
+    <string name="widget_none">No buses approaching right now.</string>
+    <string name="widget_updated">As of %1$s</string>
+    <string name="widget_now">Now</string>
+    <string name="widget_minutes">%1$d min</string>
+    <plurals name="widget_stops">
+        <item quantity="one">%1$d stop</item>
+        <item quantity="other">%1$d stops</item>
+    </plurals>
 </resources>

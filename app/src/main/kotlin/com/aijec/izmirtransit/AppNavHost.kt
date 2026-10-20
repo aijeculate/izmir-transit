@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,8 +59,15 @@ private enum class Tab(val route: String) { HOME(HOME_ROUTE), MAP(LINE_ROUTE) }
  * tab bar shows only on the two main screens.
  */
 @Composable
-fun AppNavHost() {
+fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
     val nav = rememberNavController()
+    // Deep link from an arrival alert notification.
+    LaunchedEffect(openStop) {
+        if (openStop != null) {
+            nav.navigate(stopDestination(openStop))
+            onOpenStopHandled()
+        }
+    }
     val entry by nav.currentBackStackEntryAsState()
     val currentRoute = entry?.destination?.route
     val showTabs = currentRoute == HOME_ROUTE || currentRoute == LINE_ROUTE

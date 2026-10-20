@@ -23,4 +23,13 @@
     <string name="stop_eta_note">Süreler yaklaşıktır: otobüsün güzergâh üzerindeki konumundan hesaplanır.</string>
     <string name="stop_favourite_add">Favorilere ekle</string>
     <string name="stop_favourite_remove">Favorilerden çıkar</string>
+    <string name="stop_alert_set">Yaklaşınca haber ver</string>
+    <string name="stop_alert_cancel">Uyarıyı kapat</string>
+    <string name="stop_alert_title">Yaklaşınca haber ver</string>
+    <plurals name="stop_alert_option">
+        <item quantity="one">%1$d durak kala</item>
+        <item quantity="other">%1$d durak kala</item>
+    </plurals>
+    <string name="stop_alert_note">Bu otobüs takip edilir ve seçtiğin durak sayısına gelince bildirim alırsın. Telefonu kilitlesen de çalışır; en fazla bir saat sürer.</string>
+    <string name="stop_alert_permission">Uyarı için bildirim izni gerekli.</string>
 </resources>

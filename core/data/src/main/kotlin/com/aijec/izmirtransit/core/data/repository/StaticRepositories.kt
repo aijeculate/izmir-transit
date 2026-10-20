@@ -3,6 +3,7 @@ package com.aijec.izmirtransit.core.data.repository
 import com.aijec.izmirtransit.core.data.text.TurkishText
 import com.aijec.izmirtransit.core.database.IzmirDatabase
 import com.aijec.izmirtransit.core.model.Announcement
+import com.aijec.izmirtransit.core.model.ConnectionType
 import com.aijec.izmirtransit.core.model.Departure
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.Line
@@ -36,6 +37,10 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
     }
 
     suspend fun line(code: String): Line? = dao.line(BUS, code)?.toModel()
+
+    /** Rail, sea and air connections this line serves, in a stable order. */
+    suspend fun connections(code: String): List<ConnectionType> =
+        dao.connections(BUS, code).mapNotNull { ConnectionType.fromCode(it.connectionType) }.distinct().sorted()
 
     /** Call after the static data is replaced, so cached shapes are re-read. */
     fun clearCaches() = synchronized(routeCache) { routeCache.clear() }
