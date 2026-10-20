@@ -1,5 +1,8 @@
 package com.aijec.izmirtransit
 
+import com.aijec.izmirtransit.core.ui.style
+import com.aijec.izmirtransit.core.ui.glassBackdrop
+import com.aijec.izmirtransit.core.model.UiStyle
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -85,7 +88,8 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
     // Re-read whenever the current entry changes; getBackStackEntry throws when absent.
     val onMapTab = entry.let { runCatching { nav.getBackStackEntry(MAP_ROUTE) }.isSuccess }
 
-    Box(Modifier.fillMaxSize().background(Calm.colors.canvas)) {
+    val glass = Calm.style == UiStyle.LIQUID_GLASS
+    Box(Modifier.fillMaxSize().then(if (glass) Modifier.glassBackdrop() else Modifier.background(Calm.colors.canvas))) {
         NavHost(navController = nav, startDestination = HOME_ROUTE, modifier = Modifier.fillMaxSize()) {
             composable(HOME_ROUTE) {
                 HomeRoute(
@@ -132,6 +136,7 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                 StopRoute(
                     onBack = { nav.popBackStack() },
                     onOpenLine = { nav.navigate(lineDestination(it)) },
+                    onOpenStop = { nav.navigate(stopDestination(it)) },
                 )
             }
             composable(SETTINGS_ROUTE) {

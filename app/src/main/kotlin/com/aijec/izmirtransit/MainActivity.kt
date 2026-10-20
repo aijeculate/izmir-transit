@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
         val initial = runBlocking { settingsRepository.settings.first() }
         setContent {
             val settings by settingsRepository.settings.collectAsStateWithLifecycle(initial)
-            IzmirTheme(themeMode = settings.themeMode, accentTheme = settings.accent) {
+            IzmirTheme(themeMode = settings.themeMode, accentTheme = settings.accent, style = settings.style) {
                 // Status and navigation bar icons follow the app's theme, not the system's:
                 // dark icons on the light theme even when the phone is in dark mode.
                 val dark = Calm.colors.isDark

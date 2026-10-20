@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.feature.stop
 
+import com.aijec.izmirtransit.core.data.repository.NearbyStop
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -38,11 +39,18 @@ data class StopUiState(
     val lines: List<Line> = emptyList(),
     /** Active notices for any line serving this stop. */
     val announcements: List<Announcement> = emptyList(),
+    /** Stations of other modes a short walk away (interchanges). */
+    val transfers: List<NearbyStop> = emptyList(),
     val loading: Boolean = true,
 )
 
 /** Departures from [nowMinute] on, on the service day's clock (may exceed 1440). */
-data class StationBoard(val nowMinute: Int, val departures: List<ScheduledDeparture>)
+data class StationBoard(
+    val nowMinute: Int,
+    val departures: List<ScheduledDeparture>,
+    /** Nothing more today: these are the first departures of the next service day. */
+    val nextDay: Boolean = false,
+)
 
 @HiltViewModel
 class StopViewModel @Inject constructor(
@@ -74,8 +82,24 @@ class StopViewModel @Inject constructor(
     val departures: StateFlow<StationBoard?> = flow {
         if (!isBusStop) {
             while (true) {
-                val moment = TimetableRepository.serviceMoment(TimetableRepository.localNow(clock))
-                emit(StationBoard(moment.minutesAfterMidnight, stops.scheduledDepartures(stopCode, moment.serviceDay, moment.minutesAfterMidnight, BOARD_SIZE)))
+                val now = TimetableRepository.localNow(clock)
+                val moment = TimetableRepository.serviceMoment(now)
+                val today = stops.scheduledDepartures(stopCode, moment.serviceDay, moment.minutesAfterMidnight, BOARD_SIZE)
+                emit(
+                    if (today.isNotEmpty()) {
+                        StationBoard(moment.minutesAfterMidnight, today)
+                    } else {
+                        // Late at night: the first departures after the service day starts again.
+                        val date = if (now.hour < TimetableRepository.SERVICE_DAY_START_HOUR) now.toLocalDate() else now.toLocalDate().plusDays(1)
+                        val first = stops.scheduledDepartures(
+                            stopCode,
+                            TimetableRepository.serviceDayFor(date),
+                            TimetableRepository.SERVICE_DAY_START_HOUR * 60,
+                            BOARD_SIZE / 4,
+                        )
+                        StationBoard(moment.minutesAfterMidnight, first, nextDay = true)
+                    },
+                )
                 delay(60_000L - clock.millis() % 60_000L)
             }
         } else {
@@ -112,7 +136,8 @@ class StopViewModel @Inject constructor(
             val stop = stops.stop(stopCode)
             val lines = stops.linesAtStop(stopCode)
             val announcements = timetable.activeAnnouncementsForLines(lines.map { it.code }, TimetableRepository.localNow(clock))
-            _state.value = StopUiState(stopCode, stop, lines, announcements, loading = false)
+            val transfers = stop?.let { stops.transfers(it) }.orEmpty()
+            _state.value = StopUiState(stopCode, stop, lines, announcements, transfers, loading = false)
         }
     }
 

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.aijec.izmirtransit.core.model.AccentTheme
 import com.aijec.izmirtransit.core.model.MapLayer
 import com.aijec.izmirtransit.core.model.ThemeMode
+import com.aijec.izmirtransit.core.model.UiStyle
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import java.io.File
@@ -44,5 +45,17 @@ class SettingsRepositoryTest {
 
         repository.setMapLayer(MapLayer.FERRY, visible = true)
         assertEquals(MapLayer.entries.toSet() - MapLayer.BUS_LINES, repository.settings.first().mapLayers)
+    }
+
+    @Test
+    fun `style and direction display default to calm and one direction`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) { File(dir, "style.preferences_pb") }
+        val repository = SettingsRepository(store)
+        assertEquals(UiStyle.CALM, repository.settings.first().style)
+        assertEquals(false, repository.settings.first().showBothDirections)
+        repository.setStyle(UiStyle.LIQUID_GLASS)
+        repository.setShowBothDirections(true)
+        assertEquals(UiStyle.LIQUID_GLASS, repository.settings.first().style)
+        assertEquals(true, repository.settings.first().showBothDirections)
     }
 }

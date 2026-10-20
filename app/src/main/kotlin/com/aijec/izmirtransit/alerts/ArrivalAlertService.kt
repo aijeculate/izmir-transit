@@ -146,7 +146,7 @@ class ArrivalAlertService : Service() {
             request.stopCode.hashCode(),
             Intent(this, MainActivity::class.java)
                 .putExtra(MainActivity.EXTRA_OPEN_STOP, request.stopCode)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 

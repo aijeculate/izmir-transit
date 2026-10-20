@@ -22,4 +22,9 @@
     <string name="settings_about_map">Harita: Google Maps</string>
     <string name="settings_about_font_title">Yazı tipi</string>
     <string name="settings_about_font">Inter, SIL Open Font License 1.1</string>
+    <string name="settings_style">Stil</string>
+    <string name="settings_style_calm">Sakin</string>
+    <string name="settings_style_glass">Sıvı cam</string>
+    <string name="settings_both_directions">İki yönü birlikte göster</string>
+    <string name="settings_both_directions_hint">Hat seçilince gidiş (mavi) ve dönüş (turuncu) aynı anda çizilir. Kapalıyken tek yön gösterilir; yönü bir düğmeyle değiştirirsin.</string>
 </resources>

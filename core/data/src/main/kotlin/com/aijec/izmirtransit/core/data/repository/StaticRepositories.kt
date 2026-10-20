@@ -19,7 +19,9 @@ import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
 import com.aijec.izmirtransit.core.model.geo.PolylineCodec
 import com.aijec.izmirtransit.core.model.geo.distanceMeters
 import com.aijec.izmirtransit.core.model.geo.simplifyPolyline
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Singleton
@@ -53,7 +55,9 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
      * a few tens of thousands of points instead of 234k, decoded once and cached.
      * Rail and ferry come last so they draw on top of the buses.
      */
-    suspend fun overviewShapes(): List<OverviewRoute> {
+    suspend fun overviewShapes(): List<OverviewRoute> = withContext(Dispatchers.Default) { overviewShapesNow() }
+
+    private suspend fun overviewShapesNow(): List<OverviewRoute> {
         overviewCache?.let { return it }
         val lines = dao.allLines().associateBy { it.code }
         val shapes = dao.allShapes().mapNotNull { shape ->
@@ -86,7 +90,9 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
     }
 
     /** Both directions with decoded shape and ordered stops, for the line map. */
-    suspend fun routes(code: String): List<LineRoute> {
+    suspend fun routes(code: String): List<LineRoute> = withContext(Dispatchers.Default) { routesNow(code) }
+
+    private suspend fun routesNow(code: String): List<LineRoute> {
         val shapes = dao.shapes(code).associateBy { it.direction }
         return Direction.entries.mapNotNull { direction ->
             val shape = shapes[direction.datasetCode]?.let { PolylineCodec.decode(it.encodedPolyline) }.orEmpty()
@@ -96,7 +102,9 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
     }
 
     /** Measured shapes for snapping buses and estimating arrival; cached because polls repeat. */
-    suspend fun measuredRoutes(code: String): Map<Direction, MeasuredPolyline> {
+    suspend fun measuredRoutes(code: String): Map<Direction, MeasuredPolyline> = withContext(Dispatchers.Default) { measuredRoutesNow(code) }
+
+    private suspend fun measuredRoutesNow(code: String): Map<Direction, MeasuredPolyline> {
         synchronized(routeCache) { routeCache[code] }?.let { return it }
         val measured = dao.shapes(code).mapNotNull { shape ->
             Direction.fromDatasetCode(shape.direction)?.let { it to MeasuredPolyline(PolylineCodec.decode(shape.encodedPolyline)) }
@@ -109,6 +117,11 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
 data class NearbyStop(val stop: Stop, val distanceMeters: Double)
 
 class StopRepository @Inject constructor(private val database: IzmirDatabase) {
+    companion object {
+        /** Hilal's Metro and İZBAN stations are 285 m apart; 350 m catches every real interchange. */
+        const val TRANSFER_RADIUS_METERS = 350.0
+    }
+
     private val dao get() = database.stopDao()
 
     suspend fun stop(code: String): Stop? = dao.stop(code)?.toModel()
@@ -119,13 +132,32 @@ class StopRepository @Inject constructor(private val database: IzmirDatabase) {
         return dao.search(folded, limit).map { it.toModel() }
     }
 
+    /**
+     * Rail and ferry stations a short walk from [stop] on another mode: the interchanges,
+     * such as Hilal and Halkapınar (Metro and İZBAN under one name) or a pier next to a tram
+     * stop. Bus stops list the stations next to them too.
+     */
+    suspend fun transfers(stop: Stop, radiusMeters: Double = TRANSFER_RADIUS_METERS): List<NearbyStop> {
+        val box = BoundingBox.around(stop.location, radiusMeters)
+        val rows = dao.inBox(box.minLatitude, box.maxLatitude, box.minLongitude, box.maxLongitude)
+        return withContext(Dispatchers.Default) {
+            rows.map { it.toModel() }
+                .filter { it.mode != TransitMode.BUS && it.mode != stop.mode }
+                .map { NearbyStop(it, distanceMeters(stop.location, it.location)) }
+                .filter { it.distanceMeters <= radiusMeters }
+                .sortedBy { it.distanceMeters }
+                // Tram platforms come in pairs ("(Deniz)", "(Kara)"): one per mode and name is enough.
+                .distinctBy { it.stop.mode to it.stop.name.substringBefore(" (") }
+        }
+    }
+
     /** Stops inside a map viewport, nearest the middle first, at most [limit]. */
     suspend fun inArea(minLatitude: Double, maxLatitude: Double, minLongitude: Double, maxLongitude: Double, limit: Int): List<Stop> {
         val center = LatLng((minLatitude + maxLatitude) / 2, (minLongitude + maxLongitude) / 2)
-        return dao.inBox(minLatitude, maxLatitude, minLongitude, maxLongitude)
-            .map { it.toModel() }
-            .sortedBy { distanceMeters(center, it.location) }
-            .take(limit)
+        val rows = dao.inBox(minLatitude, maxLatitude, minLongitude, maxLongitude)
+        return withContext(Dispatchers.Default) {
+            rows.map { it.toModel() }.sortedBy { distanceMeters(center, it.location) }.take(limit)
+        }
     }
 
     /** Computed offline from the stops table; no network needed. */

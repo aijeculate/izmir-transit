@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.core.ui
 
+import com.aijec.izmirtransit.core.model.UiStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.luminance
 import com.aijec.izmirtransit.core.model.Line
+import com.aijec.izmirtransit.core.model.TransitMode
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,9 +73,7 @@ fun Panel(
     val colors = Calm.colors
     Column(
         modifier
-            .clip(Calm.PanelShape)
-            .background(if (glass) colors.panelGlass else colors.panel)
-            .then(if (glass) Modifier.border(0.5.dp, colors.hairline, Calm.PanelShape) else Modifier)
+            .calmSurface(Calm.PanelShape, overMap = glass)
             .padding(padding),
         content = content,
     )
@@ -115,19 +115,29 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, trailing: @Composa
 
 /** Line number as a soft pill. [strong] fills it with the accent (for "this line"). */
 @Composable
-fun LineBadge(code: String, modifier: Modifier = Modifier, strong: Boolean = false, color: Int? = null) {
+fun LineBadge(code: String, modifier: Modifier = Modifier, strong: Boolean = false, mode: TransitMode? = null) {
     val colors = Calm.colors
-    // Rail and ferry lines always wear their official colour, so a station's lines read at a glance.
-    val background = color?.let(::Color) ?: if (strong) colors.accent else colors.accentSoft
+    // With a mode, the operator's colours: strong is its main colour with the second as the
+    // rim (Metro blue ringed red); soft is a tint with the colour as text.
+    val brand = mode?.let(ModeBrands::of)
+    val shape = Calm.PillShape
+    val background = when {
+        brand != null && strong -> brand.primary
+        brand != null -> brand.primary.copy(alpha = if (colors.isDark) 0.22f else 0.12f)
+        strong -> colors.accent
+        else -> colors.accentSoft
+    }
     val content = when {
-        color != null -> if (background.luminance() > 0.5f) Color.Black else Color.White
+        brand != null && strong -> brand.onPrimary
+        brand != null -> brand.ink()
         strong -> colors.onAccent
         else -> colors.onAccentSoft
     }
     Box(
         modifier
-            .clip(Calm.PillShape)
+            .clip(shape)
             .background(background)
+            .then(if (brand != null && strong && brand.secondary != Color.White) Modifier.border(1.5.dp, brand.secondary, shape) else Modifier)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -140,10 +150,10 @@ fun LineBadge(code: String, modifier: Modifier = Modifier, strong: Boolean = fal
     }
 }
 
-/** Badge for a known line: its display code ("M1", "Konak", "Vapur") in its colour. */
+/** Badge for a known line: its display code ("M1", "Konak", "Vapur") in its operator's colours. */
 @Composable
 fun LineBadge(line: Line, modifier: Modifier = Modifier, strong: Boolean = false) =
-    LineBadge(line.displayCode, modifier, strong, line.color)
+    LineBadge(line.displayCode, modifier, strong, line.mode)
 
 /** Round icon button on a panel-coloured disc; 48 dp touch target. */
 @Composable
@@ -161,9 +171,7 @@ fun CircleIconButton(
     Box(
         modifier
             .size(48.dp)
-            .clip(CircleShape)
-            .background(if (plain) Color.Transparent else if (glass) colors.panelGlass else colors.panel)
-            .then(if (glass && !plain) Modifier.border(0.5.dp, colors.hairline, CircleShape) else Modifier)
+            .then(if (plain) Modifier.clip(CircleShape) else Modifier.calmSurface(CircleShape, overMap = glass))
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -236,9 +244,7 @@ fun PillSearchField(
         modifier
             .fillMaxWidth()
             .heightIn(min = 52.dp)
-            .clip(Calm.PillShape)
-            .background(if (glass) colors.panelGlass else colors.panel)
-            .then(if (glass) Modifier.border(0.5.dp, colors.hairline, Calm.PillShape) else Modifier)
+            .calmSurface(Calm.PillShape, overMap = glass)
             .padding(start = 18.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -284,8 +290,7 @@ fun <T> SegmentedControl(
     Row(
         modifier
             .fillMaxWidth()
-            .clip(Calm.PillShape)
-            .background(colors.hairline)
+            .then(if (Calm.style == UiStyle.LIQUID_GLASS) Modifier.calmSurface(Calm.PillShape) else Modifier.clip(Calm.PillShape).background(colors.hairline))
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -477,9 +482,7 @@ fun FloatingTabBar(tabs: List<FloatingTab>, modifier: Modifier = Modifier) {
     val colors = Calm.colors
     Row(
         modifier
-            .clip(Calm.PillShape)
-            .background(colors.panel)
-            .border(0.5.dp, colors.hairline, Calm.PillShape)
+            .calmSurface(Calm.PillShape, overMap = true)
             .padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {

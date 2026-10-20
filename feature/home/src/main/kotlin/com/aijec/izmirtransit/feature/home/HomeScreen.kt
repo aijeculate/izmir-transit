@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.feature.home
 
+import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -242,6 +243,8 @@ private fun FavouriteStopPanel(
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
         CalmRow(onClick = onClick, padding = PaddingValues(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 6.dp)) {
+            ModeIcon(favourite.stop.mode, size = 34.dp)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(favourite.stop.name, style = MaterialTheme.typography.titleMedium, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
@@ -347,6 +350,8 @@ private fun LazyListScope.nearbySection(nearby: NearbyState, onRefresh: () -> Un
                         nearby.stops.forEachIndexed { index, item ->
                             if (index > 0) Hairline()
                             CalmRow(onClick = { onOpenStop(item.stop.code) }) {
+                                ModeIcon(item.stop.mode, size = 30.dp)
+                                Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(item.stop.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(

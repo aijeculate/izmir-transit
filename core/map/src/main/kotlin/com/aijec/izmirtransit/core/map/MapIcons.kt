@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aijec.izmirtransit.core.model.TransitMode
+import com.aijec.izmirtransit.core.ui.modeGlyph
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.rememberComposeBitmapDescriptor
@@ -32,13 +33,7 @@ import com.google.maps.android.compose.rememberComposeBitmapDescriptor
 // Stops are rounded badges with the mode's pictogram rather than bare dots, so a bus stop,
 // a tram stop and a pier read differently at a glance.
 
-fun glyphFor(mode: TransitMode): ImageVector = when (mode) {
-    TransitMode.BUS -> Icons.Filled.DirectionsBus
-    TransitMode.METRO -> Icons.Filled.Subway
-    TransitMode.TRAM -> Icons.Filled.Tram
-    TransitMode.IZBAN -> Icons.Filled.Train
-    TransitMode.FERRY -> Icons.Filled.DirectionsBoat
-}
+fun glyphFor(mode: TransitMode): ImageVector = modeGlyph(mode)
 
 /** A filled badge: the stops of the selected line, and boarding points of a plan. */
 @OptIn(MapsComposeExperimentalApi::class)

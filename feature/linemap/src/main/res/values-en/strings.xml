@@ -48,4 +48,6 @@
     <string name="linemap_directions_here">Directions here</string>
     <string name="linemap_pin_title">Dropped pin</string>
     <string name="linemap_plan_trip">Directions</string>
+    <string name="linemap_switch_direction">Switch direction</string>
+    <string name="linemap_transfer">Change for</string>
 </resources>

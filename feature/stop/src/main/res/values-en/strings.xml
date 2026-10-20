@@ -35,4 +35,8 @@
     <string name="stop_departures_none">No more departures from here today</string>
     <string name="stop_departures_note">Times are from the official timetable; delays are not shown.</string>
     <string name="stop_departures_note_izban">Times come from the izban.com.tr timetable and are approximate; delays are not shown.</string>
+    <string name="stop_transfers_title">Change here for</string>
+    <string name="stop_nearby_stations_title">Stations nearby</string>
+    <string name="stop_walk_minutes">%1$d m · %2$d min</string>
+    <string name="stop_departures_next_day">No more departures today. First departures in the morning:</string>
 </resources>

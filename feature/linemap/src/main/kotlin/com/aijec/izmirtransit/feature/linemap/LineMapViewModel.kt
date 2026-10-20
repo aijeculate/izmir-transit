@@ -52,7 +52,7 @@ import javax.inject.Inject
 data class StopResult(val stop: Stop, val lines: List<Line>)
 
 /** A tapped stop, shown in a card over the map before opening it. */
-data class StopPreview(val stop: Stop, val lines: List<Line>)
+data class StopPreview(val stop: Stop, val lines: List<Line>, val transfers: List<Stop> = emptyList())
 
 /** The next timetabled departures of a rail or ferry line in one direction, from its first stop. */
 data class NextDepartures(val fromStop: String, val minutes: List<Int>)
@@ -66,6 +66,8 @@ data class LineMapUiState(
     val routes: List<LineRoute> = emptyList(),
     val announcements: List<Announcement> = emptyList(),
     val connections: List<ConnectionType> = emptyList(),
+    /** The direction shown when only one is drawn (the default). */
+    val direction: Direction = Direction.OUTBOUND,
     /** Rail and ferry only: they run to timetable, with no live positions. */
     val nextDepartures: Map<Direction, NextDepartures> = emptyMap(),
     val loadingRoute: Boolean = true,
@@ -120,6 +122,16 @@ class LineMapViewModel @Inject constructor(
     )
     val state: StateFlow<LineMapUiState> = _state.asStateFlow()
 
+    /** Draw both directions at once (a setting); otherwise one, with a switch. */
+    val showBothDirections: StateFlow<Boolean> = settings.settings.map { it.showBothDirections }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun switchDirection() = _state.update { s ->
+        val available = s.routes.map { it.direction }
+        val next = s.direction.opposite
+        if (next in available) s.copy(direction = next) else s
+    }
+
     /** Switched-on map layers, from settings. */
     val layers: StateFlow<Set<MapLayer>> = settings.settings.map { it.mapLayers }
         .stateIn(viewModelScope, SharingStarted.Eagerly, MapLayer.entries.toSet())
@@ -155,7 +167,8 @@ class LineMapViewModel @Inject constructor(
         _state.update { it.copy(preview = StopPreview(stop, emptyList()), pin = null) }
         viewModelScope.launch {
             val lines = stops.linesAtStop(stop.code)
-            _state.update { if (it.preview?.stop?.code == stop.code) it.copy(preview = StopPreview(stop, lines)) else it }
+            val transfers = stops.transfers(stop).map { it.stop }
+            _state.update { if (it.preview?.stop?.code == stop.code) it.copy(preview = StopPreview(stop, lines, transfers)) else it }
         }
     }
 
@@ -206,7 +219,16 @@ class LineMapViewModel @Inject constructor(
                 val announcements = timetable.activeAnnouncements(code, TimetableRepository.localNow(clock))
                 val connections = lines.connections(code)
                 _state.update {
-                    it.copy(line = line, routes = routes, announcements = announcements, connections = connections, loadingRoute = false)
+                    it.copy(
+                        line = line,
+                        routes = routes,
+                        announcements = announcements,
+                        connections = connections,
+                        loadingRoute = false,
+                        // Loop lines have only one direction.
+                        direction = routes.firstOrNull { r -> r.direction == Direction.OUTBOUND }?.direction
+                            ?: routes.firstOrNull()?.direction ?: Direction.OUTBOUND,
+                    )
                 }
                 if (!isBusCode(code)) {
                     // Re-read each minute so departed trains drop off; collectLatest cancels this on a new line.
@@ -296,7 +318,7 @@ class LineMapViewModel @Inject constructor(
 
         /** Stops in view are drawn from this zoom on; below it they would crowd. */
         const val AREA_STOPS_ZOOM = 15f
-        private const val AREA_STOPS_LIMIT = 300
+        private const val AREA_STOPS_LIMIT = 200
         private const val NEXT_DEPARTURES = 3
     }
 }

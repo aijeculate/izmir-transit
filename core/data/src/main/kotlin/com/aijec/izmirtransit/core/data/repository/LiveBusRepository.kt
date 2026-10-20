@@ -13,7 +13,9 @@ import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.geo.LatLng
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import java.time.Clock
 import javax.inject.Inject
 import kotlin.time.Duration
@@ -45,13 +47,13 @@ class LiveBusRepository @Inject constructor(
                 }
             },
         )
-    }
+    }.flowOn(Dispatchers.Default) // Ghost filtering projects every bus onto the route.
 
     /** Buses approaching a stop, sorted by stops remaining, each with an approximate ETA. */
     fun observeStop(stopCode: String, interval: Duration = DEFAULT_INTERVAL): Flow<LiveSnapshot<List<ApproachingBus>>> = flow {
         val stopLocation = stops.stop(stopCode)?.location
         emitAll(pollLive(interval, clock) { fetchArrivals(stopCode, stopLocation) })
-    }
+    }.flowOn(Dispatchers.Default)
 
     /** A single fetch of [observeStop]'s data, for places that can't poll (the widget). */
     suspend fun stopArrivalsOnce(stopCode: String): FetchResult<List<ApproachingBus>> =

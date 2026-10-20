@@ -97,7 +97,7 @@ class FavouriteStopWidget : GlanceAppWidget() {
 
     @androidx.compose.runtime.Composable
     private fun Widget(context: Context, content: Content) {
-        val openApp = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val openApp = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         if (content is Content.Arrivals) openApp.putExtra(MainActivity.EXTRA_OPEN_STOP, content.stop.code)
         Column(
             GlanceModifier

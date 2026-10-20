@@ -9,4 +9,5 @@ android {
 
 dependencies {
     api(projects.core.model)
+    implementation(libs.compose.material.icons.extended)
 }

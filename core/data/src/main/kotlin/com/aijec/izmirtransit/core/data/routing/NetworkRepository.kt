@@ -28,7 +28,8 @@ class NetworkRepository @Inject constructor(private val database: IzmirDatabase)
     /** Call after the static data is replaced. */
     suspend fun clear() = mutex.withLock { cached = null }
 
-    private suspend fun build(day: ServiceDay): TransitNetwork {
+    private suspend fun build(day: ServiceDay): TransitNetwork = withContext(Dispatchers.Default) {
+        // Everything here is CPU work on tens of thousands of rows; never on the main thread.
         val lineDao = database.lineDao()
         val stops = database.stopDao().allStops().map { it.toModel() }
         val lines = lineDao.allLines().associate { it.code to it.toModel() }
@@ -36,7 +37,7 @@ class NetworkRepository @Inject constructor(private val database: IzmirDatabase)
         val shapes = lineDao.allShapes().associateBy { it.lineCode to it.direction }
         val departures = database.timetableDao().departuresOn(day.ordinal).groupBy { it.lineCode to it.direction }
         val stopDepartures = database.stopDao().stopDeparturesOn(day.ordinal).groupBy { it.lineCode to it.direction }
-        return withContext(Dispatchers.Default) {
+        run {
             val inputs = lineStops.mapNotNull { (key, rows) ->
                 val line = lines[key.first] ?: return@mapNotNull null
                 val direction = Direction.fromDatasetCode(key.second) ?: return@mapNotNull null

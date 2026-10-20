@@ -49,4 +49,6 @@
     <string name="linemap_directions_here">Buraya git</string>
     <string name="linemap_pin_title">Seçilen nokta</string>
     <string name="linemap_plan_trip">Yol tarifi</string>
+    <string name="linemap_switch_direction">Yönü değiştir</string>
+    <string name="linemap_transfer">Aktarma</string>
 </resources>

@@ -1,5 +1,7 @@
 package com.aijec.izmirtransit.feature.stop
 
+import com.aijec.izmirtransit.core.data.repository.NearbyStop
+import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -79,7 +81,12 @@ import com.aijec.izmirtransit.core.ui.stopKindLabel
 import com.aijec.izmirtransit.core.ui.tabular
 
 @Composable
-fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopViewModel = hiltViewModel()) {
+fun StopRoute(
+    onBack: () -> Unit,
+    onOpenLine: (String) -> Unit,
+    onOpenStop: (String) -> Unit = {},
+    viewModel: StopViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val arrivals by viewModel.arrivals.collectAsStateWithLifecycle()
     val board by viewModel.departures.collectAsStateWithLifecycle()
@@ -118,6 +125,7 @@ fun StopRoute(onBack: () -> Unit, onOpenLine: (String) -> Unit, viewModel: StopV
         onToggleFavourite = viewModel::toggleFavourite,
         onBack = onBack,
         onOpenLine = onOpenLine,
+        onOpenStop = onOpenStop,
         alertBusId = activeAlert?.takeIf { it.stopCode == state.stopCode }?.busId,
         onBell = { bus -> if (activeAlert?.busId == bus.busId) viewModel.stopAlert() else choosing = bus },
     )
@@ -139,6 +147,7 @@ fun StopScreen(
     onToggleFavourite: () -> Unit,
     onBack: () -> Unit,
     onOpenLine: (String) -> Unit,
+    onOpenStop: (String) -> Unit = {},
     alertBusId: Int? = null,
     onBell: (ApproachingBus) -> Unit = {},
 ) {
@@ -155,11 +164,15 @@ fun StopScreen(
                 title = state.stop?.name.orEmpty(),
                 subtitle = state.stop?.let { stopKindLabel(it) } ?: stringResource(R.string.stop_code, state.stopCode),
                 onBack = onBack,
+                leading = state.stop?.let { stop -> { ModeIcon(stop.mode, size = 36.dp) } },
                 action = { FavouriteButton(isFavourite, onToggleFavourite) },
             )
         }
         if (state.lines.isNotEmpty()) {
             item("lines") { ServingLines(state.lines, onOpenLine) }
+        }
+        if (state.transfers.isNotEmpty()) {
+            item("transfers") { TransfersPanel(state.stop, state.transfers, onOpenStop) }
         }
         items(state.announcements, key = { "notice-${it.lineCode}-${it.title.hashCode()}" }) { announcement ->
             AnnouncementCard(announcement, showLine = true, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
@@ -206,16 +219,56 @@ private fun ServingLines(lines: List<Line>, onOpenLine: (String) -> Unit) {
         lines.forEach { line ->
             val clickable = Modifier.clickable { onOpenLine(line.code) }
             // Every ferry route is "Vapur"; its name ("Konak – Karşıyaka") is what tells them apart.
-            if (line.mode == TransitMode.FERRY) LineBadge(line.name, clickable, color = line.color)
+            if (line.mode == TransitMode.FERRY) LineBadge(line.name, clickable, mode = line.mode)
             else LineBadge(line, clickable)
         }
     }
 }
 
+/** "Aktarma": the other stations a short walk away, e.g. İZBAN Halkapınar from Metro Halkapınar. */
+@Composable
+private fun TransfersPanel(stop: com.aijec.izmirtransit.core.model.Stop?, transfers: List<NearbyStop>, onOpenStop: (String) -> Unit) {
+    val colors = Calm.colors
+    val isStation = stop != null && stop.mode != TransitMode.BUS
+    SectionLabel(
+        stringResource(if (isStation) R.string.stop_transfers_title else R.string.stop_nearby_stations_title),
+        Modifier.padding(horizontal = 16.dp),
+    )
+    Panel(Modifier.fillMaxWidth().padding(horizontal = 16.dp), padding = PaddingValues(vertical = 4.dp)) {
+        transfers.forEachIndexed { index, transfer ->
+            if (index > 0) Hairline()
+            CalmRow(onClick = { onOpenStop(transfer.stop.code) }, padding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)) {
+                ModeIcon(transfer.stop.mode, size = 30.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(transfer.stop.name, style = MaterialTheme.typography.bodyLarge, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stopKindLabel(transfer.stop), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                }
+                Text(
+                    stringResource(R.string.stop_walk_minutes, transfer.distanceMeters.toInt(), walkMinutes(transfer.distanceMeters)),
+                    style = MaterialTheme.typography.labelMedium.tabular(),
+                    color = colors.textSecondary,
+                )
+            }
+        }
+    }
+}
+
+/** Same walking estimate as the trip planner: 75 m/min on streets 25 % longer than the crow flies. */
+private fun walkMinutes(meters: Double): Int = kotlin.math.ceil(meters * 1.25 / 75.0).toInt().coerceAtLeast(1)
+
 @Composable
 private fun DeparturesPanel(board: StationBoard, onOpenLine: (String) -> Unit) {
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth().padding(horizontal = 16.dp), padding = PaddingValues(vertical = 4.dp)) {
+        if (board.nextDay && board.departures.isNotEmpty()) {
+            Text(
+                stringResource(R.string.stop_departures_next_day),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onWarningSoft,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        }
         if (board.departures.isEmpty()) {
             Text(
                 stringResource(R.string.stop_departures_none),
@@ -244,7 +297,8 @@ private fun DeparturesPanel(board: StationBoard, onOpenLine: (String) -> Unit) {
                         color = colors.textSecondary,
                     )
                 }
-                EtaText(departure.minutesAfterMidnight - board.nowMinute)
+                // Tomorrow's first trains: a countdown across the night would only confuse.
+                if (!board.nextDay) EtaText(departure.minutesAfterMidnight - board.nowMinute)
             }
         }
     }

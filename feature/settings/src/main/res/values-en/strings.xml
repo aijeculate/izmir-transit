@@ -21,4 +21,9 @@
     <string name="settings_about_map">Map: Google Maps</string>
     <string name="settings_about_font_title">Typeface</string>
     <string name="settings_about_font">Inter, SIL Open Font License 1.1</string>
+    <string name="settings_style">Style</string>
+    <string name="settings_style_calm">Calm</string>
+    <string name="settings_style_glass">Liquid glass</string>
+    <string name="settings_both_directions">Show both directions</string>
+    <string name="settings_both_directions_hint">A chosen line draws both directions at once, in blue and orange. Off: one direction, with a button to switch.</string>
 </resources>

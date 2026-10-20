@@ -36,4 +36,8 @@
     <string name="stop_departures_none">Bugün buradan başka sefer yok</string>
     <string name="stop_departures_note">Saatler resmî tarifeden; gecikmeler gösterilmez.</string>
     <string name="stop_departures_note_izban">Saatler izban.com.tr sefer saatlerinden alınır ve yaklaşıktır; gecikmeler gösterilmez.</string>
+    <string name="stop_transfers_title">Aktarma</string>
+    <string name="stop_nearby_stations_title">Yakındaki istasyonlar</string>
+    <string name="stop_walk_minutes">%1$d m · %2$d dk</string>
+    <string name="stop_departures_next_day">Bugünkü seferler bitti. Sabahın ilk seferleri:</string>
 </resources>

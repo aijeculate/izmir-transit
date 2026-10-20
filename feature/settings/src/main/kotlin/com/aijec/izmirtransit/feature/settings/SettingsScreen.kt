@@ -47,6 +47,7 @@ import com.aijec.izmirtransit.core.data.repository.AppSettings
 import com.aijec.izmirtransit.core.data.repository.SettingsRepository
 import com.aijec.izmirtransit.core.model.AccentTheme
 import com.aijec.izmirtransit.core.model.ThemeMode
+import com.aijec.izmirtransit.core.model.UiStyle
 import com.aijec.izmirtransit.core.ui.Calm
 import com.aijec.izmirtransit.core.ui.Hairline
 import com.aijec.izmirtransit.core.ui.Panel
@@ -71,6 +72,10 @@ class SettingsViewModel @Inject constructor(private val repository: SettingsRepo
     fun setAccent(accent: AccentTheme) = viewModelScope.launch { repository.setAccent(accent) }
 
     fun setSearchAtBottom(bottom: Boolean) = viewModelScope.launch { repository.setSearchAtBottom(bottom) }
+
+    fun setStyle(style: UiStyle) = viewModelScope.launch { repository.setStyle(style) }
+
+    fun setShowBothDirections(both: Boolean) = viewModelScope.launch { repository.setShowBothDirections(both) }
 }
 
 @Composable
@@ -82,6 +87,8 @@ fun SettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
         onThemeMode = { viewModel.setThemeMode(it) },
         onAccent = { viewModel.setAccent(it) },
         onSearchAtBottom = { viewModel.setSearchAtBottom(it) },
+        onStyle = { viewModel.setStyle(it) },
+        onShowBothDirections = { viewModel.setShowBothDirections(it) },
     )
 }
 
@@ -92,6 +99,8 @@ fun SettingsScreen(
     onThemeMode: (ThemeMode) -> Unit,
     onAccent: (AccentTheme) -> Unit,
     onSearchAtBottom: (Boolean) -> Unit,
+    onStyle: (UiStyle) -> Unit = {},
+    onShowBothDirections: (Boolean) -> Unit = {},
 ) {
     val colors = Calm.colors
     LazyColumn(
@@ -126,6 +135,18 @@ fun SettingsScreen(
             )
         }
 
+        item { SectionLabel(stringResource(R.string.settings_style)) }
+        item {
+            SegmentedControl(
+                options = UiStyle.entries,
+                selected = settings.style,
+                onSelect = onStyle,
+                label = { style ->
+                    stringResource(if (style == UiStyle.CALM) R.string.settings_style_calm else R.string.settings_style_glass)
+                },
+            )
+        }
+
         item { SectionLabel(stringResource(R.string.settings_colour)) }
         item {
             Panel(Modifier.fillMaxWidth()) {
@@ -139,30 +160,20 @@ fun SettingsScreen(
 
         item { SectionLabel(stringResource(R.string.settings_map)) }
         item {
-            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(role = Role.Switch) { onSearchAtBottom(!settings.searchAtBottom) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_search_bottom), style = MaterialTheme.typography.bodyLarge, color = colors.text)
-                        Text(stringResource(R.string.settings_search_bottom_hint), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Switch(
-                        checked = settings.searchAtBottom,
-                        onCheckedChange = onSearchAtBottom,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = colors.accent,
-                            checkedThumbColor = colors.onAccent,
-                            uncheckedTrackColor = colors.hairline,
-                            uncheckedBorderColor = colors.hairline,
-                            uncheckedThumbColor = colors.textSecondary,
-                        ),
-                    )
-                }
+            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
+                SettingSwitch(
+                    title = stringResource(R.string.settings_both_directions),
+                    hint = stringResource(R.string.settings_both_directions_hint),
+                    checked = settings.showBothDirections,
+                    onChange = onShowBothDirections,
+                )
+                Hairline(inset = 0.dp)
+                SettingSwitch(
+                    title = stringResource(R.string.settings_search_bottom),
+                    hint = stringResource(R.string.settings_search_bottom_hint),
+                    checked = settings.searchAtBottom,
+                    onChange = onSearchAtBottom,
+                )
             }
         }
 
@@ -212,6 +223,35 @@ private fun AccentSwatch(accent: AccentTheme, selected: Boolean, onClick: () -> 
         }
         Spacer(Modifier.height(6.dp))
         Text(name, style = MaterialTheme.typography.labelSmall, color = if (selected) colors.text else colors.textSecondary)
+    }
+}
+
+@Composable
+private fun SettingSwitch(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val colors = Calm.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Switch) { onChange(!checked) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.text)
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = colors.accent,
+                checkedThumbColor = colors.onAccent,
+                uncheckedTrackColor = colors.hairline,
+                uncheckedBorderColor = colors.hairline,
+                uncheckedThumbColor = colors.textSecondary,
+            ),
+        )
     }
 }
 

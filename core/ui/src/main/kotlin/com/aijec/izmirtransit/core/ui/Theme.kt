@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.core.ui
 
+import com.aijec.izmirtransit.core.model.UiStyle
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -158,6 +159,7 @@ private val CalmTypography = Typography(
 fun IzmirTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     accentTheme: AccentTheme = AccentTheme.OCEAN,
+    style: UiStyle = UiStyle.CALM,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (themeMode) {
@@ -171,7 +173,10 @@ fun IzmirTheme(
         onAccent = accent.onAccent,
         accentSoft = accent.soft,
         onAccentSoft = accent.onSoft,
-    )
+    ).let {
+        // Liquid glass: screens are see-through so the root's colour wash shows behind the panes.
+        if (style == UiStyle.LIQUID_GLASS) it.copy(canvas = Color.Transparent) else it
+    }
     // Material components (text fields, progress, dialogs) pick up the same palette.
     val scheme = if (darkTheme) {
         darkColorScheme(
@@ -198,7 +203,7 @@ fun IzmirTheme(
             outline = calm.hairline, outlineVariant = calm.hairline,
         )
     }
-    CompositionLocalProvider(LocalCalmColors provides calm) {
+    CompositionLocalProvider(LocalCalmColors provides calm, LocalUiStyle provides style) {
         MaterialTheme(
             colorScheme = scheme,
             typography = CalmTypography,
@@ -218,15 +223,7 @@ object TransitColors {
 
     fun forDirection(direction: Direction): Color = if (direction == Direction.OUTBOUND) Outbound else Return
 
-    /**
-     * One colour per mode for stop markers and the layer list, where a stop may serve several
-     * lines: metro's official blue, a tram magenta, İZBAN teal, İzdeniz blue. Buses use the accent.
-     */
-    fun forMode(mode: TransitMode, accent: Color): Color = when (mode) {
-        TransitMode.BUS -> accent
-        TransitMode.METRO -> Color(0xFF0038EF)
-        TransitMode.TRAM -> Color(0xFFC2185B)
-        TransitMode.IZBAN -> Color(0xFF00838F)
-        TransitMode.FERRY -> Color(0xFF0097D7)
-    }
+    /** One colour per mode for stop markers and plans: the operator's main colour (see [ModeBrands]). */
+    @Suppress("UNUSED_PARAMETER")
+    fun forMode(mode: TransitMode, accent: Color): Color = ModeBrands.of(mode).primary
 }

@@ -1,5 +1,8 @@
 package com.aijec.izmirtransit.feature.linemap
 
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.Place
+import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -52,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -111,6 +115,7 @@ fun LineMapRoute(
     val searchAtBottom by viewModel.searchAtBottom.collectAsStateWithLifecycle()
     val overview by viewModel.overview.collectAsStateWithLifecycle()
     val layers by viewModel.layers.collectAsStateWithLifecycle()
+    val bothDirections by viewModel.showBothDirections.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -156,6 +161,8 @@ fun LineMapRoute(
         onViewportChanged = viewModel::onViewportChanged,
         onSetLayer = viewModel::setLayer,
         onPlanTrip = onPlanTrip,
+        bothDirections = bothDirections,
+        onSwitchDirection = viewModel::switchDirection,
     )
 }
 
@@ -181,13 +188,21 @@ fun LineMapScreen(
     onViewportChanged: (Viewport) -> Unit = {},
     onSetLayer: (MapLayer, Boolean) -> Unit = { _, _ -> },
     onPlanTrip: (PlanDestination?) -> Unit = {},
+    bothDirections: Boolean = false,
+    onSwitchDirection: () -> Unit = {},
 ) {
     var showLayers by rememberSaveable { mutableStateOf(false) }
+    // One direction at a time unless the user asked for both: simpler to read.
+    val shownRoutes = remember(state.routes, state.direction, bothDirections) {
+        if (bothDirections) state.routes else state.routes.filter { it.direction == state.direction }
+    }
+    val shownBuses = live.data.orEmpty().let { buses -> if (bothDirections) buses else buses.filter { it.direction == state.direction } }
+    val shownLive = live.copy(data = live.data?.let { shownBuses })
     Box(Modifier.fillMaxSize()) {
         TransitMap(
-            routes = state.routes,
+            routes = shownRoutes,
             routeMode = state.line?.mode ?: TransitMode.BUS,
-            buses = live.data.orEmpty(),
+            buses = shownBuses,
             // Keeps the route clear of the search pill above and the panels below.
             contentPadding = if (searchAtBottom) MapPadding(start = 24.dp, top = 60.dp, end = 24.dp, bottom = 400.dp)
             else MapPadding(start = 24.dp, top = 120.dp, end = 24.dp, bottom = 330.dp),
@@ -243,6 +258,7 @@ fun LineMapScreen(
                 when {
                     preview != null -> StopPreviewPanel(
                         preview,
+                        onOpenTransfer = { onMapStopClick(it) },
                         onOpenLine = { onClosePreview(); onSelectLine(it) },
                         onOpen = { onClosePreview(); onOpenStop(preview.stop.code) },
                         onPlan = { onPlanTrip(PlanDestination(preview.stop.name, preview.stop.location)) },
@@ -250,7 +266,7 @@ fun LineMapScreen(
                     )
                     pin != null -> PinPanel(onPlan = { onPlanTrip(PlanDestination(null, pin)) }, onClose = onMapClick)
                     state.lineCode == null -> OverviewPanel(overview)
-                    else -> LinePanel(state, live, isFavourite, onToggleFavourite, onOpenTimetable, onClose)
+                    else -> LinePanel(state, shownLive, isFavourite, onToggleFavourite, onOpenTimetable, onClose, bothDirections, onSwitchDirection)
                 }
             }
             if (searchAtBottom) {
@@ -280,8 +296,12 @@ private fun LayersPanel(layers: Set<MapLayer>, onSet: (MapLayer, Boolean) -> Uni
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 val mode = layerMode(layer)
-                Dot(if (mode != null) TransitColors.forMode(mode, colors.accent) else colors.textSecondary, size = 10.dp)
-                Spacer(Modifier.width(10.dp))
+                if (mode != null) {
+                    ModeIcon(mode, size = 24.dp)
+                } else {
+                    Icon(Icons.Filled.Place, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(24.dp))
+                }
+                Spacer(Modifier.width(12.dp))
                 Text(layerLabel(layer), style = MaterialTheme.typography.bodyMedium, color = colors.text, modifier = Modifier.weight(1f))
                 Switch(
                     checked = on,
@@ -323,7 +343,14 @@ private fun layerLabel(layer: MapLayer): String = when (layer) {
 
 /** A tapped stop: what it is and which lines call there, before opening it. */
 @Composable
-private fun StopPreviewPanel(preview: StopPreview, onOpenLine: (String) -> Unit, onOpen: () -> Unit, onPlan: () -> Unit, onClose: () -> Unit) {
+private fun StopPreviewPanel(
+    preview: StopPreview,
+    onOpenTransfer: (Stop) -> Unit,
+    onOpenLine: (String) -> Unit,
+    onOpen: () -> Unit,
+    onPlan: () -> Unit,
+    onClose: () -> Unit,
+) {
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth(), glass = true, padding = PaddingValues(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -343,10 +370,39 @@ private fun StopPreviewPanel(preview: StopPreview, onOpenLine: (String) -> Unit,
                 // Ferry routes are all "Vapur"; their names tell them apart.
                 preview.lines.take(MAX_PREVIEW_LINES).forEach { line ->
                     val open = Modifier.clickable { onOpenLine(line.code) }
-                    if (line.mode == TransitMode.FERRY) LineBadge(line.name, open, color = line.color) else LineBadge(line, open)
+                    if (line.mode == TransitMode.FERRY) LineBadge(line.name, open, mode = line.mode) else LineBadge(line, open)
                 }
                 if (preview.lines.size > MAX_PREVIEW_LINES) {
                     Text("+${preview.lines.size - MAX_PREVIEW_LINES}", style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
+                }
+            }
+        }
+        if (preview.transfers.isNotEmpty()) {
+            // Interchanges: tap to jump to the connected station.
+            FlowRow(
+                Modifier.padding(top = 10.dp, end = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    stringResource(R.string.linemap_transfer),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textSecondary,
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                )
+                preview.transfers.forEach { transfer ->
+                    Row(
+                        Modifier
+                            .clip(Calm.PillShape)
+                            .clickable { onOpenTransfer(transfer) }
+                            .background(colors.accentSoft.copy(alpha = 0.5f))
+                            .padding(start = 4.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ModeIcon(transfer.mode, size = 22.dp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(transfer.name, style = MaterialTheme.typography.labelMedium, color = colors.text, maxLines = 1)
+                    }
                 }
             }
         }
@@ -447,6 +503,8 @@ private fun Search(
                         item("stops-header") { ResultHeader(stringResource(R.string.linemap_search_stops)) }
                         items(state.stopResults, key = { "stop-${it.stop.code}" }) { (stop, lines) ->
                             CalmRow(onClick = { focus.clearFocus(); onOpenStop(stop.code) }, padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                                ModeIcon(stop.mode, size = 28.dp)
+                                Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text(stop.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Calm.colors.text)
                                     Text(
@@ -491,6 +549,8 @@ private fun LinePanel(
     onToggleFavourite: () -> Unit,
     onOpenTimetable: () -> Unit,
     onClose: () -> Unit,
+    bothDirections: Boolean = true,
+    onSwitchDirection: () -> Unit = {},
 ) {
     val lineCode = state.lineCode ?: return
     var showAnnouncements by rememberSaveable(lineCode) { mutableStateOf(false) }
@@ -517,13 +577,32 @@ private fun LinePanel(
         }
         state.line?.let { line ->
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val directions = if (line.mode == TransitMode.BUS) Direction.entries else state.routes.map { it.direction }
-                directions.forEach { direction ->
-                    DirectionLegend(
-                        direction,
-                        stringResource(R.string.linemap_towards, if (direction == Direction.OUTBOUND) line.destination else line.origin),
-                        state.nextDepartures[direction],
-                    )
+                val available = if (line.mode == TransitMode.BUS) Direction.entries else state.routes.map { it.direction }
+                if (bothDirections || available.size < 2) {
+                    available.forEach { direction ->
+                        DirectionLegend(
+                            direction,
+                            stringResource(R.string.linemap_towards, if (direction == Direction.OUTBOUND) line.destination else line.origin),
+                            state.nextDepartures[direction],
+                        )
+                    }
+                } else {
+                    // One direction shown: where it's going, and a switch to the other.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) {
+                            DirectionLegend(
+                                state.direction,
+                                stringResource(R.string.linemap_towards, if (state.direction == Direction.OUTBOUND) line.destination else line.origin),
+                                state.nextDepartures[state.direction],
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        PillButton(
+                            stringResource(R.string.linemap_switch_direction),
+                            onClick = onSwitchDirection,
+                            secondary = true,
+                        )
+                    }
                 }
                 ConnectionChips(state.connections, Modifier.padding(top = 4.dp))
             }
@@ -597,7 +676,7 @@ private fun OverviewPanel(overview: List<OverviewRoute>) {
             ) {
                 legend.forEach { route ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Dot(route.color?.let(::Color) ?: Calm.colors.accent, size = 8.dp)
+                        ModeIcon(route.mode, size = 22.dp)
                         Spacer(Modifier.width(6.dp))
                         Text(modeLabel(route.mode), style = MaterialTheme.typography.labelMedium, color = Calm.colors.textSecondary)
                     }

@@ -124,6 +124,37 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - **Smoke test:** `./gradlew :tools:importer:planSmoke` plans real trips on the built DB.
 - The timetable crash (duplicate lazy-grid keys when two departures share a minute) is fixed. Rail and ferry timetables have a "departing from" station picker.
 
+**Added 21 Oct 2026, night:**
+
+- **One direction at a time** is the default for a chosen line. The panel shows "Towards X" with a **Switch direction** button; only that direction's route, stops and buses are drawn. The setting "Show both directions" (`AppSettings.showBothDirections`) brings back blue and orange together. Loop lines with one direction show no switch.
+- **Operator colours** (`ModeBrands` in `:core:ui`, from the logos; colours only, logos never used):
+
+  | Mode | Primary | Secondary |
+  | --- | --- | --- |
+  | Bus (ESHOT) | red `#D71920` | white |
+  | Metro | blue `#2A52A3` | red `#E3262E` |
+  | Tram | green `#3DA548` | blue `#233F95` |
+  | İZBAN | blue `#0B5BA8` | white |
+  | İzdeniz | navy `#1D3C8F` | sky `#29A9E0` |
+
+  - `ModeIcon` is a pictogram tile with the second colour as a stripe. It is used in the map legend, the layers panel, search results, favourites, nearby stops, stop headers and planner steps.
+  - `LineBadge` takes a `mode`: strong is the primary with a secondary rim, soft is a tint with legible "ink" text.
+  - Map stop badges use the mode primary. Map routes keep the official per-line colours.
+- **Interchanges:** `StopRepository.transfers(stop)` lists other-mode rail and ferry stations within 350 m (Hilal's Metro and İZBAN are 285 m apart), shown as "Aktarma" on station screens and as chips on the map's stop card. Bus stops show "Stations nearby".
+- **Station boards late at night** show the next morning's first departures instead of "none".
+- **Liquid glass style** (`UiStyle`, Settings → Style):
+  - Every surface goes through `Modifier.calmSurface()`.
+  - Glass is a translucent gradient fill, a top sheen and a bright gradient rim. Google's map is a separate surface Compose can't blur behind, so there is no blur. Panes over the map are more opaque so their text stays legible.
+  - Other screens get a colour wash behind them (`glassBackdrop`, on the root in `AppNavHost`, with the canvas made transparent).
+- **Performance:** all CPU work moved off the main thread in the repositories:
+  - overview decode and simplify
+  - route decode and measure
+  - `inArea`, `transfers`, and the trip network build
+  - live flows (`flowOn(Default)`)
+
+  Stops in view are capped at 200 markers. Panning stays at 5 ms per frame with no slow frames on the S25 Ultra.
+- Notification and widget intents use `CLEAR_TOP | SINGLE_TOP`, so a tap reuses the open app (`onNewIntent`) instead of recreating it. Note: `adb shell am start --es openStop …` on a running app only brings the task to the front (result code 3) and never delivers the extra. That's a test artefact, not a bug.
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |
@@ -149,7 +180,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 Commands (use Git Bash, with `JAVA_HOME` set to the Temurin 21 JDK):
 
 ```bash
-./gradlew test                                  # 96 JVM tests, fixtures are real API responses (night_* and day_*)
+./gradlew test                                  # 97 JVM tests, fixtures are real API responses (night_* and day_*)
 ./gradlew lintDebug                             # 0 errors; known warnings: LogNotTimber, ObsoleteSdkInt (aapt2 rejects plain mipmap-anydpi)
 ./gradlew :tools:importer:run                   # research/raw (+ rail/*.zip, ferry/*.json) → build/izmir-transit.db (~13 MB, ~10 s)
 ./gradlew :tools:importer:refreshSmoke          # real download + import + validation

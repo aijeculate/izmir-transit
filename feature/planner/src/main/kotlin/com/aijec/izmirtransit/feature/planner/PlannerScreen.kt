@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.feature.planner
 
+import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -242,13 +243,15 @@ private fun SearchPanel(state: PlannerUiState, onQueryChange: (String) -> Unit, 
                             val (icon, title, subtitle) = when (suggestion) {
                                 Suggestion.MyLocation -> Triple(Icons.Filled.MyLocation, stringResource(R.string.planner_my_location), "")
                                 is Suggestion.Place -> Triple(Icons.Filled.Place, suggestion.place.title, suggestion.place.subtitle)
-                                is Suggestion.StopResult -> Triple(
-                                    com.aijec.izmirtransit.core.map.glyphFor(suggestion.stop.mode),
-                                    suggestion.stop.name,
-                                    stopKindLabel(suggestion.stop),
-                                )
+                                is Suggestion.StopResult -> Triple(null, suggestion.stop.name, stopKindLabel(suggestion.stop))
                             }
-                            Icon(icon, contentDescription = null, tint = colors.accent, modifier = Modifier.size(20.dp))
+                            if (suggestion is Suggestion.StopResult) {
+                                ModeIcon(suggestion.stop.mode, size = 28.dp)
+                            } else {
+                                Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                                    Icon(icon!!, contentDescription = null, tint = colors.accent, modifier = Modifier.size(22.dp))
+                                }
+                            }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(title, style = MaterialTheme.typography.bodyMedium, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -397,13 +400,7 @@ private fun LegRow(leg: JourneyLeg) {
                 )
             }
             is JourneyLeg.Ride -> {
-                Box(
-                    Modifier
-                        .padding(top = 1.dp)
-                        .size(18.dp)
-                        .background(TransitColors.forMode(leg.line.mode, colors.accent), androidx.compose.foundation.shape.CircleShape)
-                        .border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape),
-                )
+                ModeIcon(leg.line.mode, size = 20.dp)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
