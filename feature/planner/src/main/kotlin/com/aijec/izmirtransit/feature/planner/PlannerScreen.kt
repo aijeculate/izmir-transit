@@ -137,6 +137,7 @@ fun PlannerScreen(
             plan = if (journey != null && from != null && to != null) PlannerViewModel.mapPlan(journey, from.location, to.location) else null,
             pin = if (journey == null) to?.location else null,
             myLocationEnabled = from?.isMyLocation == true,
+            fitKey = journey?.let { "${state.selected}:${it.departureMinute}:${it.arrivalMinute}:${from?.location}:${to?.location}" },
             onStopClick = { onOpenStop(it.code) },
             modifier = Modifier.fillMaxSize(),
         )

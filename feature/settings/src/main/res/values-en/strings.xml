@@ -26,4 +26,6 @@
     <string name="settings_style_glass">Liquid glass</string>
     <string name="settings_both_directions">Show both directions</string>
     <string name="settings_both_directions_hint">A chosen line draws both directions at once, in blue and orange. Off: one direction, with a button to switch.</string>
+    <string name="settings_theme_amoled">AMOLED</string>
+    <string name="settings_replay_tutorial">Show the tutorial again</string>
 </resources>

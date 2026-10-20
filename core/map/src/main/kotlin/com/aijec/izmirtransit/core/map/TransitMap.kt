@@ -1,5 +1,9 @@
 package com.aijec.izmirtransit.core.map
 
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.saveable.rememberSaveable
+import android.graphics.Point
 import android.os.SystemClock
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
@@ -35,6 +39,7 @@ import com.google.android.gms.maps.model.Dot
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.gms.maps.model.RoundCap
@@ -60,6 +65,9 @@ import kotlinx.coroutines.yield
 import com.google.android.gms.maps.model.LatLng as GLatLng
 
 private val IZMIR_CENTER = GLatLng(38.4237, 27.1428)
+private val HideGoogleTransit = MapStyleOptions(
+    """[{"featureType":"transit.station","stylers":[{"visibility":"off"}]}]""",
+)
 private const val VEHICLE_FRAME_MILLIS = 66L
 
 /** Zoom bands that change how stops are drawn. */
@@ -92,6 +100,18 @@ fun TransitMap(
     pin: LatLng? = null,
     myLocationEnabled: Boolean = false,
     cameraRequest: CameraRequest? = null,
+    /**
+     * What the routes or plan belong to (a line code, a chosen journey). The camera fits them
+     * only when this changes, never when the same line is redrawn (switching direction,
+     * returning from another screen): the user's own zoom and position are kept.
+     */
+    fitKey: Any? = null,
+    /**
+     * Remembers the camera across screen rebuilds for this key (the Map tab is rebuilt
+     * whenever the user goes Home and back): it reopens where it was, and an already fitted
+     * line isn't fitted again.
+     */
+    memoryKey: String? = null,
     onStopClick: (Stop) -> Unit = {},
     onMapClick: () -> Unit = {},
     onMapLongClick: (LatLng) -> Unit = {},
@@ -99,8 +119,13 @@ fun TransitMap(
 ) {
     val colors = Calm.colors
     val density = LocalDensity.current
-    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(IZMIR_CENTER, 11f) }
+    val remembered = memoryKey?.let { CameraMemory.positions[it] }
+    val camera = rememberCameraPositionState { position = remembered ?: CameraPosition.fromLatLngZoom(IZMIR_CENTER, 11f) }
     var loaded by remember { mutableStateOf(false) }
+    // Survives navigating away and back, like the camera position itself.
+    var fitted by rememberSaveable { mutableStateOf(memoryKey?.let { CameraMemory.fitted[it] }) }
+    LaunchedEffect(fitted) { memoryKey?.let { CameraMemory.fitted[it] = fitted } }
+    var mapSize by remember { mutableStateOf(IntSize.Zero) }
     val currentOnViewport by rememberUpdatedState(onViewportChanged)
 
     val detail by remember {
@@ -143,11 +168,16 @@ fun TransitMap(
     val casingWidth = with(density) { 8.dp.toPx() }
 
     GoogleMap(
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { mapSize = it },
         cameraPositionState = camera,
         contentPadding = with(contentPadding) { PaddingValues(start, top, end, bottom) },
         mapColorScheme = if (colors.isDark) ComposeMapColorScheme.DARK else ComposeMapColorScheme.LIGHT,
-        properties = MapProperties(isMyLocationEnabled = myLocationEnabled, minZoomPreference = 8f),
+        properties = MapProperties(
+            isMyLocationEnabled = myLocationEnabled,
+            minZoomPreference = 8f,
+            // Google's own transit station icons duplicated our stop badges (and stole taps).
+            mapStyleOptions = HideGoogleTransit,
+        ),
         uiSettings = MapUiSettings(
             compassEnabled = false,
             mapToolbarEnabled = false,
@@ -163,7 +193,8 @@ fun TransitMap(
     ) {
         // --- Overview. The ~900 bus routes are drawn into tiles in the background (as polylines
         // they made every pan stutter); rail and ferry stay polylines, a few dozen of them.
-        val busColor = colors.accent.copy(alpha = if (colors.isDark) 0.28f else 0.3f).toArgb()
+        // Fainter on dark themes: a light accent (Graphite is near white) shouts on black.
+        val busColor = colors.accent.copy(alpha = if (colors.isDark) 0.2f else 0.3f).toArgb()
         val busRoutes = remember(overview) { overview.filter { it.mode == TransitMode.BUS }.map { it.points } }
         val busTiles = remember(busRoutes, busColor) { if (busRoutes.isEmpty()) null else RouteTileProvider(busRoutes, busColor, widthPx = 1.6f) }
         // At street level the faint bus web reads as extra roads; the stop badges take over.
@@ -318,19 +349,26 @@ fun TransitMap(
     }
 
     // --- Camera.
-    LaunchedEffect(loaded, routes) {
-        if (!loaded) return@LaunchedEffect
+    LaunchedEffect(loaded, routes, fitKey) {
+        if (!loaded || fitKey == null) return@LaunchedEffect
+        val key = "routes:$fitKey"
         val all = routes.flatMap { it.shape }
-        if (all.size >= 2) camera.animate(CameraUpdateFactory.newLatLngBounds(bounds(all), 0), 800)
+        if (all.size < 2 || fitted == key) return@LaunchedEffect
+        fitted = key
+        camera.animate(CameraUpdateFactory.newLatLngBounds(bounds(all), 0), 800)
     }
-    LaunchedEffect(loaded, plan) {
+    LaunchedEffect(loaded, plan, fitKey) {
         val journey = plan ?: return@LaunchedEffect
         if (!loaded) return@LaunchedEffect
+        val key = "plan:$fitKey"
+        if (fitted == key) return@LaunchedEffect
+        fitted = key
         val all = journey.legs.flatMap { it.points } + journey.origin + journey.destination
         camera.animate(CameraUpdateFactory.newLatLngBounds(bounds(all), with(density) { 24.dp.roundToPx() }), 800)
     }
     LaunchedEffect(loaded, overview.isNotEmpty() && routes.isEmpty() && plan == null) {
-        if (loaded && overview.isNotEmpty() && routes.isEmpty() && plan == null && camera.position.zoom < 11.5f) {
+        // Only on a fresh map: a remembered camera is where the user left it.
+        if (loaded && remembered == null && overview.isNotEmpty() && routes.isEmpty() && plan == null && camera.position.zoom < 11.5f) {
             camera.animate(CameraUpdateFactory.newLatLngZoom(IZMIR_CENTER, 10.6f), 600)
         }
     }
@@ -340,13 +378,25 @@ fun TransitMap(
     }
     LaunchedEffect(loaded, camera.isMoving) {
         if (!loaded || camera.isMoving) return@LaunchedEffect
-        val visible = camera.projection?.visibleRegion?.latLngBounds ?: return@LaunchedEffect
+        memoryKey?.let { CameraMemory.positions[it] = camera.position }
+        val projection = camera.projection ?: return@LaunchedEffect
+        // The whole screen, not Google's "visible region": that excludes the content padding
+        // (under the search bar and the cards), and stops there vanished. A margin loads the
+        // stops just off screen too, so a small pan doesn't show empty streets first.
+        val marginX = (mapSize.width * 0.15f).toInt()
+        val marginY = (mapSize.height * 0.15f).toInt()
+        val corners = listOf(
+            Point(-marginX, -marginY),
+            Point(mapSize.width + marginX, -marginY),
+            Point(-marginX, mapSize.height + marginY),
+            Point(mapSize.width + marginX, mapSize.height + marginY),
+        ).map { projection.fromScreenLocation(it) }
         currentOnViewport(
             Viewport(
-                minLatitude = visible.southwest.latitude,
-                maxLatitude = visible.northeast.latitude,
-                minLongitude = visible.southwest.longitude,
-                maxLongitude = visible.northeast.longitude,
+                minLatitude = corners.minOf { it.latitude },
+                maxLatitude = corners.maxOf { it.latitude },
+                minLongitude = corners.minOf { it.longitude },
+                maxLongitude = corners.maxOf { it.longitude },
                 zoom = camera.position.zoom,
             ),
         )
@@ -379,6 +429,12 @@ private fun Vehicles(motion: BusMotion, outbound: BitmapDescriptor, inbound: Bit
             )
         }
     }
+}
+
+/** Camera positions kept for the life of the app process, by [TransitMap]'s memoryKey. */
+private object CameraMemory {
+    val positions = HashMap<String, CameraPosition>()
+    val fitted = HashMap<String, String?>()
 }
 
 private fun bounds(points: List<LatLng>): LatLngBounds =

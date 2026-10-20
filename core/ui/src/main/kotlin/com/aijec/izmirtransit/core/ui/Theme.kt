@@ -88,6 +88,15 @@ private val DarkCalm = CalmColors(
     pressed = Color(0x14E8EDF3),
 )
 
+/** The dark theme on true black: OLED pixels switch off, panels lifted just enough to read as cards. */
+private val AmoledCalm = DarkCalm.copy(
+    canvas = Color(0xFF000000),
+    panel = Color(0xFF0E1013),
+    panelGlass = Color(0xF20E1013),
+    hairline = Color(0xFF1E232A),
+    accentSoft = Color(0xFF14233A),
+)
+
 private val LocalCalmColors = staticCompositionLocalOf { LightCalm }
 
 private data class Accent(val accent: Color, val onAccent: Color, val soft: Color, val onSoft: Color)
@@ -165,13 +174,20 @@ fun IzmirTheme(
     val darkTheme = when (themeMode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
+        ThemeMode.DARK, ThemeMode.AMOLED -> true
     }
+    val amoled = themeMode == ThemeMode.AMOLED
     val accent = accentFor(accentTheme, darkTheme)
-    val calm = (if (darkTheme) DarkCalm else LightCalm).copy(
+    val base = when {
+        amoled -> AmoledCalm
+        darkTheme -> DarkCalm
+        else -> LightCalm
+    }
+    val calm = base.copy(
         accent = accent.accent,
         onAccent = accent.onAccent,
-        accentSoft = accent.soft,
+        // AMOLED keeps its deeper soft tint so badges don't glow on black.
+        accentSoft = if (amoled) base.accentSoft else accent.soft,
         onAccentSoft = accent.onSoft,
     ).let {
         // Liquid glass: screens are see-through so the root's colour wash shows behind the panes.
@@ -203,7 +219,7 @@ fun IzmirTheme(
             outline = calm.hairline, outlineVariant = calm.hairline,
         )
     }
-    CompositionLocalProvider(LocalCalmColors provides calm, LocalUiStyle provides style) {
+    CompositionLocalProvider(LocalCalmColors provides calm, LocalUiStyle provides style, LocalAmoled provides amoled) {
         MaterialTheme(
             colorScheme = scheme,
             typography = CalmTypography,

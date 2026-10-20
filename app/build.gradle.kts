@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(projects.core.map)
+    implementation(libs.compose.material.icons.extended)
 }
 
 /** Copies the database built by :tools:importer into the app's generated assets. */

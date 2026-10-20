@@ -30,4 +30,24 @@
         <item quantity="one">%1$d durak</item>
         <item quantity="other">%1$d durak</item>
     </plurals>
+    <string name="onboarding_skip">Geç</string>
+    <string name="onboarding_next">İleri</string>
+    <string name="onboarding_welcome_title">İzmir\'in tüm ulaşımı tek yerde</string>
+    <string name="onboarding_welcome_body">ESHOT otobüsleri, Metro, tramvay, İZBAN ve İzdeniz vapurları. Canlı otobüs konumları, sefer saatleri ve yol tarifi; internet olmadan da çalışır.</string>
+    <string name="onboarding_map_title">Haritada keşfet</string>
+    <string name="onboarding_map_body">Harita açılınca İzmir\'in tüm hatlarını görürsün.</string>
+    <string name="onboarding_map_tip_search">Hat numarası ya da durak adı ara.</string>
+    <string name="onboarding_map_tip_layers">Katman düğmesiyle otobüs, metro, tramvay, İZBAN ve vapuru açıp kapat.</string>
+    <string name="onboarding_map_tip_stops">Yakınlaştırınca bütün duraklar görünür; birine dokun, hatlarını ve aktarmalarını gör.</string>
+    <string name="onboarding_line_title">Hattını takip et</string>
+    <string name="onboarding_line_body">Bir hat seçince otobüsler haritada canlı ilerler; sefer saatleri bir dokunuş uzakta.</string>
+    <string name="onboarding_line_tip_direction">Hat tek yönde gösterilir; “Yönü değiştir” ile diğer yöne geç. İki yönü birlikte görmek için Ayarlar\'a bak.</string>
+    <string name="onboarding_line_tip_favourite">Kalple durak ve hatları favorilere ekle; ana ekranda yaklaşan otobüsleri gör.</string>
+    <string name="onboarding_plan_title">Nereye gitmek istiyorsun?</string>
+    <string name="onboarding_plan_body">Adresi, yeri ya da durağı yaz: hangi duraktan hangi otobüse bineceğini, nerede aktarma yapacağını gösterir.</string>
+    <string name="onboarding_plan_tip">Haritada bir noktaya basılı tut ya da bir durağa dokunup “Buraya git” de.</string>
+    <string name="onboarding_location_title">Konumuna izin ver</string>
+    <string name="onboarding_location_body">Yakındaki durakları göstermek ve yol tarifine bulunduğun yerden başlamak için. Konumun cihazında kalır.</string>
+    <string name="onboarding_allow_location">Konuma izin ver</string>
+    <string name="onboarding_not_now">Şimdi değil</string>
 </resources>

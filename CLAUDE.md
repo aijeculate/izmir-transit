@@ -155,6 +155,15 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   Stops in view are capped at 200 markers. Panning stays at 5 ms per frame with no slow frames on the S25 Ultra.
 - Notification and widget intents use `CLEAR_TOP | SINGLE_TOP`, so a tap reuses the open app (`onNewIntent`) instead of recreating it. Note: `adb shell am start --es openStop …` on a running app only brings the task to the front (result code 3) and never delivers the extra. That's a test artefact, not a bug.
 
+**Added 21 Oct 2026, late night:**
+
+- **The camera never moves on its own after the user does.** `TransitMap(fitKey = …)` fits routes or a plan only when the key changes: a new line, or a newly selected journey. The fitted key survives in `rememberSaveable`. The Map tab passes `memoryKey = "map-tab"`, so its camera and fitted line live in a process-wide `CameraMemory`; going Home and back keeps the zoom. Switching direction keeps the zoom.
+- **Stops in view cover the whole screen** plus a 15 % margin, computed from the map's pixel size with `projection.fromScreenLocation`. Google's `visibleRegion` excludes the content padding under the cards and the search bar, which made stops vanish there. The limit is 260.
+- Google's own transit station icons are hidden (`MapStyleOptions`, `transit.station` off). They duplicated our badges. The dark colour scheme still applies.
+- **Dark liquid glass** follows the user's references (iOS 26 tab bar, One UI 9 concept): no sheen, a faint white fill, and a thin diagonal-gradient rim. Behind it is a near-black backdrop with a deep blue glow bottom-right and violet left. Selected segments and tabs use translucent white (`Calm.selectedFill()`). Light glass is unchanged; the user likes it.
+- **AMOLED** is a fourth theme mode (`ThemeMode.AMOLED`): a pure black canvas, near-black panels (`AmoledCalm`), `LocalAmoled` for dimmer glass glows, and the dark map.
+- **First-run tutorial** (`app/onboarding/Onboarding.kt`): five pager pages (welcome with the mode tiles, map, line, planner, location permission). It sits behind `AppSettings.onboardingDone`, and Settings has "Show the tutorial again". The location permission is only requested from the last page, after explaining why.
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |

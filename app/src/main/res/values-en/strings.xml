@@ -29,4 +29,24 @@
         <item quantity="one">%1$d stop</item>
         <item quantity="other">%1$d stops</item>
     </plurals>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_welcome_title">All of İzmir\'s transport in one place</string>
+    <string name="onboarding_welcome_body">ESHOT buses, Metro, tram, İZBAN and İzdeniz ferries. Live bus positions, timetables and directions, and it works offline too.</string>
+    <string name="onboarding_map_title">Explore the map</string>
+    <string name="onboarding_map_body">The map opens on every line in İzmir.</string>
+    <string name="onboarding_map_tip_search">Search for a line number or a stop name.</string>
+    <string name="onboarding_map_tip_layers">Use the layers button to show or hide buses, metro, tram, İZBAN and ferries.</string>
+    <string name="onboarding_map_tip_stops">Zoom in to see every stop; tap one for its lines and connections.</string>
+    <string name="onboarding_line_title">Follow your line</string>
+    <string name="onboarding_line_body">Pick a line and its buses move live on the map; the timetable is one tap away.</string>
+    <string name="onboarding_line_tip_direction">A line shows one direction at a time; “Switch direction” flips it. To see both together, look in Settings.</string>
+    <string name="onboarding_line_tip_favourite">Tap the heart to save stops and lines; Home shows their next buses.</string>
+    <string name="onboarding_plan_title">Where do you want to go?</string>
+    <string name="onboarding_plan_body">Type an address, a place or a stop: it shows which stop to go to, which bus to take and where to change.</string>
+    <string name="onboarding_plan_tip">Or long-press anywhere on the map, or tap a stop and choose “Directions here”.</string>
+    <string name="onboarding_location_title">Allow your location</string>
+    <string name="onboarding_location_body">To show the stops near you and start directions from where you are. Your location stays on your phone.</string>
+    <string name="onboarding_allow_location">Allow location</string>
+    <string name="onboarding_not_now">Not now</string>
 </resources>

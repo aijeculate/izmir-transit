@@ -26,6 +26,8 @@ data class AppSettings(
     val style: UiStyle = UiStyle.CALM,
     /** Draw both directions of a line at once (blue and orange) instead of one with a switch. */
     val showBothDirections: Boolean = false,
+    /** The first-run tutorial was finished or skipped. */
+    val onboardingDone: Boolean = false,
     /** Map layers that are switched on; all by default. */
     val mapLayers: Set<MapLayer> = MapLayer.entries.toSet(),
 )
@@ -41,6 +43,7 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
                 searchAtBottom = prefs[SEARCH_AT_BOTTOM] ?: false,
                 style = prefs[STYLE]?.let { runCatching { UiStyle.valueOf(it) }.getOrNull() } ?: UiStyle.CALM,
                 showBothDirections = prefs[BOTH_DIRECTIONS] ?: false,
+                onboardingDone = prefs[ONBOARDING_DONE] ?: false,
                 // Stored as the switched-off layers, so layers added later start switched on.
                 mapLayers = MapLayer.entries.toSet() - prefs[HIDDEN_LAYERS].orEmpty().mapNotNull { name ->
                     runCatching { MapLayer.valueOf(name) }.getOrNull()
@@ -59,6 +62,8 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
 
     suspend fun setShowBothDirections(both: Boolean) = store.edit { it[BOTH_DIRECTIONS] = both }
 
+    suspend fun setOnboardingDone(done: Boolean) = store.edit { it[ONBOARDING_DONE] = done }
+
     suspend fun setMapLayer(layer: MapLayer, visible: Boolean) = store.edit { prefs ->
         val hidden = prefs[HIDDEN_LAYERS].orEmpty()
         prefs[HIDDEN_LAYERS] = if (visible) hidden - layer.name else hidden + layer.name
@@ -71,5 +76,6 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
         val HIDDEN_LAYERS = stringSetPreferencesKey("hidden_map_layers")
         val STYLE = stringPreferencesKey("ui_style")
         val BOTH_DIRECTIONS = booleanPreferencesKey("both_directions")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
     }
 }

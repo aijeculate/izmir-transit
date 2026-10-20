@@ -301,7 +301,7 @@ fun <T> SegmentedControl(
                     .weight(1f)
                     .heightIn(min = 40.dp)
                     .clip(Calm.PillShape)
-                    .background(if (isSelected) colors.panel else Color.Transparent)
+                    .background(if (isSelected) Calm.selectedFill() else Color.Transparent)
                     .clickable(role = Role.Tab) { onSelect(option) }
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
@@ -491,7 +491,7 @@ fun FloatingTabBar(tabs: List<FloatingTab>, modifier: Modifier = Modifier) {
                 Modifier
                     .heightIn(min = 48.dp)
                     .clip(Calm.PillShape)
-                    .background(if (tab.selected) colors.accentSoft else Color.Transparent)
+                    .background(if (tab.selected) (if (Calm.style == UiStyle.LIQUID_GLASS) Calm.selectedFill() else colors.accentSoft) else Color.Transparent)
                     .clickable(role = Role.Tab, onClick = tab.onClick)
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,

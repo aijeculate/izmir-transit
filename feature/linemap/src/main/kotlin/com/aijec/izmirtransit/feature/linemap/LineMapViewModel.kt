@@ -318,7 +318,8 @@ class LineMapViewModel @Inject constructor(
 
         /** Stops in view are drawn from this zoom on; below it they would crowd. */
         const val AREA_STOPS_ZOOM = 15f
-        private const val AREA_STOPS_LIMIT = 200
+        /** The area now includes the whole screen and a margin, so a little more room. */
+        private const val AREA_STOPS_LIMIT = 260
         private const val NEXT_DEPARTURES = 3
     }
 }

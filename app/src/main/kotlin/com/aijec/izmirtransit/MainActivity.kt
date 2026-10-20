@@ -1,5 +1,14 @@
 package com.aijec.izmirtransit
 
+import kotlinx.coroutines.launch
+import com.aijec.izmirtransit.onboarding.Onboarding
+import com.aijec.izmirtransit.core.ui.style
+import com.aijec.izmirtransit.core.ui.glassBackdrop
+import com.aijec.izmirtransit.core.model.UiStyle
+import androidx.compose.ui.Modifier
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -42,7 +51,15 @@ class MainActivity : ComponentActivity() {
                     enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                     onDispose { }
                 }
-                AppNavHost(openStop = openStopRequest, onOpenStopHandled = { openStopRequest = null })
+                if (settings.onboardingDone) {
+                    AppNavHost(openStop = openStopRequest, onOpenStopHandled = { openStopRequest = null })
+                } else {
+                    val scope = rememberCoroutineScope()
+                    val glass = Calm.style == UiStyle.LIQUID_GLASS
+                    Box(Modifier.fillMaxSize().then(if (glass) Modifier.glassBackdrop() else Modifier)) {
+                        Onboarding(onDone = { scope.launch { settingsRepository.setOnboardingDone(true) } })
+                    }
+                }
             }
         }
     }

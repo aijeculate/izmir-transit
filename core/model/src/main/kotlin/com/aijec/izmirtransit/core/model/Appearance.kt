@@ -1,6 +1,7 @@
 package com.aijec.izmirtransit.core.model
 
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+/** AMOLED is the dark theme on pure black, for OLED screens. */
+enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 
 /** The look of panels and controls: calm opaque cards, or iOS-style liquid glass. */
 enum class UiStyle { CALM, LIQUID_GLASS }

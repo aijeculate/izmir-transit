@@ -76,6 +76,9 @@ class SettingsViewModel @Inject constructor(private val repository: SettingsRepo
     fun setStyle(style: UiStyle) = viewModelScope.launch { repository.setStyle(style) }
 
     fun setShowBothDirections(both: Boolean) = viewModelScope.launch { repository.setShowBothDirections(both) }
+
+    /** Shows the first-run tutorial again (the app switches to it at once). */
+    fun replayTutorial() = viewModelScope.launch { repository.setOnboardingDone(false) }
 }
 
 @Composable
@@ -89,6 +92,7 @@ fun SettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
         onSearchAtBottom = { viewModel.setSearchAtBottom(it) },
         onStyle = { viewModel.setStyle(it) },
         onShowBothDirections = { viewModel.setShowBothDirections(it) },
+        onReplayTutorial = { viewModel.replayTutorial() },
     )
 }
 
@@ -101,6 +105,7 @@ fun SettingsScreen(
     onSearchAtBottom: (Boolean) -> Unit,
     onStyle: (UiStyle) -> Unit = {},
     onShowBothDirections: (Boolean) -> Unit = {},
+    onReplayTutorial: () -> Unit = {},
 ) {
     val colors = Calm.colors
     LazyColumn(
@@ -129,6 +134,7 @@ fun SettingsScreen(
                             ThemeMode.SYSTEM -> R.string.settings_theme_system
                             ThemeMode.LIGHT -> R.string.settings_theme_light
                             ThemeMode.DARK -> R.string.settings_theme_dark
+                            ThemeMode.AMOLED -> R.string.settings_theme_amoled
                         },
                     )
                 },
@@ -185,6 +191,18 @@ fun SettingsScreen(
                 AboutRow(stringResource(R.string.settings_about_map_title), stringResource(R.string.settings_about_map))
                 Hairline()
                 AboutRow(stringResource(R.string.settings_about_font_title), stringResource(R.string.settings_about_font))
+            }
+        }
+        item {
+            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button, onClick = onReplayTutorial)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                ) {
+                    Text(stringResource(R.string.settings_replay_tutorial), style = MaterialTheme.typography.bodyLarge, color = colors.accent)
+                }
             }
         }
     }

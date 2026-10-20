@@ -213,6 +213,10 @@ fun LineMapScreen(
             pin = state.pin,
             myLocationEnabled = state.locationEnabled,
             cameraRequest = state.cameraRequest,
+            fitKey = state.lineCode,
+            // The Map tab is rebuilt on every return from Home; pinned line screens keep
+            // their camera in their own back-stack entry.
+            memoryKey = if (state.pinned) null else "map-tab",
             onStopClick = onMapStopClick,
             onMapClick = { showLayers = false; onMapClick() },
             onMapLongClick = onMapLongClick,
