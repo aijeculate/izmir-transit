@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -66,121 +67,127 @@ fun TransitMap(
     nearbyStops: List<Stop> = emptyList(),
     cameraRequest: Int = 0,
 ) {
-    val currentOnStopClick by rememberUpdatedState(onStopClick)
-    val context = LocalContext.current
-    val dark = isSystemInDarkTheme()
-    val density = LocalDensity.current
-    val mapView = remember { MapView(context) }
-    var map by remember { mutableStateOf<MapLibreMap?>(null) }
-    var style by remember { mutableStateOf<Style?>(null) }
-    // Where each bus marker is drawn right now; animations start from here.
-    val displayed = remember { HashMap<Int, Pair<LatLng, Direction>>() }
+    // A MapView must not outlive the lifecycle it is bound to. Navigation can restore this
+    // screen under a new lifecycle owner while keeping the composition; reusing the old,
+    // already destroyed MapView then crashed natively. Keying on the owner rebuilds the
+    // view, its map and every effect together.
+    key(LocalLifecycleOwner.current) {
+        val currentOnStopClick by rememberUpdatedState(onStopClick)
+        val context = LocalContext.current
+        val dark = isSystemInDarkTheme()
+        val density = LocalDensity.current
+        val mapView = remember { MapView(context) }
+        var map by remember { mutableStateOf<MapLibreMap?>(null) }
+        var style by remember { mutableStateOf<Style?>(null) }
+        // Where each bus marker is drawn right now; animations start from here.
+        val displayed = remember { HashMap<Int, Pair<LatLng, Direction>>() }
 
-    MapViewLifecycle(mapView)
+        MapViewLifecycle(mapView)
 
-    AndroidView(
-        factory = {
-            mapView.apply {
-                getMapAsync { m ->
-                    m.cameraPosition = CameraPosition.Builder().target(IZMIR_CENTER).zoom(11.0).build()
-                    m.uiSettings.isRotateGesturesEnabled = false
-                    m.uiSettings.isTiltGesturesEnabled = false
-                    // OSM attribution must stay visible: lift logo and "i" above the bottom card.
-                    with(density) {
-                        val bottom = contentPadding.bottom.roundToPx()
-                        val side = 16.dp.roundToPx()
-                        m.uiSettings.setLogoMargins(side, 0, 0, bottom)
-                        m.uiSettings.setAttributionMargins(side + 100.dp.roundToPx(), 0, 0, bottom)
+        AndroidView(
+            factory = {
+                mapView.apply {
+                    getMapAsync { m ->
+                        m.cameraPosition = CameraPosition.Builder().target(IZMIR_CENTER).zoom(11.0).build()
+                        m.uiSettings.isRotateGesturesEnabled = false
+                        m.uiSettings.isTiltGesturesEnabled = false
+                        // OSM attribution must stay visible: lift logo and "i" above the bottom card.
+                        with(density) {
+                            val bottom = contentPadding.bottom.roundToPx()
+                            val side = 16.dp.roundToPx()
+                            m.uiSettings.setLogoMargins(side, 0, 0, bottom)
+                            m.uiSettings.setAttributionMargins(side + 100.dp.roundToPx(), 0, 0, bottom)
+                        }
+                        // Tap a stop to open it. The hit box is 48 dp, wider than the drawn circle.
+                        val half = with(density) { 24.dp.toPx() }
+                        m.addOnMapClickListener { point ->
+                            val screen = m.projection.toScreenLocation(point)
+                            val box = RectF(screen.x - half, screen.y - half, screen.x + half, screen.y + half)
+                            val layers = Direction.entries.map { "${stopSource(it)}-layer" } + "$NEARBY_SOURCE-layer"
+                            val code = m.queryRenderedFeatures(box, *layers.toTypedArray())
+                                .firstNotNullOfOrNull { it.getStringProperty("code") }
+                            code?.let(currentOnStopClick)
+                            code != null
+                        }
+                        map = m
                     }
-                    // Tap a stop to open it. The hit box is 48 dp, wider than the drawn circle.
-                    val half = with(density) { 24.dp.toPx() }
-                    m.addOnMapClickListener { point ->
-                        val screen = m.projection.toScreenLocation(point)
-                        val box = RectF(screen.x - half, screen.y - half, screen.x + half, screen.y + half)
-                        val layers = Direction.entries.map { "${stopSource(it)}-layer" } + "$NEARBY_SOURCE-layer"
-                        val code = m.queryRenderedFeatures(box, *layers.toTypedArray())
-                            .firstNotNullOfOrNull { it.getStringProperty("code") }
-                        code?.let(currentOnStopClick)
-                        code != null
-                    }
-                    map = m
+                }
+            },
+            modifier = modifier,
+        )
+
+        val styleUrl = if (dark) DARK_STYLE else LIGHT_STYLE
+        LaunchedEffect(map, styleUrl) {
+            val m = map ?: return@LaunchedEffect
+            style = null
+            m.setStyle(Style.Builder().fromUri(styleUrl)) { loaded ->
+                loaded.addTransitLayers()
+                style = loaded
+            }
+        }
+
+        LaunchedEffect(style, routes) {
+            val s = style ?: return@LaunchedEffect
+            val m = map ?: return@LaunchedEffect
+            for (direction in Direction.entries) {
+                val route = routes.firstOrNull { it.direction == direction }
+                s.source(routeSource(direction))?.setGeoJson(lineString(route?.shape.orEmpty()))
+                s.source(stopSource(direction))?.setGeoJson(stopPoints(route?.stops.orEmpty()))
+            }
+            val all = routes.flatMap { it.shape }
+            if (all.size >= 2) {
+                val bounds = LatLngBounds.Builder().apply { all.forEach { include(MapLatLng(it.latitude, it.longitude)) } }.build()
+                with(density) {
+                    m.animateCamera(
+                        CameraUpdateFactory.newLatLngBounds(
+                            bounds,
+                            contentPadding.start.roundToPx(), contentPadding.top.roundToPx(),
+                            contentPadding.end.roundToPx(), contentPadding.bottom.roundToPx(),
+                        ),
+                        800,
+                    )
                 }
             }
-        },
-        modifier = modifier,
-    )
-
-    val styleUrl = if (dark) DARK_STYLE else LIGHT_STYLE
-    LaunchedEffect(map, styleUrl) {
-        val m = map ?: return@LaunchedEffect
-        style = null
-        m.setStyle(Style.Builder().fromUri(styleUrl)) { loaded ->
-            loaded.addTransitLayers()
-            style = loaded
         }
-    }
 
-    LaunchedEffect(style, routes) {
-        val s = style ?: return@LaunchedEffect
-        val m = map ?: return@LaunchedEffect
-        for (direction in Direction.entries) {
-            val route = routes.firstOrNull { it.direction == direction }
-            s.source(routeSource(direction))?.setGeoJson(lineString(route?.shape.orEmpty()))
-            s.source(stopSource(direction))?.setGeoJson(stopPoints(route?.stops.orEmpty()))
+        LaunchedEffect(style, userLocation, nearbyStops) {
+            val s = style ?: return@LaunchedEffect
+            s.source(USER_SOURCE)?.setGeoJson(points(listOfNotNull(userLocation)))
+            s.source(NEARBY_SOURCE)?.setGeoJson(stopPoints(nearbyStops))
         }
-        val all = routes.flatMap { it.shape }
-        if (all.size >= 2) {
-            val bounds = LatLngBounds.Builder().apply { all.forEach { include(MapLatLng(it.latitude, it.longitude)) } }.build()
-            with(density) {
-                m.animateCamera(
-                    CameraUpdateFactory.newLatLngBounds(
-                        bounds,
-                        contentPadding.start.roundToPx(), contentPadding.top.roundToPx(),
-                        contentPadding.end.roundToPx(), contentPadding.bottom.roundToPx(),
-                    ),
-                    800,
-                )
+
+        LaunchedEffect(map, cameraRequest) {
+            val m = map ?: return@LaunchedEffect
+            val target = userLocation ?: return@LaunchedEffect
+            if (cameraRequest > 0) {
+                // Zoom 15.5 shows streets and every stop dot around the user.
+                m.animateCamera(CameraUpdateFactory.newLatLngZoom(MapLatLng(target.latitude, target.longitude), 15.5), 800)
             }
         }
-    }
 
-    LaunchedEffect(style, userLocation, nearbyStops) {
-        val s = style ?: return@LaunchedEffect
-        s.source(USER_SOURCE)?.setGeoJson(points(listOfNotNull(userLocation)))
-        s.source(NEARBY_SOURCE)?.setGeoJson(stopPoints(nearbyStops))
-    }
-
-    LaunchedEffect(map, cameraRequest) {
-        val m = map ?: return@LaunchedEffect
-        val target = userLocation ?: return@LaunchedEffect
-        if (cameraRequest > 0) {
-            // Zoom 15.5 shows streets and every stop dot around the user.
-            m.animateCamera(CameraUpdateFactory.newLatLngZoom(MapLatLng(target.latitude, target.longitude), 15.5), 800)
-        }
-    }
-
-    LaunchedEffect(style, buses) {
-        val s = style ?: return@LaunchedEffect
-        val start = HashMap(displayed)
-        val targets = buses.associate { it.busId to (it.position to it.direction) }
-        fun draw(fraction: Float) {
-            displayed.clear()
-            targets.forEach { (id, target) ->
-                val from = start[id]?.first ?: target.first
-                displayed[id] = LatLng(
-                    from.latitude + (target.first.latitude - from.latitude) * fraction,
-                    from.longitude + (target.first.longitude - from.longitude) * fraction,
-                ) to target.second
+        LaunchedEffect(style, buses) {
+            val s = style ?: return@LaunchedEffect
+            val start = HashMap(displayed)
+            val targets = buses.associate { it.busId to (it.position to it.direction) }
+            fun draw(fraction: Float) {
+                displayed.clear()
+                targets.forEach { (id, target) ->
+                    val from = start[id]?.first ?: target.first
+                    displayed[id] = LatLng(
+                        from.latitude + (target.first.latitude - from.latitude) * fraction,
+                        from.longitude + (target.first.longitude - from.longitude) * fraction,
+                    ) to target.second
+                }
+                for (direction in Direction.entries) {
+                    s.source(busSource(direction))?.setGeoJson(points(displayed.values.filter { it.second == direction }.map { it.first }))
+                }
             }
-            for (direction in Direction.entries) {
-                s.source(busSource(direction))?.setGeoJson(points(displayed.values.filter { it.second == direction }.map { it.first }))
+            val moving = targets.any { (id, target) -> start[id]?.first != null && start[id]?.first != target.first }
+            if (moving) {
+                animate(0f, 1f, animationSpec = tween(BUS_ANIMATION_MILLIS, easing = FastOutSlowInEasing)) { value, _ -> draw(value) }
             }
+            draw(1f)
         }
-        val moving = targets.any { (id, target) -> start[id]?.first != null && start[id]?.first != target.first }
-        if (moving) {
-            animate(0f, 1f, animationSpec = tween(BUS_ANIMATION_MILLIS, easing = FastOutSlowInEasing)) { value, _ -> draw(value) }
-        }
-        draw(1f)
     }
 }
 
@@ -206,8 +213,12 @@ private fun MapViewLifecycle(mapView: MapView) {
         onDispose {
             lifecycle.removeObserver(observer)
             if (created) {
-                if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) mapView.onPause()
-                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) mapView.onStop()
+                // Pause and stop before destroying whatever state was reached: onDestroy frees
+                // the native map, and only onStop halts the render thread. Both are safe on a
+                // map that never started. TransitMap also keys the MapView on its lifecycle
+                // owner, so a destroyed MapView is never started again (that crashed natively).
+                mapView.onPause()
+                mapView.onStop()
                 mapView.onDestroy()
             }
         }

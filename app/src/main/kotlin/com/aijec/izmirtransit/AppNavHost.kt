@@ -65,7 +65,8 @@ fun AppNavHost() {
                 Tab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = currentRoute == tab.route,
-                        onClick = { nav.switchTab(tab) },
+                        // Re-tapping the current tab does nothing rather than rebuilding it.
+                        onClick = { if (currentRoute != tab.route) nav.switchTab(tab) },
                         icon = { Icon(tab.icon, contentDescription = null) },
                         label = { Text(stringResource(tab.label)) },
                     )
