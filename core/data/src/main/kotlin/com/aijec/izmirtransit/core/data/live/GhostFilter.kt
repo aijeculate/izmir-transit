@@ -14,7 +14,10 @@ import com.aijec.izmirtransit.core.model.geo.distanceMeters
  * away or at (0,0). Seen on 20 Oct 2026; see research/FINDINGS.md.
  */
 class GhostFilter(
-    /** Real buses were within ~260 m of their shape (terminal loops); ghosts 500 m+. */
+    /**
+     * Night: real buses within ~260 m (terminal loops), ghosts 500 m+. Daytime check on
+     * 20 Oct 2026 (8 lines, ~70 buses): moving copies p99 120 m, nearest ghost cluster 479 m.
+     */
     private val maxDistanceFromRouteMeters: Double = 300.0,
     private val movedThresholdMeters: Double = 10.0,
 ) {
