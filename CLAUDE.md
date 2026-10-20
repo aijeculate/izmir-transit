@@ -169,7 +169,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **Later (from the brief):**
 
-- Phase 2 follow-ups: the light theme, rail and ferry screens not yet checked on the device, ;
+- Phase 2 follow-ups: the light theme, and the metro, tram and ferry screens on the device (the İZBAN station board is verified);
 - per-line ETA speeds (see gotcha 12);
 - dark map tuning and TalkBack review;
 - public holidays (currently treated as weekdays or Saturdays).
