@@ -39,4 +39,14 @@
     <string name="linemap_scheduled_only">Tarifeli sefer · canlı konum yok</string>
     <string name="linemap_schedule_from">%1$s: %2$s</string>
     <string name="linemap_schedule_none">%1$s: bugün başka sefer yok</string>
+    <string name="linemap_layers">Harita katmanları</string>
+    <string name="linemap_close_layers">Katmanları kapat</string>
+    <string name="linemap_layers_hint">Duraklar, haritayı yakınlaştırınca görünür.</string>
+    <string name="linemap_layer_stops">Duraklar</string>
+    <string name="linemap_layer_bus">Otobüs hatları</string>
+    <string name="linemap_close_stop">Kapat</string>
+    <string name="linemap_open_stop">Durağı aç</string>
+    <string name="linemap_directions_here">Buraya git</string>
+    <string name="linemap_pin_title">Seçilen nokta</string>
+    <string name="linemap_plan_trip">Yol tarifi</string>
 </resources>

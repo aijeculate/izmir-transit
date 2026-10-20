@@ -5,7 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.os.StrictMode
 import com.aijec.izmirtransit.sync.StaticDataRefreshWorker
 import dagger.hilt.android.HiltAndroidApp
-import org.maplibre.android.MapLibre
+import com.google.android.gms.maps.MapsInitializer
 
 @HiltAndroidApp
 class IzmirTransitApp : Application() {
@@ -15,8 +15,8 @@ class IzmirTransitApp : Application() {
             // Debug builds log any disk or network access on the main thread.
             StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork().penaltyLog().build())
         }
-        // Must run before any MapView is created. OpenFreeMap needs no API key.
-        MapLibre.getInstance(this)
+        // Marker bitmaps are built before the first map appears; that needs Maps initialised.
+        MapsInitializer.initialize(this, MapsInitializer.Renderer.LATEST) {}
         StaticDataRefreshWorker.schedule(this)
     }
 }

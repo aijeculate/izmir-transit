@@ -119,6 +119,15 @@ class StopRepository @Inject constructor(private val database: IzmirDatabase) {
         return dao.search(folded, limit).map { it.toModel() }
     }
 
+    /** Stops inside a map viewport, nearest the middle first, at most [limit]. */
+    suspend fun inArea(minLatitude: Double, maxLatitude: Double, minLongitude: Double, maxLongitude: Double, limit: Int): List<Stop> {
+        val center = LatLng((minLatitude + maxLatitude) / 2, (minLongitude + maxLongitude) / 2)
+        return dao.inBox(minLatitude, maxLatitude, minLongitude, maxLongitude)
+            .map { it.toModel() }
+            .sortedBy { distanceMeters(center, it.location) }
+            .take(limit)
+    }
+
     /** Computed offline from the stops table; no network needed. */
     suspend fun nearby(center: LatLng, radiusMeters: Double = 600.0, limit: Int = 30): List<NearbyStop> {
         val box = BoundingBox.around(center, radiusMeters)

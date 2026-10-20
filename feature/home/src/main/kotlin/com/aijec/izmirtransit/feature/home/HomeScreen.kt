@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -89,6 +90,7 @@ fun HomeRoute(
     onOpenStop: (String) -> Unit,
     onOpenLine: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onPlanTrip: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
@@ -108,6 +110,7 @@ fun HomeRoute(
         onOpenStop = onOpenStop,
         onOpenLine = onOpenLine,
         onOpenSettings = onOpenSettings,
+        onPlanTrip = onPlanTrip,
     )
 }
 
@@ -121,6 +124,7 @@ fun HomeScreen(
     onOpenStop: (String) -> Unit,
     onOpenLine: (String) -> Unit,
     onOpenSettings: () -> Unit = {},
+    onPlanTrip: () -> Unit = {},
 ) {
     LazyColumn(
         Modifier
@@ -142,6 +146,7 @@ fun HomeScreen(
                 CircleIconButton(Icons.Filled.Settings, stringResource(R.string.home_settings), onOpenSettings, tint = Calm.colors.textSecondary)
             }
         }
+        item("where-to") { WhereTo(onPlanTrip) }
 
         item("fav-label") { SectionLabel(stringResource(R.string.home_favourites)) }
         if (favourites.loaded && favourites.stops.isEmpty() && favourites.lines.isEmpty()) {
@@ -179,6 +184,19 @@ fun HomeScreen(
 }
 
 /** Date line and a time-of-day greeting in İzmir time. */
+/** The trip planner's front door: looks like a search field, opens the planner. */
+@Composable
+private fun WhereTo(onClick: () -> Unit) {
+    val colors = Calm.colors
+    Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
+        CalmRow(onClick = onClick, padding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
+            Icon(Icons.Filled.Directions, contentDescription = null, tint = colors.accent, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.home_where_to), style = MaterialTheme.typography.bodyLarge, color = colors.textSecondary)
+        }
+    }
+}
+
 @Composable
 private fun Greeting() {
     val now by rememberNow()

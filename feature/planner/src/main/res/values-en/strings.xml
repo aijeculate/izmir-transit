@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="planner_back">Back</string>
+    <string name="planner_from">From</string>
+    <string name="planner_to">To</string>
+    <string name="planner_my_location">My location</string>
+    <string name="planner_locating">Finding you…</string>
+    <string name="planner_choose_start">Choose a start</string>
+    <string name="planner_where_to">Where to?</string>
+    <string name="planner_dropped_pin">Point on the map</string>
+    <string name="planner_swap">Swap start and end</string>
+    <string name="planner_search_hint">Search an address, place or stop</string>
+    <string name="planner_search_hint_stops">Search a stop or station</string>
+    <string name="planner_now">Now</string>
+    <string name="planner_in_minutes">+%1$d min</string>
+    <string name="planner_location_permission">Directions from where you are need location access. You can also search for a start.</string>
+    <string name="planner_allow_location">Allow location</string>
+    <string name="planner_location_off">Location services are off.</string>
+    <string name="planner_location_unavailable">Could not get your location.</string>
+    <string name="planner_no_route">No route found at this time.</string>
+    <string name="planner_place_failed">Could not load that place.</string>
+    <string name="planner_planning">Finding routes…</string>
+    <string name="planner_hint">Choose where you start and where you are going.</string>
+    <string name="planner_minutes">%1$d min</string>
+    <string name="planner_walk_only">Walk</string>
+    <string name="planner_summary_direct">No changes · %1$d m walking</string>
+    <string name="planner_destination">your destination</string>
+    <string name="planner_walk_to">Walk to %1$s · %2$d m · %3$d min</string>
+    <string name="planner_towards">Towards %1$s</string>
+    <string name="planner_board">Get on at %1$s</string>
+    <string name="planner_estimated">estimated</string>
+    <string name="planner_next_day">Nothing runs now; showing the first trips in the morning.</string>
+    <plurals name="planner_summary">
+        <item quantity="one">%1$d change · %2$d m walking</item>
+        <item quantity="other">%1$d changes · %2$d m walking</item>
+    </plurals>
+    <plurals name="planner_alight">
+        <item quantity="one">Get off after %1$d stop: %2$s · %3$s</item>
+        <item quantity="other">Get off after %1$d stops: %2$s · %3$s</item>
+    </plurals>
+</resources>

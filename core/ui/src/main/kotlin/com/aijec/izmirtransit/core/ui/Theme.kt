@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aijec.izmirtransit.core.model.AccentTheme
 import com.aijec.izmirtransit.core.model.Direction
+import com.aijec.izmirtransit.core.model.TransitMode
 import com.aijec.izmirtransit.core.model.ThemeMode
 
 // "Calm glass": a soft blue-grey canvas, white rounded panels floating on it (or on the
@@ -216,4 +217,16 @@ object TransitColors {
     val Return = Color(0xFFE8710A)
 
     fun forDirection(direction: Direction): Color = if (direction == Direction.OUTBOUND) Outbound else Return
+
+    /**
+     * One colour per mode for stop markers and the layer list, where a stop may serve several
+     * lines: metro's official blue, a tram magenta, İZBAN teal, İzdeniz blue. Buses use the accent.
+     */
+    fun forMode(mode: TransitMode, accent: Color): Color = when (mode) {
+        TransitMode.BUS -> accent
+        TransitMode.METRO -> Color(0xFF0038EF)
+        TransitMode.TRAM -> Color(0xFFC2185B)
+        TransitMode.IZBAN -> Color(0xFF00838F)
+        TransitMode.FERRY -> Color(0xFF0097D7)
+    }
 }

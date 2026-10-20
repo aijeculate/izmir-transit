@@ -11,6 +11,7 @@ android {
 dependencies {
     implementation(projects.core.data)
     implementation(projects.core.ui)
+    implementation(libs.compose.material.icons.extended)
     implementation(projects.core.location)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

@@ -44,3 +44,11 @@ tasks.register<JavaExec>("downloadIzban") {
     jvmArgs("-Dstdout.encoding=UTF-8")
     systemProperty("izmir.root", rootDir.absolutePath)
 }
+
+tasks.register<JavaExec>("planSmoke") {
+    description = "Plans a few real trips on build/izmir-transit.db and prints them."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.aijec.izmirtransit.tools.smoke.PlanSmokeKt")
+    jvmArgs("-Dstdout.encoding=UTF-8")
+    systemProperty("izmir.root", rootDir.absolutePath)
+}

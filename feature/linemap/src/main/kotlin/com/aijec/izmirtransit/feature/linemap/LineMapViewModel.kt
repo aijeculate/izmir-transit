@@ -20,13 +20,17 @@ import com.aijec.izmirtransit.core.model.LineRoute
 import com.aijec.izmirtransit.core.model.LiveBus
 import com.aijec.izmirtransit.core.model.LiveSnapshot
 import com.aijec.izmirtransit.core.model.LiveStatus
+import com.aijec.izmirtransit.core.map.CameraRequest
+import com.aijec.izmirtransit.core.map.Viewport
 import com.aijec.izmirtransit.core.model.Direction
+import com.aijec.izmirtransit.core.model.MapLayer
 import com.aijec.izmirtransit.core.model.OverviewRoute
 import com.aijec.izmirtransit.core.model.Stop
 import com.aijec.izmirtransit.core.model.isBusCode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,6 +51,9 @@ import javax.inject.Inject
 /** Many stops share a name ("Bahribaba" has six), so results carry their lines to tell them apart. */
 data class StopResult(val stop: Stop, val lines: List<Line>)
 
+/** A tapped stop, shown in a card over the map before opening it. */
+data class StopPreview(val stop: Stop, val lines: List<Line>)
+
 /** The next timetabled departures of a rail or ferry line in one direction, from its first stop. */
 data class NextDepartures(val fromStop: String, val minutes: List<Int>)
 
@@ -55,8 +62,6 @@ data class LineMapUiState(
     val lineCode: String?,
     /** True when this screen was opened for one line (from Home or a stop), not as the Map tab. */
     val pinned: Boolean = false,
-    /** Every route, simplified, for the overview overlay. */
-    val overview: List<OverviewRoute> = emptyList(),
     val line: Line? = null,
     val routes: List<LineRoute> = emptyList(),
     val announcements: List<Announcement> = emptyList(),
@@ -69,9 +74,15 @@ data class LineMapUiState(
     val stopResults: List<StopResult> = emptyList(),
     /** Set after the user taps "my location". */
     val userLocation: LatLng? = null,
-    val nearbyStops: List<Stop> = emptyList(),
-    /** Incremented to ask the map to move to [userLocation]. */
-    val cameraRequest: Int = 0,
+    /** Asks the map to move, e.g. to the user after "my location". */
+    val cameraRequest: CameraRequest? = null,
+    /** Shows the blue location dot once location permission is granted. */
+    val locationEnabled: Boolean = false,
+    /** Every stop in view when zoomed in far enough (and the stops layer is on). */
+    val areaStops: List<Stop> = emptyList(),
+    val preview: StopPreview? = null,
+    /** A point long-pressed on the map, offered as a trip destination. */
+    val pin: LatLng? = null,
     val locating: Boolean = false,
     val locationProblem: LocationProblem? = null,
 ) {
@@ -92,8 +103,9 @@ class LineMapViewModel @Inject constructor(
     private val location: LocationProvider,
     private val savedState: SavedStateHandle,
     private val selection: MapSelection,
-    settings: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
+    private val settings get() = settingsRepository
     val searchAtBottom: StateFlow<Boolean> = settings.settings.map { it.searchAtBottom }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
@@ -103,8 +115,58 @@ class LineMapViewModel @Inject constructor(
         if (pinnedLine != null) savedState.getStateFlow<String?>(KEY_LINE, pinnedLine) else selection.line
     private val query = MutableStateFlow("")
 
-    private val _state = MutableStateFlow(LineMapUiState(lineCode.value, pinned = pinnedLine != null))
+    private val _state = MutableStateFlow(
+        LineMapUiState(lineCode.value, pinned = pinnedLine != null, locationEnabled = location.hasPermission()),
+    )
     val state: StateFlow<LineMapUiState> = _state.asStateFlow()
+
+    /** Switched-on map layers, from settings. */
+    val layers: StateFlow<Set<MapLayer>> = settings.settings.map { it.mapLayers }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, MapLayer.entries.toSet())
+
+    private val allOverview = MutableStateFlow<List<OverviewRoute>>(emptyList())
+
+    /** The all-lines overlay, minus switched-off modes. */
+    val overview: StateFlow<List<OverviewRoute>> = combine(allOverview, layers) { routes, on ->
+        routes.filter { MapLayer.forMode(it.mode) in on }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun setLayer(layer: MapLayer, visible: Boolean) {
+        viewModelScope.launch { settingsRepository.setMapLayer(layer, visible) }
+    }
+
+    private var viewport: Viewport? = null
+    private var areaJob: Job? = null
+
+    /** Loads the stops in view once the camera settles, when zoomed in far enough to read them. */
+    fun onViewportChanged(view: Viewport) {
+        viewport = view
+        areaJob?.cancel()
+        areaJob = viewModelScope.launch {
+            val on = layers.value
+            val found = if (view.zoom < AREA_STOPS_ZOOM || MapLayer.STOPS !in on) emptyList()
+            else stops.inArea(view.minLatitude, view.maxLatitude, view.minLongitude, view.maxLongitude, AREA_STOPS_LIMIT)
+                .filter { MapLayer.forMode(it.mode) in on }
+            _state.update { it.copy(areaStops = found) }
+        }
+    }
+
+    fun onStopClick(stop: Stop) {
+        _state.update { it.copy(preview = StopPreview(stop, emptyList()), pin = null) }
+        viewModelScope.launch {
+            val lines = stops.linesAtStop(stop.code)
+            _state.update { if (it.preview?.stop?.code == stop.code) it.copy(preview = StopPreview(stop, lines)) else it }
+        }
+    }
+
+    fun closePreview() = _state.update { it.copy(preview = null) }
+
+    fun onMapLongClick(point: LatLng) = _state.update { it.copy(pin = point, preview = null) }
+
+    fun clearPin() = _state.update { it.copy(pin = null) }
+
+    /** A tap on empty map dismisses whatever card is open. */
+    fun onMapClick() = _state.update { it.copy(preview = null, pin = null) }
 
     /**
      * Live positions for the selected line. WhileSubscribed means polling runs only while
@@ -157,8 +219,7 @@ class LineMapViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            val overview = lines.overviewShapes()
-            _state.update { it.copy(overview = overview) }
+            allOverview.value = lines.overviewShapes()
         }
         viewModelScope.launch {
             query.debounce(120).collectLatest { text ->
@@ -199,11 +260,14 @@ class LineMapViewModel @Inject constructor(
         _state.update { it.copy(locating = true, locationProblem = null) }
         viewModelScope.launch {
             when (val result = location.current()) {
-                is LocationResult.Found -> {
-                    val nearby = stops.nearby(result.location, radiusMeters = NEARBY_RADIUS_METERS, limit = NEARBY_LIMIT).map { it.stop }
-                    _state.update {
-                        it.copy(userLocation = result.location, nearbyStops = nearby, cameraRequest = it.cameraRequest + 1, locating = false)
-                    }
+                is LocationResult.Found -> _state.update {
+                    // Zoomed in far enough that the stops around the user load by themselves.
+                    it.copy(
+                        userLocation = result.location,
+                        cameraRequest = CameraRequest((it.cameraRequest?.id ?: 0) + 1, result.location, zoom = 16f),
+                        locating = false,
+                        locationEnabled = true,
+                    )
                 }
                 LocationResult.PermissionMissing -> _state.update { it.copy(locating = false, locationProblem = LocationProblem.PERMISSION) }
                 LocationResult.LocationOff -> _state.update { it.copy(locating = false, locationProblem = LocationProblem.OFF) }
@@ -230,8 +294,9 @@ class LineMapViewModel @Inject constructor(
         /** Navigation argument; also where the selected line survives process death. */
         const val KEY_LINE = "lineCode"
 
-        private const val NEARBY_RADIUS_METERS = 800.0
-        private const val NEARBY_LIMIT = 40
+        /** Stops in view are drawn from this zoom on; below it they would crowd. */
+        const val AREA_STOPS_ZOOM = 15f
+        private const val AREA_STOPS_LIMIT = 300
         private const val NEXT_DEPARTURES = 3
     }
 }

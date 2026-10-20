@@ -121,6 +121,10 @@ interface LineDao {
 
     @Query("SELECT * FROM lines")
     suspend fun allLines(): List<LineEntity>
+
+    /** Every line's stop order, for building the trip planner's network. */
+    @Query("SELECT * FROM line_stops ORDER BY line_code, direction, sequence")
+    suspend fun allLineStops(): List<LineStopEntity>
 }
 
 @Dao
@@ -178,6 +182,13 @@ interface StopDao {
         """,
     )
     suspend fun lineDeparturesAt(stopCode: String, lineCode: String, direction: Int, serviceDay: Int): List<StopDepartureEntity>
+
+    @Query("SELECT * FROM stops")
+    suspend fun allStops(): List<StopEntity>
+
+    /** Every station departure on one service day (rail and ferry), for the trip planner. */
+    @Query("SELECT * FROM stop_departures WHERE service_day = :serviceDay")
+    suspend fun stopDeparturesOn(serviceDay: Int): List<StopDepartureEntity>
 }
 
 @Dao
@@ -190,6 +201,10 @@ interface TimetableDao {
         """,
     )
     suspend fun departures(lineCode: String, serviceDay: Int, direction: Int): List<DepartureEntity>
+
+    /** Every line's departures on one service day, for the trip planner. */
+    @Query("SELECT * FROM departures WHERE service_day = :serviceDay")
+    suspend fun departuresOn(serviceDay: Int): List<DepartureEntity>
 
     @Query("SELECT * FROM announcements WHERE line_code = :lineCode ORDER BY starts_at DESC")
     suspend fun announcements(lineCode: String): List<AnnouncementEntity>

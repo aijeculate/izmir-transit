@@ -36,6 +36,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Directions
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import com.aijec.izmirtransit.core.map.MapPadding
+import com.aijec.izmirtransit.core.map.PlanDestination
+import com.aijec.izmirtransit.core.map.TransitMap
+import com.aijec.izmirtransit.core.map.Viewport
+import com.aijec.izmirtransit.core.model.MapLayer
+import com.aijec.izmirtransit.core.model.Stop
+import com.aijec.izmirtransit.core.model.geo.LatLng
+import com.aijec.izmirtransit.core.ui.PillButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,12 +101,16 @@ fun LineMapRoute(
     onOpenStop: (stopCode: String) -> Unit,
     onOpenTimetable: (lineCode: String) -> Unit,
     onBack: () -> Unit = {},
+    /** Opens the trip planner, optionally with a destination already chosen. */
+    onPlanTrip: (PlanDestination?) -> Unit = {},
     viewModel: LineMapViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val live by viewModel.liveBuses.collectAsStateWithLifecycle()
     val isFavourite by viewModel.isFavourite.collectAsStateWithLifecycle()
     val searchAtBottom by viewModel.searchAtBottom.collectAsStateWithLifecycle()
+    val overview by viewModel.overview.collectAsStateWithLifecycle()
+    val layers by viewModel.layers.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -117,6 +133,8 @@ fun LineMapRoute(
     LineMapScreen(
         state = state,
         live = live,
+        overview = overview,
+        layers = layers,
         isFavourite = isFavourite,
         onToggleFavourite = viewModel::toggleFavourite,
         onOpenTimetable = { state.lineCode?.let(onOpenTimetable) },
@@ -131,6 +149,13 @@ fun LineMapRoute(
             viewModel.onQueryChange("")
             onOpenStop(code)
         },
+        onMapStopClick = viewModel::onStopClick,
+        onClosePreview = viewModel::closePreview,
+        onMapClick = viewModel::onMapClick,
+        onMapLongClick = viewModel::onMapLongClick,
+        onViewportChanged = viewModel::onViewportChanged,
+        onSetLayer = viewModel::setLayer,
+        onPlanTrip = onPlanTrip,
     )
 }
 
@@ -138,6 +163,8 @@ fun LineMapRoute(
 fun LineMapScreen(
     state: LineMapUiState,
     live: LiveSnapshot<List<LiveBus>>,
+    overview: List<OverviewRoute>,
+    layers: Set<MapLayer>,
     isFavourite: Boolean,
     onToggleFavourite: () -> Unit,
     onOpenTimetable: () -> Unit,
@@ -147,19 +174,33 @@ fun LineMapScreen(
     onQueryChange: (String) -> Unit,
     onSelectLine: (String) -> Unit,
     onOpenStop: (String) -> Unit,
+    onMapStopClick: (Stop) -> Unit = {},
+    onClosePreview: () -> Unit = {},
+    onMapClick: () -> Unit = {},
+    onMapLongClick: (LatLng) -> Unit = {},
+    onViewportChanged: (Viewport) -> Unit = {},
+    onSetLayer: (MapLayer, Boolean) -> Unit = { _, _ -> },
+    onPlanTrip: (PlanDestination?) -> Unit = {},
 ) {
+    var showLayers by rememberSaveable { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         TransitMap(
             routes = state.routes,
+            routeMode = state.line?.mode ?: TransitMode.BUS,
             buses = live.data.orEmpty(),
             // Keeps the route clear of the search pill above and the panels below.
-            contentPadding = if (searchAtBottom) MapPadding(start = 32.dp, top = 60.dp, end = 32.dp, bottom = 400.dp)
-            else MapPadding(start = 32.dp, top = 120.dp, end = 32.dp, bottom = 330.dp),
-            onStopClick = onOpenStop,
-            userLocation = state.userLocation,
-            nearbyStops = state.nearbyStops,
+            contentPadding = if (searchAtBottom) MapPadding(start = 24.dp, top = 60.dp, end = 24.dp, bottom = 400.dp)
+            else MapPadding(start = 24.dp, top = 120.dp, end = 24.dp, bottom = 330.dp),
+            overview = if (state.lineCode == null) overview else emptyList(),
+            areaStops = state.areaStops,
+            highlightedStop = state.preview?.stop,
+            pin = state.pin,
+            myLocationEnabled = state.locationEnabled,
             cameraRequest = state.cameraRequest,
-            overview = if (state.lineCode == null) state.overview else emptyList(),
+            onStopClick = onMapStopClick,
+            onMapClick = { showLayers = false; onMapClick() },
+            onMapLongClick = onMapLongClick,
+            onViewportChanged = onViewportChanged,
             modifier = Modifier.fillMaxSize(),
         )
         if (!searchAtBottom) {
@@ -168,6 +209,7 @@ fun LineMapScreen(
                 onQueryChange = onQueryChange,
                 onSelectLine = onSelectLine,
                 onOpenStop = onOpenStop,
+                onPlanTrip = { onPlanTrip(null) },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)
@@ -184,18 +226,143 @@ fun LineMapScreen(
         ) {
             val searching = state.query.isNotBlank()
             if (!searching) {
+                if (showLayers) {
+                    LayersPanel(layers, onSetLayer, onClose = { showLayers = false })
+                }
+                CircleIconButton(
+                    Icons.Filled.Layers,
+                    contentDescription = stringResource(R.string.linemap_layers),
+                    onClick = { showLayers = !showLayers },
+                    tint = if (showLayers) Calm.colors.accent else Calm.colors.text,
+                    glass = true,
+                )
                 LocateButton(state.locating, onLocate)
-                if (state.lineCode == null) {
-                    OverviewPanel(state.overview)
-                } else {
-                    LinePanel(state, live, isFavourite, onToggleFavourite, onOpenTimetable, onClose)
+                val preview = state.preview
+                val pin = state.pin
+                when {
+                    preview != null -> StopPreviewPanel(
+                        preview,
+                        onOpen = { onClosePreview(); onOpenStop(preview.stop.code) },
+                        onPlan = { onPlanTrip(PlanDestination(preview.stop.name, preview.stop.location)) },
+                        onClose = onClosePreview,
+                    )
+                    pin != null -> PinPanel(onPlan = { onPlanTrip(PlanDestination(null, pin)) }, onClose = onMapClick)
+                    state.lineCode == null -> OverviewPanel(overview)
+                    else -> LinePanel(state, live, isFavourite, onToggleFavourite, onOpenTimetable, onClose)
                 }
             }
             if (searchAtBottom) {
                 // Thumb-reach layout: results open above the search field.
-                Search(state, onQueryChange, onSelectLine, onOpenStop, resultsAbove = true, modifier = Modifier.imePadding())
+                Search(state, onQueryChange, onSelectLine, onOpenStop, onPlanTrip = { onPlanTrip(null) }, resultsAbove = true, modifier = Modifier.imePadding())
             }
         }
+    }
+}
+
+/** Which modes the map draws, and whether stops in view are shown. */
+@Composable
+private fun LayersPanel(layers: Set<MapLayer>, onSet: (MapLayer, Boolean) -> Unit, onClose: () -> Unit) {
+    val colors = Calm.colors
+    Panel(Modifier.width(260.dp), glass = true, padding = PaddingValues(vertical = 6.dp)) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.linemap_layers), style = MaterialTheme.typography.titleSmall, color = colors.text, modifier = Modifier.weight(1f))
+            CircleIconButton(Icons.Filled.Close, stringResource(R.string.linemap_close_layers), onClick = onClose, tint = colors.textSecondary, plain = true)
+        }
+        MapLayer.entries.forEach { layer ->
+            val on = layer in layers
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Switch) { onSet(layer, !on) }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val mode = layerMode(layer)
+                Dot(if (mode != null) TransitColors.forMode(mode, colors.accent) else colors.textSecondary, size = 10.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(layerLabel(layer), style = MaterialTheme.typography.bodyMedium, color = colors.text, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = on,
+                    onCheckedChange = { onSet(layer, it) },
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = colors.accent,
+                        checkedThumbColor = colors.onAccent,
+                        uncheckedTrackColor = colors.hairline,
+                        uncheckedBorderColor = colors.hairline,
+                        uncheckedThumbColor = colors.textSecondary,
+                    ),
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.linemap_layers_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        )
+    }
+}
+
+private fun layerMode(layer: MapLayer): TransitMode? = when (layer) {
+    MapLayer.BUS_LINES -> TransitMode.BUS
+    MapLayer.METRO -> TransitMode.METRO
+    MapLayer.TRAM -> TransitMode.TRAM
+    MapLayer.IZBAN -> TransitMode.IZBAN
+    MapLayer.FERRY -> TransitMode.FERRY
+    MapLayer.STOPS -> null
+}
+
+@Composable
+private fun layerLabel(layer: MapLayer): String = when (layer) {
+    MapLayer.STOPS -> stringResource(R.string.linemap_layer_stops)
+    MapLayer.BUS_LINES -> stringResource(R.string.linemap_layer_bus)
+    else -> modeLabel(layerMode(layer)!!)
+}
+
+/** A tapped stop: what it is and which lines call there, before opening it. */
+@Composable
+private fun StopPreviewPanel(preview: StopPreview, onOpen: () -> Unit, onPlan: () -> Unit, onClose: () -> Unit) {
+    val colors = Calm.colors
+    Panel(Modifier.fillMaxWidth(), glass = true, padding = PaddingValues(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(preview.stop.name, style = MaterialTheme.typography.titleMedium, color = colors.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(stopKindLabel(preview.stop), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+            }
+            CircleIconButton(Icons.Filled.Close, stringResource(R.string.linemap_close_stop), onClick = onClose, tint = colors.textSecondary, plain = true)
+        }
+        if (preview.lines.isNotEmpty()) {
+            FlowRow(
+                Modifier.padding(top = 8.dp, end = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                // A busy stop can have dozens of lines; the stop screen lists them all.
+                preview.lines.distinctBy { it.displayCode }.take(MAX_PREVIEW_LINES).forEach { LineBadge(it) }
+                if (preview.lines.size > MAX_PREVIEW_LINES) {
+                    Text("+${preview.lines.size - MAX_PREVIEW_LINES}", style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
+                }
+            }
+        }
+        Row(Modifier.padding(top = 12.dp, end = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillButton(stringResource(R.string.linemap_open_stop), onClick = onOpen, modifier = Modifier.weight(1f))
+            PillButton(stringResource(R.string.linemap_directions_here), onClick = onPlan, modifier = Modifier.weight(1f), secondary = true)
+        }
+    }
+}
+
+private const val MAX_PREVIEW_LINES = 12
+
+/** A long-pressed point: offer a trip there. */
+@Composable
+private fun PinPanel(onPlan: () -> Unit, onClose: () -> Unit) {
+    val colors = Calm.colors
+    Panel(Modifier.fillMaxWidth(), glass = true, padding = PaddingValues(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.linemap_pin_title), style = MaterialTheme.typography.titleMedium, color = colors.text, modifier = Modifier.weight(1f))
+            CircleIconButton(Icons.Filled.Close, stringResource(R.string.linemap_close_stop), onClick = onClose, tint = colors.textSecondary, plain = true)
+        }
+        PillButton(stringResource(R.string.linemap_directions_here), onClick = onPlan, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, end = 10.dp))
     }
 }
 
@@ -223,19 +390,32 @@ private fun Search(
     onQueryChange: (String) -> Unit,
     onSelectLine: (String) -> Unit,
     onOpenStop: (String) -> Unit,
+    onPlanTrip: () -> Unit,
     modifier: Modifier = Modifier,
     resultsAbove: Boolean = false,
 ) {
     val focus = LocalFocusManager.current
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (!resultsAbove) {
+    // The search pill with the trip planner's button beside it.
+    val field: @Composable () -> Unit = {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PillSearchField(
                 value = state.query,
                 onValueChange = onQueryChange,
                 placeholder = stringResource(R.string.linemap_search_hint),
                 glass = true,
+                modifier = Modifier.weight(1f),
+            )
+            CircleIconButton(
+                Icons.Filled.Directions,
+                contentDescription = stringResource(R.string.linemap_plan_trip),
+                onClick = onPlanTrip,
+                tint = Calm.colors.accent,
+                glass = true,
             )
         }
+    }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!resultsAbove) field()
         if (state.hasResults || state.query.isNotBlank()) {
             Panel(Modifier.fillMaxWidth(), glass = true, padding = PaddingValues(vertical = 6.dp)) {
                 if (!state.hasResults) {
@@ -283,14 +463,7 @@ private fun Search(
                 }
             }
         }
-        if (resultsAbove) {
-            PillSearchField(
-                value = state.query,
-                onValueChange = onQueryChange,
-                placeholder = stringResource(R.string.linemap_search_hint),
-                glass = true,
-            )
-        }
+        if (resultsAbove) field()
     }
 }
 

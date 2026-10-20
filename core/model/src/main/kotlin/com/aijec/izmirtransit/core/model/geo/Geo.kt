@@ -85,6 +85,45 @@ class MeasuredPolyline(val points: List<LatLng>) {
         return LatLng(a.latitude + t * (b.latitude - a.latitude), a.longitude + t * (b.longitude - a.longitude))
     }
 
+    /**
+     * Like [project], but only onto the part of the line from [fromMeters] on: stops taken in
+     * order then never snap back to an earlier pass of a looping route.
+     */
+    fun projectAfter(point: LatLng, fromMeters: Double): PolylineProjection? {
+        if (points.size < 2) return project(point)
+        val start = (cumulative.binarySearch(fromMeters).let { if (it >= 0) it else -it - 2 }).coerceIn(0, points.size - 2)
+        val kx = METERS_PER_DEGREE * cos(point.latitude.toRadians())
+        val ky = METERS_PER_DEGREE
+        var best: PolylineProjection? = null
+        for (i in start until points.size - 1) {
+            val a = points[i]
+            val b = points[i + 1]
+            val abx = (b.longitude - a.longitude) * kx
+            val aby = (b.latitude - a.latitude) * ky
+            val apx = (point.longitude - a.longitude) * kx
+            val apy = (point.latitude - a.latitude) * ky
+            val lengthSquared = abx * abx + aby * aby
+            val segmentLength = cumulative[i + 1] - cumulative[i]
+            val minT = if (i == start && segmentLength > 0) ((fromMeters - cumulative[i]) / segmentLength).coerceIn(0.0, 1.0) else 0.0
+            val t = if (lengthSquared == 0.0) minT else ((apx * abx + apy * aby) / lengthSquared).coerceIn(minT, 1.0)
+            val dx = apx - t * abx
+            val dy = apy - t * aby
+            val distance = sqrt(dx * dx + dy * dy)
+            if (best == null || distance < best.distanceFromLineMeters) {
+                val snapped = LatLng(a.latitude + t * (b.latitude - a.latitude), a.longitude + t * (b.longitude - a.longitude))
+                best = PolylineProjection(cumulative[i] + t * segmentLength, distance, snapped)
+            }
+        }
+        return best
+    }
+
+    /** The part of the line between two distances along it, for drawing a ride. */
+    fun slice(fromMeters: Double, toMeters: Double): List<LatLng> {
+        if (points.size < 2 || toMeters <= fromMeters) return listOf(pointAt(fromMeters), pointAt(toMeters))
+        val inner = points.indices.filter { cumulative[it] > fromMeters && cumulative[it] < toMeters }.map { points[it] }
+        return listOf(pointAt(fromMeters)) + inner + pointAt(toMeters)
+    }
+
     fun project(point: LatLng): PolylineProjection? {
         if (points.isEmpty()) return null
         if (points.size == 1) {

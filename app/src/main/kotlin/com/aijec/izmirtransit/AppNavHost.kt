@@ -35,7 +35,10 @@ import com.aijec.izmirtransit.core.ui.FloatingTab
 import com.aijec.izmirtransit.core.ui.FloatingTabBar
 import com.aijec.izmirtransit.feature.home.HomeRoute
 import com.aijec.izmirtransit.feature.linemap.LineMapRoute
+import com.aijec.izmirtransit.core.map.PlanDestination
 import com.aijec.izmirtransit.feature.linemap.LineMapViewModel
+import com.aijec.izmirtransit.feature.planner.PlannerRoute
+import com.aijec.izmirtransit.feature.planner.PlannerViewModel
 import com.aijec.izmirtransit.feature.settings.SettingsRoute
 import com.aijec.izmirtransit.feature.stop.StopRoute
 import com.aijec.izmirtransit.feature.stop.StopViewModel
@@ -48,6 +51,12 @@ private const val SETTINGS_ROUTE = "settings"
 private const val LINE_ROUTE = "line/{${LineMapViewModel.KEY_LINE}}"
 private const val STOP_ROUTE = "stop/{${StopViewModel.STOP_CODE_ARG}}"
 private const val TIMETABLE_ROUTE = "timetable/{${TimetableViewModel.LINE_CODE_ARG}}"
+
+private const val PLAN_ROUTE =
+    "plan?${PlannerViewModel.ARG_LAT}={${PlannerViewModel.ARG_LAT}}&${PlannerViewModel.ARG_LON}={${PlannerViewModel.ARG_LON}}&${PlannerViewModel.ARG_NAME}={${PlannerViewModel.ARG_NAME}}"
+
+private fun planDestination(to: PlanDestination?) =
+    if (to == null) "plan" else "plan?lat=${to.location.latitude}&lon=${to.location.longitude}&name=${Uri.encode(to.name.orEmpty())}"
 
 private fun lineDestination(code: String) = "line/${Uri.encode(code)}"
 private fun stopDestination(code: String) = "stop/${Uri.encode(code)}"
@@ -83,12 +92,14 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                     onOpenStop = { nav.navigate(stopDestination(it)) },
                     onOpenLine = { nav.navigate(lineDestination(it)) },
                     onOpenSettings = { nav.navigate(SETTINGS_ROUTE) },
+                    onPlanTrip = { nav.navigate(planDestination(null)) },
                 )
             }
             composable(MAP_ROUTE) {
                 LineMapRoute(
                     onOpenStop = { nav.navigate(stopDestination(it)) },
                     onOpenTimetable = { nav.navigate(timetableDestination(it)) },
+                    onPlanTrip = { nav.navigate(planDestination(it)) },
                 )
             }
             composable(
@@ -99,7 +110,20 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                     onOpenStop = { nav.navigate(stopDestination(it)) },
                     onOpenTimetable = { nav.navigate(timetableDestination(it)) },
                     onBack = { nav.popBackStack() },
+                    onPlanTrip = { nav.navigate(planDestination(it)) },
                 )
+            }
+            composable(
+                PLAN_ROUTE,
+                arguments = listOf(PlannerViewModel.ARG_LAT, PlannerViewModel.ARG_LON, PlannerViewModel.ARG_NAME).map { name ->
+                    navArgument(name) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                },
+            ) {
+                PlannerRoute(onBack = { nav.popBackStack() }, onOpenStop = { nav.navigate(stopDestination(it)) })
             }
             composable(
                 STOP_ROUTE,

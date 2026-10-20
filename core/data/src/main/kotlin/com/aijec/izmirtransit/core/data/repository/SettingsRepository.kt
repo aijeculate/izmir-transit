@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.aijec.izmirtransit.core.model.AccentTheme
+import com.aijec.izmirtransit.core.model.MapLayer
 import com.aijec.izmirtransit.core.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -20,6 +22,8 @@ data class AppSettings(
     val accent: AccentTheme = AccentTheme.OCEAN,
     /** Put the map's search field at the bottom, within thumb reach. */
     val searchAtBottom: Boolean = false,
+    /** Map layers that are switched on; all by default. */
+    val mapLayers: Set<MapLayer> = MapLayer.entries.toSet(),
 )
 
 /** User preferences, in the same DataStore file as favourites. */
@@ -31,6 +35,10 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
                 themeMode = prefs[THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
                 accent = prefs[ACCENT]?.let { runCatching { AccentTheme.valueOf(it) }.getOrNull() } ?: AccentTheme.OCEAN,
                 searchAtBottom = prefs[SEARCH_AT_BOTTOM] ?: false,
+                // Stored as the switched-off layers, so layers added later start switched on.
+                mapLayers = MapLayer.entries.toSet() - prefs[HIDDEN_LAYERS].orEmpty().mapNotNull { name ->
+                    runCatching { MapLayer.valueOf(name) }.getOrNull()
+                }.toSet(),
             )
         }
         .distinctUntilChanged()
@@ -41,9 +49,15 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
 
     suspend fun setSearchAtBottom(bottom: Boolean) = store.edit { it[SEARCH_AT_BOTTOM] = bottom }
 
+    suspend fun setMapLayer(layer: MapLayer, visible: Boolean) = store.edit { prefs ->
+        val hidden = prefs[HIDDEN_LAYERS].orEmpty()
+        prefs[HIDDEN_LAYERS] = if (visible) hidden - layer.name else hidden + layer.name
+    }
+
     private companion object {
         val THEME = stringPreferencesKey("theme_mode")
         val ACCENT = stringPreferencesKey("accent_theme")
         val SEARCH_AT_BOTTOM = booleanPreferencesKey("search_at_bottom")
+        val HIDDEN_LAYERS = stringSetPreferencesKey("hidden_map_layers")
     }
 }

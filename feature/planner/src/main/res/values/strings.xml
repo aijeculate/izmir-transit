@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish is the default locale. -->
+<resources>
+    <string name="planner_back">Geri</string>
+    <string name="planner_from">Nereden</string>
+    <string name="planner_to">Nereye</string>
+    <string name="planner_my_location">Konumum</string>
+    <string name="planner_locating">Konum alınıyor…</string>
+    <string name="planner_choose_start">Başlangıç seç</string>
+    <string name="planner_where_to">Nereye gitmek istiyorsun?</string>
+    <string name="planner_dropped_pin">Haritada seçilen nokta</string>
+    <string name="planner_swap">Yönleri değiştir</string>
+    <string name="planner_search_hint">Adres, yer veya durak ara</string>
+    <string name="planner_search_hint_stops">Durak veya istasyon ara</string>
+    <string name="planner_now">Şimdi</string>
+    <string name="planner_in_minutes">+%1$d dk</string>
+    <string name="planner_location_permission">Konumundan yol tarifi için konum izni gerekli. Başlangıcı aramayla da seçebilirsin.</string>
+    <string name="planner_allow_location">Konuma izin ver</string>
+    <string name="planner_location_off">Konum servisleri kapalı.</string>
+    <string name="planner_location_unavailable">Konum alınamadı.</string>
+    <string name="planner_no_route">Bu saatte uygun bir yol bulunamadı.</string>
+    <string name="planner_place_failed">Yer bilgisi alınamadı.</string>
+    <string name="planner_planning">Yol hesaplanıyor…</string>
+    <string name="planner_hint">Başlangıç ve varış noktasını seç.</string>
+    <string name="planner_minutes">%1$d dk</string>
+    <string name="planner_walk_only">Yürüyerek</string>
+    <string name="planner_summary_direct">Aktarmasız · %1$d m yürüme</string>
+    <string name="planner_destination">varış noktası</string>
+    <string name="planner_walk_to">Yürü: %1$s · %2$d m · %3$d dk</string>
+    <string name="planner_towards">%1$s yönü</string>
+    <string name="planner_board">Bin: %1$s</string>
+    <string name="planner_estimated">tahmini</string>
+    <string name="planner_next_day">Bu saatte sefer yok; sabahın ilk seferleri gösteriliyor.</string>
+    <plurals name="planner_summary">
+        <item quantity="one">%1$d aktarma · %2$d m yürüme</item>
+        <item quantity="other">%1$d aktarma · %2$d m yürüme</item>
+    </plurals>
+    <plurals name="planner_alight">
+        <item quantity="one">%1$d durak sonra in: %2$s · %3$s</item>
+        <item quantity="other">%1$d durak sonra in: %2$s · %3$s</item>
+    </plurals>
+</resources>

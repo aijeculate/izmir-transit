@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
@@ -19,6 +20,16 @@ android {
         applicationId = "com.aijec.izmirtransit"
         versionCode = 1
         versionName = "0.1.0"
+        // Google Maps key from local.properties (MAPS_API_KEY=…), never committed.
+        val localProperties = Properties().apply {
+            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+        }
+        val mapsKey = localProperties.getProperty("MAPS_API_KEY").orEmpty()
+        manifestPlaceholders["mapsApiKey"] = mapsKey
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsKey\"")
+    }
+    buildFeatures {
+        buildConfig = true
     }
     buildTypes {
         release {
@@ -42,13 +53,14 @@ dependencies {
     implementation(projects.feature.home)
     implementation(projects.feature.timetable)
     implementation(projects.feature.settings)
+    implementation(projects.feature.planner)
     implementation(libs.datastore.preferences)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.maplibre)
+    implementation(projects.core.map)
 }
 
 /** Copies the database built by :tools:importer into the app's generated assets. */

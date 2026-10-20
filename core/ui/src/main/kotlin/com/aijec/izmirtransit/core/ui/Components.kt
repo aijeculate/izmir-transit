@@ -432,18 +432,18 @@ fun TextStyle.tabular(): TextStyle = copy(fontFeatureSettings = TabularNumbers)
 
 /** The one primary action on a panel: a filled accent pill. */
 @Composable
-fun PillButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PillButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, secondary: Boolean = false) {
     val colors = Calm.colors
     Box(
         modifier
             .heightIn(min = 44.dp)
             .clip(Calm.PillShape)
-            .background(colors.accent)
+            .background(if (secondary) colors.accentSoft else colors.accent)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, color = colors.onAccent)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = if (secondary) colors.onAccentSoft else colors.onAccent, maxLines = 1)
     }
 }
 

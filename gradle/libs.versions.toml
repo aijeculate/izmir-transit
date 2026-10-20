@@ -17,7 +17,9 @@ activityCompose = "1.12.4"
 lifecycle = "2.10.0"
 androidxHilt = "1.3.0"
 coreKtx = "1.18.0"
-maplibre = "13.6.0"
+# maps-compose 8.3.x is the newest built for Kotlin 2.3 stdlib (readable by our 2.2 compiler); 8.4+ needs Kotlin 2.4.
+mapsCompose = "8.3.1"
+playServicesMaps = "20.0.0"
 navigation = "2.9.8"
 datastore = "1.1.7"
 playServicesLocation = "21.3.0"
@@ -44,7 +46,9 @@ compose-material-icons-core = { module = "androidx.compose.material:material-ico
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
-maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
+maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
+play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 
 # Storage
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }

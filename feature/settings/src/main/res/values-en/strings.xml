@@ -18,7 +18,7 @@
     <string name="settings_about_data_title">Data</string>
     <string name="settings_about_data">Lines, stops, timetables and live positions: İzmir Metropolitan Municipality open data portal and İztek web services (İBB Open Data Licence). Arrival times are estimates.</string>
     <string name="settings_about_map_title">Map</string>
-    <string name="settings_about_map">© OpenStreetMap contributors · OpenFreeMap · MapLibre</string>
+    <string name="settings_about_map">Map: Google Maps</string>
     <string name="settings_about_font_title">Typeface</string>
     <string name="settings_about_font">Inter, SIL Open Font License 1.1</string>
 </resources>

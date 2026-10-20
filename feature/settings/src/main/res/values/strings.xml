@@ -19,7 +19,7 @@
     <string name="settings_about_data_title">Veri</string>
     <string name="settings_about_data">Hat, durak, sefer ve canlı konum verileri: İzmir Büyükşehir Belediyesi açık veri portalı ve İztek web servisleri (İBB Açık Veri Lisansı). Varış süreleri tahminidir.</string>
     <string name="settings_about_map_title">Harita</string>
-    <string name="settings_about_map">© OpenStreetMap katkıda bulunanlar · OpenFreeMap · MapLibre</string>
+    <string name="settings_about_map">Harita: Google Maps</string>
     <string name="settings_about_font_title">Yazı tipi</string>
     <string name="settings_about_font">Inter, SIL Open Font License 1.1</string>
 </resources>

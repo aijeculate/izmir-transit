@@ -1,6 +1,11 @@
 package com.aijec.izmirtransit.di
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import com.aijec.izmirtransit.BuildConfig
+import com.aijec.izmirtransit.core.data.places.GoogleApiConfig
+import java.security.MessageDigest
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -62,6 +67,24 @@ object DataModule {
         clock = clock,
         otherModes = OtherModesDownloader(client, pacer),
     )
+
+    /** The Google key (local.properties MAPS_API_KEY) plus the app identity it is restricted to. */
+    @Provides
+    @Singleton
+    fun googleApiConfig(@ApplicationContext context: Context): GoogleApiConfig =
+        GoogleApiConfig(BuildConfig.MAPS_API_KEY, context.packageName, signingCertificateSha1(context))
+
+    /** SHA-1 of the signing certificate as Google wants it: upper-case hex, no colons. */
+    private fun signingCertificateSha1(context: Context): String = runCatching {
+        val certificate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                .signingInfo?.apkContentsSigners?.firstOrNull()
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES).signatures?.firstOrNull()
+        }?.toByteArray() ?: return ""
+        MessageDigest.getInstance("SHA-1").digest(certificate).joinToString("") { "%02X".format(it) }
+    }.getOrDefault("")
 
     /** Favourites and settings. One instance per file is required by DataStore. */
     @Provides
