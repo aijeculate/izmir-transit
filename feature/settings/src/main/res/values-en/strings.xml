@@ -29,5 +29,5 @@
     <string name="settings_theme_amoled">AMOLED</string>
     <string name="settings_replay_tutorial">Show the tutorial again</string>
     <string name="settings_about_source_title">Open source</string>
-    <string name="settings_about_source">Licensed under the GNU GPL v3; source code at github.com/aijec/izmir-transit. Not affiliated with ESHOT, Metro İzmir, Tram İzmir, İZBAN or İzdeniz.</string>
+    <string name="settings_about_source">Licensed under the GNU GPL v3; source code at github.com/aijeculate/izmir-transit. Not affiliated with ESHOT, Metro İzmir, Tram İzmir, İZBAN or İzdeniz.</string>
 </resources>

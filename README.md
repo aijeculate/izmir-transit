@@ -4,7 +4,7 @@
 
 *İzmir'in tüm toplu taşıması tek uygulamada: canlı ESHOT otobüsleri, metro, tramvay, İZBAN ve vapur; sefer saatleri, aktarmalar ve yol tarifi. İnternet olmadan da çalışır.*
 
-[Website](https://aijec.github.io/izmir-transit/) · [Download the APK](https://github.com/aijec/izmir-transit/releases/latest) · [Privacy](PRIVACY.md)
+[Website](https://aijeculate.github.io/izmir-transit/) · [Download the APK](https://github.com/aijeculate/izmir-transit/releases/latest) · [Privacy](PRIVACY.md)
 
 | | | | |
 |---|---|---|---|

@@ -30,4 +30,4 @@ Favourite stops and lines, settings and arrival alerts are stored on your phone 
 
 ## Contact
 
-Questions or concerns: open an issue at [github.com/aijec/izmir-transit](https://github.com/aijec/izmir-transit/issues).
+Questions or concerns: open an issue at [github.com/aijeculate/izmir-transit](https://github.com/aijeculate/izmir-transit/issues).
