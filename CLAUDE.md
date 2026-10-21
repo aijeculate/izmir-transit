@@ -45,6 +45,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - Has a refresh button and refreshes every 15 minutes via WorkManager, only while a widget exists.
   - Tapping it opens the stop.
 - **Quiet rate limits:** `pollLive` ignores up to 2 consecutive 429s while data is fresh, because the daytime capture showed occasional 429s even at 1 req/s.
+- **Every GitHub release must attach the APK as `izmir-transit.apk`.** The site's download button and the README link to `releases/latest/download/izmir-transit.apk`. A versioned copy is attached too.
 - **Release build:** R8 shrinking and resource shrinking. There's an adaptive bus icon with a monochrome layer for themed icons.
 - **Design ("calm glass", chosen by the user on 20 Oct 2026):** a fixed palette, deliberately not Material You dynamic colour.
   - Light: a soft blue-grey canvas `#EEF1F5`, white panels with a 22 dp radius, and one blue accent.
