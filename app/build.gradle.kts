@@ -18,8 +18,8 @@ android {
     namespace = "com.aijec.izmirtransit"
     defaultConfig {
         applicationId = "com.aijec.izmirtransit"
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         // Google keys from local.properties (MAPS_API_KEY=…, PLACES_API_KEY=…), never committed.
         // Places falls back to the Maps key when one key has both APIs.
         val localProperties = Properties().apply {
