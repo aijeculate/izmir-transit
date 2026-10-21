@@ -173,6 +173,17 @@ interface StopDao {
     )
     suspend fun scheduledDepartures(stopCode: String, serviceDay: Int, fromMinute: Int, limit: Int): List<StopDepartureEntity>
 
+    /** Departures from a stop in [fromMinute, toMinute) on one service day, newest first. */
+    @Query(
+        """
+        SELECT * FROM stop_departures
+        WHERE stop_code = :stopCode AND service_day = :serviceDay
+            AND minutes_after_midnight >= :fromMinute AND minutes_after_midnight < :toMinute
+        ORDER BY minutes_after_midnight DESC
+        """,
+    )
+    suspend fun departuresBetween(stopCode: String, serviceDay: Int, fromMinute: Int, toMinute: Int): List<StopDepartureEntity>
+
     /** One line's whole-day timetable at one station, in one direction. */
     @Query(
         """

@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Clock
+import java.time.Instant
 import javax.inject.Inject
 
 data class StopUiState(
@@ -51,7 +52,12 @@ data class StationBoard(
     val departures: List<ScheduledDeparture>,
     /** Nothing more today: these are the first departures of the next service day. */
     val nextDay: Boolean = false,
+    /** The last scheduled departure per line and direction in the past 20 minutes. */
+    val justLeft: List<RecentDeparture> = emptyList(),
 )
+
+/** A departure the timetable says has left, and when that was. */
+data class RecentDeparture(val departure: ScheduledDeparture, val departedAt: Instant)
 
 @HiltViewModel
 class StopViewModel @Inject constructor(
@@ -87,9 +93,15 @@ class StopViewModel @Inject constructor(
                 val now = TimetableRepository.localNow(clock)
                 val moment = TimetableRepository.serviceMoment(now)
                 val today = stops.scheduledDepartures(stopCode, moment.serviceDay, moment.minutesAfterMidnight, BOARD_SIZE)
+                // Service-day minutes count from midnight of the day the service day started.
+                val serviceDate = if (now.hour < TimetableRepository.SERVICE_DAY_START_HOUR) now.toLocalDate().minusDays(1) else now.toLocalDate()
+                val dayStart = serviceDate.atStartOfDay(TimetableRepository.IZMIR_ZONE)
+                val justLeft = stops.recentDepartures(stopCode, moment.serviceDay, moment.minutesAfterMidnight).map {
+                    RecentDeparture(it, dayStart.plusMinutes(it.minutesAfterMidnight.toLong()).toInstant())
+                }
                 emit(
                     if (today.isNotEmpty()) {
-                        StationBoard(moment.minutesAfterMidnight, today)
+                        StationBoard(moment.minutesAfterMidnight, today, justLeft = justLeft)
                     } else {
                         // Late at night: the first departures after the service day starts again.
                         val date = if (now.hour < TimetableRepository.SERVICE_DAY_START_HOUR) now.toLocalDate() else now.toLocalDate().plusDays(1)
@@ -99,7 +111,7 @@ class StopViewModel @Inject constructor(
                             TimetableRepository.SERVICE_DAY_START_HOUR * 60,
                             BOARD_SIZE / 4,
                         )
-                        StationBoard(moment.minutesAfterMidnight, first, nextDay = true)
+                        StationBoard(moment.minutesAfterMidnight, first, nextDay = true, justLeft = justLeft)
                     },
                 )
                 delay(60_000L - clock.millis() % 60_000L)

@@ -2,6 +2,7 @@ package com.aijec.izmirtransit.core.data.repository
 
 import com.aijec.izmirtransit.core.data.text.TurkishText
 import com.aijec.izmirtransit.core.database.IzmirDatabase
+import com.aijec.izmirtransit.core.database.StopDepartureEntity
 import com.aijec.izmirtransit.core.model.Announcement
 import com.aijec.izmirtransit.core.model.ConnectionType
 import com.aijec.izmirtransit.core.model.Departure
@@ -177,8 +178,21 @@ class StopRepository @Inject constructor(private val database: IzmirDatabase) {
      * The next timetabled departures (rail and ferry) from a station or pier, from
      * [minute] on [serviceDay]. Empty for bus stops, which use live arrivals.
      */
-    suspend fun scheduledDepartures(code: String, serviceDay: ServiceDay, minute: Int, limit: Int = 40): List<ScheduledDeparture> {
-        val rows = dao.scheduledDepartures(code, serviceDay.ordinal, minute, limit)
+    suspend fun scheduledDepartures(code: String, serviceDay: ServiceDay, minute: Int, limit: Int = 40): List<ScheduledDeparture> =
+        toScheduled(code, dao.scheduledDepartures(code, serviceDay.ordinal, minute, limit))
+
+    /**
+     * The last timetabled departure before [minute] for each line and direction, within
+     * [windowMinutes]: "the train that should have just left", newest first. Trains often run
+     * late, so the board shows these as estimates.
+     */
+    suspend fun recentDepartures(code: String, serviceDay: ServiceDay, minute: Int, windowMinutes: Int = 20): List<ScheduledDeparture> {
+        val rows = dao.departuresBetween(code, serviceDay.ordinal, minute - windowMinutes, minute)
+            .distinctBy { it.lineCode to it.direction }
+        return toScheduled(code, rows)
+    }
+
+    private suspend fun toScheduled(code: String, rows: List<StopDepartureEntity>): List<ScheduledDeparture> {
         if (rows.isEmpty()) return emptyList()
         val lines = dao.linesAtStop(code).associate { it.code to it.toModel() }
         return rows.mapNotNull { row ->

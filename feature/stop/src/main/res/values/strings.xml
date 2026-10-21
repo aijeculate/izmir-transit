@@ -45,4 +45,8 @@
     <string name="stop_alert_blocked_body">Otobüs yaklaşınca haber verebilmem için İzmir Transit\'in bildirimlerini ayarlardan açman gerekiyor.</string>
     <string name="stop_alert_open_settings">Ayarları aç</string>
     <string name="stop_alert_not_now">Şimdi değil</string>
+    <string name="stop_just_left_title">Az önce kalkanlar</string>
+    <string name="stop_just_left_scheduled">Tarifeye göre %1$s</string>
+    <string name="stop_just_left_ago">%1$s önce</string>
+    <string name="stop_just_left_note">Tarifeden tahmin. Seferler çoğu zaman birkaç dakika gecikir; az önce kalkmış görünen sefer henüz gelmemiş olabilir.</string>
 </resources>

@@ -225,6 +225,12 @@ fun StopScreen(
         items(state.announcements, key = { "notice-${it.lineCode}-${it.title.hashCode()}" }) { announcement ->
             AnnouncementCard(announcement, showLine = true, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         }
+        if (board != null && board.justLeft.isNotEmpty()) {
+            item("just-left-label") {
+                SectionLabel(stringResource(R.string.stop_just_left_title), Modifier.padding(horizontal = 16.dp))
+            }
+            item("just-left") { JustLeftPanel(board.justLeft, onOpenLine) }
+        }
         if (board != null) {
             item("departures-label") {
                 SectionLabel(stringResource(R.string.stop_departures_title), Modifier.padding(horizontal = 16.dp))
@@ -304,6 +310,53 @@ private fun TransfersPanel(stop: com.aijec.izmirtransit.core.model.Stop?, transf
 
 /** Same walking estimate as the trip planner: 75 m/min on streets 25 % longer than the crow flies. */
 private fun walkMinutes(meters: Double): Int = kotlin.math.ceil(meters * 1.25 / 75.0).toInt().coerceAtLeast(1)
+
+/**
+ * What the timetable says left in the last 20 minutes, counting up by the second. Trains and
+ * ferries are often a few minutes late, so the one "just gone" may still be coming.
+ */
+@Composable
+private fun JustLeftPanel(recent: List<RecentDeparture>, onOpenLine: (String) -> Unit) {
+    val colors = Calm.colors
+    val now by rememberNow()
+    Panel(Modifier.fillMaxWidth().padding(horizontal = 16.dp), padding = PaddingValues(vertical = 4.dp)) {
+        recent.forEachIndexed { index, item ->
+            val departure = item.departure
+            if (index > 0) Hairline()
+            CalmRow(onClick = { onOpenLine(departure.line.code) }, padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+                LineBadge(departure.line)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.stop_towards, departure.headsign),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colors.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        stringResource(R.string.stop_just_left_scheduled, TimetableRepository.formatClock(departure.minutesAfterMidnight)),
+                        style = MaterialTheme.typography.bodySmall.tabular(),
+                        color = colors.textSecondary,
+                    )
+                }
+                Text(
+                    stringResource(R.string.stop_just_left_ago, formatAge(item.departedAt, now)),
+                    style = MaterialTheme.typography.bodyMedium.tabular(),
+                    color = colors.textSecondary,
+                )
+            }
+        }
+        Hairline()
+        Text(
+            stringResource(R.string.stop_just_left_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onWarningSoft,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+        )
+    }
+}
 
 @Composable
 private fun DeparturesPanel(board: StationBoard, onOpenLine: (String) -> Unit) {

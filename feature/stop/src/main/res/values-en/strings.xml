@@ -44,4 +44,8 @@
     <string name="stop_alert_blocked_body">To tell you when your bus is close, turn on notifications for İzmir Transit in Settings.</string>
     <string name="stop_alert_open_settings">Open settings</string>
     <string name="stop_alert_not_now">Not now</string>
+    <string name="stop_just_left_title">Just left</string>
+    <string name="stop_just_left_scheduled">Scheduled %1$s</string>
+    <string name="stop_just_left_ago">%1$s ago</string>
+    <string name="stop_just_left_note">Estimated from the timetable. Services often run a few minutes late, so one shown as just left may not have reached the station yet.</string>
 </resources>

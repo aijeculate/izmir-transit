@@ -174,6 +174,13 @@ class RailAndFerryImporterTest {
         assertEquals("Karşıyaka, Bostanlı", konak[1].headsign)
         assertEquals("F-1-2", konak[1].line.code)
 
+        // "Just left": the latest earlier sailing per line and direction, within 20 minutes.
+        assertEquals(listOf(8 * 60), stops.recentDepartures("F1", ServiceDay.WEEKDAY, 8 * 60 + 5).map { it.minutesAfterMidnight })
+        assertEquals(listOf(7 * 60 + 30), stops.recentDepartures("F1", ServiceDay.WEEKDAY, 7 * 60 + 45).map { it.minutesAfterMidnight })
+        // The 08:00 is still "now" on the board at 08:00, and the 07:30 is over 20 minutes old.
+        assertTrue(stops.recentDepartures("F1", ServiceDay.WEEKDAY, 8 * 60).isEmpty())
+        assertTrue(stops.recentDepartures("F1", ServiceDay.WEEKDAY, 9 * 60).isEmpty())
+
         val timetable = TimetableRepository(database)
         assertEquals(3, timetable.departures("F-1-2", ServiceDay.WEEKDAY, Direction.OUTBOUND).size)
         assertEquals(listOf(7 * 60 + 45), timetable.departures("F-1-2", ServiceDay.WEEKDAY, Direction.RETURN).map { it.minutesAfterMidnight })

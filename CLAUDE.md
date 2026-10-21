@@ -187,6 +187,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 - **Direction chevrons:** Google stamps the texture with the image's bottom toward the polyline's end, so the chevron bitmap points down (the old up-arrow pointed backwards). The selected line is 8 dp (11 dp casing) and the chevron fills its width on a tall canvas, so arrows are larger and spaced out.
 - **Favourites edit mode** on Home ("Edit" next to Favourites): up, down and remove per stop and line (`FavouritesRepository.moveStop/moveLine`).
 - **Update checker** (`core/data/update/UpdateChecker`): `GET api.github.com/repos/aijeculate/izmir-transit/releases/latest`, numeric version compare against `BuildConfig.VERSION_NAME`, downloads the `izmir-transit.apk` asset. Automatic check at most once a day on app start (`AppSettings.autoCheckUpdates`, `lastUpdateCheck`); "Later" stores `skippedUpdate`. Settings has the toggle, "Check for updates", a GitHub link and the version line. **Release tags must be `vX.Y.Z` and versionName `X.Y.Z`.**
+- **"Just left" on station and pier boards** (not bus stops, which are live): the last scheduled departure per line and direction in the past 20 minutes (`StopRepository.recentDepartures`), counting up by the second from its scheduled minute, with a note that trains and ferries often run late so it may not have come yet. Asked for by the user because Metro and İZBAN run a few minutes late. A departure in the current minute stays on the main board as "now".
 
 | Module | What it holds |
 | --- | --- |
