@@ -271,4 +271,17 @@ class MapSelection @Inject constructor() {
     fun select(code: String?) {
         _line.value = code
     }
+
+    private val _focusStop = MutableStateFlow<String?>(null)
+
+    /** A stop to show on the Map tab ("Show on map"), handled once by the map. */
+    val focusStop: StateFlow<String?> = _focusStop.asStateFlow()
+
+    fun showStop(code: String) {
+        _focusStop.value = code
+    }
+
+    fun consumeFocus() {
+        _focusStop.value = null
+    }
 }

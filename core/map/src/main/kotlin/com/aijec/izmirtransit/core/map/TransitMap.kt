@@ -125,6 +125,9 @@ fun TransitMap(
     // Survives navigating away and back, like the camera position itself.
     var fitted by rememberSaveable { mutableStateOf(memoryKey?.let { CameraMemory.fitted[it] }) }
     LaunchedEffect(fitted) { memoryKey?.let { CameraMemory.fitted[it] = fitted } }
+    // A camera request is carried out once: coming back to the map must not jump to it again.
+    var handledRequest by rememberSaveable { mutableStateOf(memoryKey?.let { CameraMemory.handledRequest[it] } ?: 0) }
+    val pendingRequest = cameraRequest != null && cameraRequest.id != handledRequest
     var mapSize by remember { mutableStateOf(IntSize.Zero) }
     val currentOnViewport by rememberUpdatedState(onViewportChanged)
 
@@ -368,13 +371,16 @@ fun TransitMap(
     }
     LaunchedEffect(loaded, overview.isNotEmpty() && routes.isEmpty() && plan == null) {
         // Only on a fresh map: a remembered camera is where the user left it.
-        if (loaded && remembered == null && overview.isNotEmpty() && routes.isEmpty() && plan == null && camera.position.zoom < 11.5f) {
+        if (loaded && remembered == null && !pendingRequest && overview.isNotEmpty() && routes.isEmpty() && plan == null && camera.position.zoom < 11.5f) {
             camera.animate(CameraUpdateFactory.newLatLngZoom(IZMIR_CENTER, 10.6f), 600)
         }
     }
     LaunchedEffect(loaded, cameraRequest) {
         val request = cameraRequest ?: return@LaunchedEffect
-        if (loaded) camera.animate(CameraUpdateFactory.newLatLngZoom(request.target.toGoogle(), request.zoom), 800)
+        if (!loaded || request.id == handledRequest) return@LaunchedEffect
+        handledRequest = request.id
+        memoryKey?.let { CameraMemory.handledRequest[it] = request.id }
+        camera.animate(CameraUpdateFactory.newLatLngZoom(request.target.toGoogle(), request.zoom), 800)
     }
     LaunchedEffect(loaded, camera.isMoving) {
         if (!loaded || camera.isMoving) return@LaunchedEffect
@@ -435,6 +441,7 @@ private fun Vehicles(motion: BusMotion, outbound: BitmapDescriptor, inbound: Bit
 private object CameraMemory {
     val positions = HashMap<String, CameraPosition>()
     val fitted = HashMap<String, String?>()
+    val handledRequest = HashMap<String, Int>()
 }
 
 private fun bounds(points: List<LatLng>): LatLngBounds =

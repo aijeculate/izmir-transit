@@ -240,6 +240,22 @@ class LineMapViewModel @Inject constructor(
                 }
             }
         }
+        if (pinnedLine == null) {
+            // "Show on map" from a stop or a favourite: centre on it and open its card. Any
+            // chosen line is closed so the stop isn't hidden under it.
+            viewModelScope.launch {
+                selection.focusStop.collect { code ->
+                    if (code == null) return@collect
+                    selection.consumeFocus()
+                    val stop = stops.stop(code) ?: return@collect
+                    selection.select(null)
+                    onStopClick(stop)
+                    _state.update {
+                        it.copy(cameraRequest = CameraRequest.to(stop.location, zoom = 16.5f))
+                    }
+                }
+            }
+        }
         viewModelScope.launch {
             allOverview.value = lines.overviewShapes()
         }
@@ -286,7 +302,7 @@ class LineMapViewModel @Inject constructor(
                     // Zoomed in far enough that the stops around the user load by themselves.
                     it.copy(
                         userLocation = result.location,
-                        cameraRequest = CameraRequest((it.cameraRequest?.id ?: 0) + 1, result.location, zoom = 16f),
+                        cameraRequest = CameraRequest.to(result.location, zoom = 16f),
                         locating = false,
                         locationEnabled = true,
                     )

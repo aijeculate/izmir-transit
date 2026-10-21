@@ -39,4 +39,5 @@
     <string name="stop_nearby_stations_title">Stations nearby</string>
     <string name="stop_walk_minutes">%1$d m · %2$d min</string>
     <string name="stop_departures_next_day">No more departures today. First departures in the morning:</string>
+    <string name="stop_show_on_map">Show on map</string>
 </resources>

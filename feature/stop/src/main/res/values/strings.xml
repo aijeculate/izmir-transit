@@ -40,4 +40,5 @@
     <string name="stop_nearby_stations_title">Yakındaki istasyonlar</string>
     <string name="stop_walk_minutes">%1$d m · %2$d dk</string>
     <string name="stop_departures_next_day">Bugünkü seferler bitti. Sabahın ilk seferleri:</string>
+    <string name="stop_show_on_map">Haritada göster</string>
 </resources>

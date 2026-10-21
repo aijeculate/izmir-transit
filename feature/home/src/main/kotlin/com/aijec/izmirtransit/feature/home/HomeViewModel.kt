@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.feature.home
 
+import com.aijec.izmirtransit.core.data.repository.MapSelection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
@@ -68,7 +69,11 @@ class HomeViewModel @Inject constructor(
     private val live: LiveBusRepository,
     private val location: LocationProvider,
     private val clock: Clock,
+    private val mapSelection: MapSelection,
 ) : ViewModel() {
+
+    /** Asks the Map tab to centre on a stop; the caller then switches to it. */
+    fun showOnMap(stopCode: String) = mapSelection.showStop(stopCode)
 
     val favourites: StateFlow<FavouritesState> = favouritesRepository.favourites
         .mapLatest { favourites ->

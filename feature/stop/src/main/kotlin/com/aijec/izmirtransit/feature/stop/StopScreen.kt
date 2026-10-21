@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.feature.stop
 
+import androidx.compose.material.icons.filled.Map
 import com.aijec.izmirtransit.core.data.repository.NearbyStop
 import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.Manifest
@@ -85,6 +86,7 @@ fun StopRoute(
     onBack: () -> Unit,
     onOpenLine: (String) -> Unit,
     onOpenStop: (String) -> Unit = {},
+    onShowOnMap: () -> Unit = {},
     viewModel: StopViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -126,6 +128,7 @@ fun StopRoute(
         onBack = onBack,
         onOpenLine = onOpenLine,
         onOpenStop = onOpenStop,
+        onShowOnMap = { viewModel.showOnMap(); onShowOnMap() },
         alertBusId = activeAlert?.takeIf { it.stopCode == state.stopCode }?.busId,
         onBell = { bus -> if (activeAlert?.busId == bus.busId) viewModel.stopAlert() else choosing = bus },
     )
@@ -148,6 +151,7 @@ fun StopScreen(
     onBack: () -> Unit,
     onOpenLine: (String) -> Unit,
     onOpenStop: (String) -> Unit = {},
+    onShowOnMap: () -> Unit = {},
     alertBusId: Int? = null,
     onBell: (ApproachingBus) -> Unit = {},
 ) {
@@ -165,7 +169,14 @@ fun StopScreen(
                 subtitle = state.stop?.let { stopKindLabel(it) } ?: stringResource(R.string.stop_code, state.stopCode),
                 onBack = onBack,
                 leading = state.stop?.let { stop -> { ModeIcon(stop.mode, size = 36.dp) } },
-                action = { FavouriteButton(isFavourite, onToggleFavourite) },
+                action = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (state.stop != null) {
+                            CircleIconButton(Icons.Filled.Map, stringResource(R.string.stop_show_on_map), onShowOnMap, tint = Calm.colors.accent)
+                        }
+                        FavouriteButton(isFavourite, onToggleFavourite)
+                    }
+                },
             )
         }
         if (state.lines.isNotEmpty()) {

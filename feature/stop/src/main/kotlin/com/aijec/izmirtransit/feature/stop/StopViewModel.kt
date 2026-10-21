@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.feature.stop
 
+import com.aijec.izmirtransit.core.data.repository.MapSelection
 import com.aijec.izmirtransit.core.data.repository.NearbyStop
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -60,6 +61,7 @@ class StopViewModel @Inject constructor(
     private val timetable: TimetableRepository,
     private val clock: Clock,
     private val alerts: ArrivalAlerts,
+    private val mapSelection: MapSelection,
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val stopCode: String = checkNotNull(savedState[STOP_CODE_ARG]) { "stopCode argument missing" }
@@ -130,6 +132,9 @@ class StopViewModel @Inject constructor(
     }
 
     fun stopAlert() = alerts.stop()
+
+    /** Asks the Map tab to centre on this stop; the caller then switches to it. */
+    fun showOnMap() = mapSelection.showStop(stopCode)
 
     init {
         viewModelScope.launch {

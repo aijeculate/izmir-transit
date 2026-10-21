@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.feature.home
 
+import androidx.compose.material.icons.filled.Map
 import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.content.Intent
 import android.net.Uri
@@ -92,6 +93,7 @@ fun HomeRoute(
     onOpenLine: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onPlanTrip: () -> Unit = {},
+    onShowOnMap: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
@@ -112,6 +114,7 @@ fun HomeRoute(
         onOpenLine = onOpenLine,
         onOpenSettings = onOpenSettings,
         onPlanTrip = onPlanTrip,
+        onShowOnMap = { code -> viewModel.showOnMap(code); onShowOnMap() },
     )
 }
 
@@ -126,6 +129,7 @@ fun HomeScreen(
     onOpenLine: (String) -> Unit,
     onOpenSettings: () -> Unit = {},
     onPlanTrip: () -> Unit = {},
+    onShowOnMap: (String) -> Unit = {},
 ) {
     LazyColumn(
         Modifier
@@ -154,7 +158,13 @@ fun HomeScreen(
             item("fav-empty") { EmptyFavourites() }
         }
         items(favourites.stops, key = { "fav-stop-${it.stop.code}" }) { favourite ->
-            FavouriteStopPanel(favourite, arrivals[favourite.stop.code], boards[favourite.stop.code], onClick = { onOpenStop(favourite.stop.code) })
+            FavouriteStopPanel(
+                favourite,
+                arrivals[favourite.stop.code],
+                boards[favourite.stop.code],
+                onClick = { onOpenStop(favourite.stop.code) },
+                onShowOnMap = { onShowOnMap(favourite.stop.code) },
+            )
         }
         if (favourites.lines.isNotEmpty()) {
             item("fav-lines") { FavouriteLinesPanel(favourites.lines, onOpenLine) }
@@ -238,6 +248,7 @@ private fun FavouriteStopPanel(
     arrivals: LiveSnapshot<List<ApproachingBus>>?,
     board: StationBoard?,
     onClick: () -> Unit,
+    onShowOnMap: () -> Unit = {},
 ) {
     val snapshot = arrivals ?: LoadingArrivals
     val colors = Calm.colors
@@ -255,6 +266,7 @@ private fun FavouriteStopPanel(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            CircleIconButton(Icons.Filled.Map, stringResource(R.string.home_show_on_map), onShowOnMap, tint = colors.accent, plain = true)
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.textSecondary)
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

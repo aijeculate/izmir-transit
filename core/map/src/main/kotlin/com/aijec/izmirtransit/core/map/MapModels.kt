@@ -18,8 +18,14 @@ data class Viewport(
     val zoom: Float,
 )
 
-/** Asks the map to move; a new [id] repeats a move to the same place. */
-data class CameraRequest(val id: Int, val target: LatLng, val zoom: Float = 15.5f)
+/** Asks the map to move; each request has an app-wide unique [id] and is carried out once. */
+data class CameraRequest(val id: Int, val target: LatLng, val zoom: Float = 15.5f) {
+    companion object {
+        private val ids = java.util.concurrent.atomic.AtomicInteger()
+
+        fun to(target: LatLng, zoom: Float = 15.5f) = CameraRequest(ids.incrementAndGet(), target, zoom)
+    }
+}
 
 /** A planned journey drawn on the map: walking legs dotted, rides in their line colour. */
 data class MapPlan(

@@ -97,6 +97,7 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                     onOpenLine = { nav.navigate(lineDestination(it)) },
                     onOpenSettings = { nav.navigate(SETTINGS_ROUTE) },
                     onPlanTrip = { nav.navigate(planDestination(null)) },
+                    onShowOnMap = { nav.openMapTab() },
                 )
             }
             composable(MAP_ROUTE) {
@@ -137,6 +138,7 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                     onBack = { nav.popBackStack() },
                     onOpenLine = { nav.navigate(lineDestination(it)) },
                     onOpenStop = { nav.navigate(stopDestination(it)) },
+                    onShowOnMap = { nav.openMapTab() },
                 )
             }
             composable(SETTINGS_ROUTE) {
