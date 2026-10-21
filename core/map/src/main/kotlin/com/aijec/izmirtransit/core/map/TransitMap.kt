@@ -169,6 +169,9 @@ fun TransitMap(
     val casing = if (colors.isDark) Color(0xFF0B1220) else Color.White
     val routeWidth = with(density) { 5.dp.toPx() }
     val casingWidth = with(density) { 8.dp.toPx() }
+    // The selected line is wider so its direction chevrons are big enough to read.
+    val selectedWidth = with(density) { 8.dp.toPx() }
+    val selectedCasingWidth = with(density) { 11.dp.toPx() }
 
     GoogleMap(
         modifier = modifier.onSizeChanged { mapSize = it },
@@ -232,7 +235,7 @@ fun TransitMap(
             com.google.maps.android.compose.Polyline(
                 points = points,
                 color = casing,
-                width = casingWidth,
+                width = selectedCasingWidth,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
                 endCap = RoundCap(),
@@ -247,7 +250,7 @@ fun TransitMap(
                             .build(),
                     ),
                 ),
-                width = routeWidth,
+                width = selectedWidth,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
                 endCap = RoundCap(),

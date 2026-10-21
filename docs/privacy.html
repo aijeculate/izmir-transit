@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Privacy · İzmir Transit</title>
+<link rel="icon" href="icons/icon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+<link rel="icon" href="icons/icon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon-light-512.png" type="image/png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root { --canvas: #eef1f5; --panel: #fff; --text: #1c2430; --text-2: #5f6b7a; --hairline: #e1e6ed; --accent: #1f6fd1; }
@@ -29,7 +32,7 @@
 <main>
   <a href="./">← İzmir Transit</a>
   <h1>Privacy policy</h1>
-  <p><em>Last updated: 21 October 2026</em></p>
+  <p><em>Last updated: 22 October 2026</em></p>
   <p>İzmir Transit has no accounts, no analytics, no advertising and no server of its own. This page lists everything the app sends anywhere.</p>
 
   <h2>Your location</h2>
@@ -41,6 +44,7 @@
       <tr><th>Sent to</th><th>What</th><th>Why</th></tr>
       <tr><td>İzmir Teknoloji (İztek) open web services</td><td>A line number or stop number</td><td>Live bus positions and arrivals</td></tr>
       <tr><td>Google Maps Platform</td><td>Map tiles for the area you look at; the text you type in the trip planner's place search, and the place you pick</td><td>Showing the map; finding addresses and places</td></tr>
+      <tr><td>GitHub</td><td>A request for the app's latest release, about once a day (can be switched off in Settings)</td><td>Telling you when a new version is out</td></tr>
       <tr><td>İzmir open data portal, ESHOT, Metro İzmir, Tram İzmir, İZBAN, İzdeniz</td><td>Plain downloads of public timetables, about once a week on Wi-Fi</td><td>Keeping the offline data current</td></tr>
     </table>
   </div>
@@ -52,7 +56,7 @@
   <h2>Permissions</h2>
   <ul>
     <li><strong>Location</strong> (optional): nearby stops, the map's location dot and directions from where you are.</li>
-    <li><strong>Notifications</strong> (optional): the "my bus is N stops away" alert.</li>
+    <li><strong>Notifications</strong> (optional): the "my bus is N stops away" alert. The app asks only when you set your first alert.</li>
     <li><strong>Internet</strong>: live data, the map and weekly data updates.</li>
   </ul>
 

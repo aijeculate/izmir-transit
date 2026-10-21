@@ -49,4 +49,8 @@
     <string name="onboarding_location_body">To show the stops near you and start directions from where you are. Your location stays on your phone.</string>
     <string name="onboarding_allow_location">Allow location</string>
     <string name="onboarding_not_now">Not now</string>
+    <string name="update_title">New version available</string>
+    <string name="update_body">İzmir Transit %1$s is out (you have %2$s). Download and install it; your favourites and settings are kept.</string>
+    <string name="update_download">Download</string>
+    <string name="update_later">Later</string>
 </resources>

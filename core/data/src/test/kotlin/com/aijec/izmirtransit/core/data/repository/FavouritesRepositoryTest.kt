@@ -37,6 +37,25 @@ class FavouritesRepositoryTest {
     }
 
     @Test
+    fun `moves favourites up and down, clamped at the ends`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) { File(dir, "c.preferences_pb") }
+        val repository = FavouritesRepository(store)
+        listOf("3", "2", "1").forEach { repository.setStop(it, true) } // stored as 1, 2, 3
+        repository.setLine("M1", true)
+
+        repository.moveStop("3", -1)
+        assertEquals(listOf("1", "3", "2"), repository.favourites.first().stopCodes)
+        repository.moveStop("1", -1) // already first
+        repository.moveStop("2", 5) // already last
+        assertEquals(listOf("1", "3", "2"), repository.favourites.first().stopCodes)
+        repository.moveStop("1", 2)
+        assertEquals(listOf("3", "2", "1"), repository.favourites.first().stopCodes)
+        repository.moveStop("missing", 1) // harmless
+        repository.moveLine("M1", 1)
+        assertEquals(listOf("M1"), repository.favourites.first().lineCodes)
+    }
+
+    @Test
     fun `favourites persist across store instances`() = runTest {
         val file = File(dir, "b.preferences_pb")
         // DataStore allows one active instance per file, so close the first before reopening.

@@ -32,4 +32,9 @@
     <string name="home_departures_none">No more departures today</string>
     <string name="home_where_to">Where do you want to go?</string>
     <string name="home_show_on_map">Show on map</string>
+    <string name="home_favourites_edit">Edit</string>
+    <string name="home_favourites_done">Done</string>
+    <string name="home_favourite_move_up">Move up</string>
+    <string name="home_favourite_move_down">Move down</string>
+    <string name="home_favourite_remove">Remove from favourites</string>
 </resources>

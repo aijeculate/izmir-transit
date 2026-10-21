@@ -46,6 +46,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.aijec.izmirtransit.core.data.repository.AppSettings
+import com.aijec.izmirtransit.core.data.update.AppUpdate
+import com.aijec.izmirtransit.core.data.update.UpdateCheck
+import com.aijec.izmirtransit.core.data.update.UpdateChecker
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import com.aijec.izmirtransit.core.data.repository.SettingsRepository
 import com.aijec.izmirtransit.core.model.AccentTheme
 import com.aijec.izmirtransit.core.model.ThemeMode
@@ -65,7 +72,29 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(private val repository: SettingsRepository) : ViewModel() {
+class SettingsViewModel @Inject constructor(
+    private val repository: SettingsRepository,
+    private val updates: UpdateChecker,
+) : ViewModel() {
+    val appVersion: String get() = updates.currentVersion
+
+    private val _updateStatus = MutableStateFlow<UpdateStatus>(updates.available.value?.let(UpdateStatus::Available) ?: UpdateStatus.Idle)
+    val updateStatus: StateFlow<UpdateStatus> = _updateStatus.asStateFlow()
+
+    fun checkForUpdates() {
+        if (_updateStatus.value == UpdateStatus.Checking) return
+        _updateStatus.value = UpdateStatus.Checking
+        viewModelScope.launch {
+            _updateStatus.value = when (val result = updates.check()) {
+                UpdateCheck.UpToDate -> UpdateStatus.UpToDate
+                is UpdateCheck.Available -> UpdateStatus.Available(result.update)
+                UpdateCheck.Failed -> UpdateStatus.Failed
+            }
+        }
+    }
+
+    fun setAutoCheckUpdates(enabled: Boolean) = viewModelScope.launch { repository.setAutoCheckUpdates(enabled) }
+
     val settings: StateFlow<AppSettings> = repository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
 
@@ -86,6 +115,7 @@ class SettingsViewModel @Inject constructor(private val repository: SettingsRepo
 @Composable
 fun SettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     SettingsScreen(
         settings = settings,
         onBack = onBack,
@@ -95,7 +125,19 @@ fun SettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
         onStyle = { viewModel.setStyle(it) },
         onShowBothDirections = { viewModel.setShowBothDirections(it) },
         onReplayTutorial = { viewModel.replayTutorial() },
+        appVersion = viewModel.appVersion,
+        updateStatus = updateStatus,
+        onAutoCheckUpdates = { viewModel.setAutoCheckUpdates(it) },
+        onCheckForUpdates = viewModel::checkForUpdates,
     )
+}
+
+sealed interface UpdateStatus {
+    data object Idle : UpdateStatus
+    data object Checking : UpdateStatus
+    data object UpToDate : UpdateStatus
+    data class Available(val update: AppUpdate) : UpdateStatus
+    data object Failed : UpdateStatus
 }
 
 @Composable
@@ -108,8 +150,13 @@ fun SettingsScreen(
     onStyle: (UiStyle) -> Unit = {},
     onShowBothDirections: (Boolean) -> Unit = {},
     onReplayTutorial: () -> Unit = {},
+    appVersion: String = "",
+    updateStatus: UpdateStatus = UpdateStatus.Idle,
+    onAutoCheckUpdates: (Boolean) -> Unit = {},
+    onCheckForUpdates: () -> Unit = {},
 ) {
     val colors = Calm.colors
+    val uriHandler = LocalUriHandler.current
     LazyColumn(
         Modifier
             .fillMaxSize()
@@ -188,6 +235,37 @@ fun SettingsScreen(
             }
         }
 
+        item { SectionLabel(stringResource(R.string.settings_updates)) }
+        item {
+            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    SettingSwitch(
+                        title = stringResource(R.string.settings_updates_auto),
+                        hint = stringResource(R.string.settings_updates_auto_hint),
+                        checked = settings.autoCheckUpdates,
+                        onChange = onAutoCheckUpdates,
+                    )
+                }
+                Hairline()
+                val available = (updateStatus as? UpdateStatus.Available)?.update
+                LinkRow(
+                    title = if (available != null) {
+                        stringResource(R.string.settings_updates_download, available.version)
+                    } else {
+                        stringResource(R.string.settings_updates_check)
+                    },
+                    body = when (updateStatus) {
+                        UpdateStatus.Idle -> stringResource(R.string.settings_updates_current, appVersion)
+                        UpdateStatus.Checking -> stringResource(R.string.settings_updates_checking)
+                        UpdateStatus.UpToDate -> stringResource(R.string.settings_updates_up_to_date, appVersion)
+                        is UpdateStatus.Available -> stringResource(R.string.settings_updates_available, appVersion)
+                        UpdateStatus.Failed -> stringResource(R.string.settings_updates_failed)
+                    },
+                    onClick = { if (available != null) uriHandler.openUri(available.downloadUrl) else onCheckForUpdates() },
+                )
+            }
+        }
+
         item { SectionLabel(stringResource(R.string.settings_about)) }
         item {
             Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
@@ -211,6 +289,24 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_replay_tutorial), style = MaterialTheme.typography.bodyLarge, color = colors.accent)
                 }
             }
+        }
+        item {
+            Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
+                LinkRow(
+                    title = stringResource(R.string.settings_repo),
+                    body = "github.com/aijeculate/izmir-transit",
+                    onClick = { uriHandler.openUri(UpdateChecker.REPOSITORY_URL) },
+                )
+            }
+        }
+        item {
+            Text(
+                stringResource(R.string.settings_version, appVersion),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
         }
     }
 }
@@ -306,6 +402,20 @@ private fun SettingSwitch(title: String, hint: String, checked: Boolean, onChang
                 uncheckedThumbColor = colors.textSecondary,
             ),
         )
+    }
+}
+
+/** A tappable row: an accent title over a secondary line. */
+@Composable
+private fun LinkRow(title: String, body: String, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.accent)
+        Text(body, style = MaterialTheme.typography.bodySmall, color = Calm.colors.textSecondary)
     }
 }
 

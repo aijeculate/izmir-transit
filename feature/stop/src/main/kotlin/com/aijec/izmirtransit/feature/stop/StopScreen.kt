@@ -4,6 +4,13 @@ import androidx.compose.material.icons.filled.Map
 import com.aijec.izmirtransit.core.data.repository.NearbyStop
 import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.Manifest
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.LocalActivity
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -96,27 +103,57 @@ fun StopRoute(
     val activeAlert by viewModel.activeAlert.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Choosing a bell opens the threshold sheet; on Android 13+ notifications need permission first.
+    // Choosing a bell opens the threshold sheet. Notification permission is asked for only
+    // then; if Android won't show its dialog any more, offer the app's notification settings.
+    val activity = LocalActivity.current
     var choosing by remember { mutableStateOf<ApproachingBus?>(null) }
     var pending by remember { mutableStateOf<Pair<ApproachingBus, Int>?>(null) }
+    var notificationsBlocked by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val request = pending
         pending = null
         if (granted && request != null) {
             viewModel.startAlert(request.first, request.second)
         } else if (!granted) {
-            Toast.makeText(context, R.string.stop_alert_permission, Toast.LENGTH_LONG).show()
+            val canAskAgain = activity != null &&
+                ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)
+            if (canAskAgain) {
+                Toast.makeText(context, R.string.stop_alert_permission, Toast.LENGTH_LONG).show()
+            } else {
+                notificationsBlocked = true
+            }
         }
     }
     fun start(bus: ApproachingBus, atStops: Int) {
         val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        if (needsPermission) {
-            pending = bus to atStops
-            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            viewModel.startAlert(bus, atStops)
+        when {
+            needsPermission -> {
+                pending = bus to atStops
+                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            !NotificationManagerCompat.from(context).areNotificationsEnabled() -> notificationsBlocked = true
+            else -> viewModel.startAlert(bus, atStops)
         }
+    }
+    if (notificationsBlocked) {
+        AlertDialog(
+            onDismissRequest = { notificationsBlocked = false },
+            title = { Text(stringResource(R.string.stop_alert_blocked_title)) },
+            text = { Text(stringResource(R.string.stop_alert_blocked_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    notificationsBlocked = false
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                    )
+                }) { Text(stringResource(R.string.stop_alert_open_settings)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { notificationsBlocked = false }) { Text(stringResource(R.string.stop_alert_not_now)) }
+            },
+        )
     }
 
     StopScreen(

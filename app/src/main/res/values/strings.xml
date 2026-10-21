@@ -50,4 +50,8 @@
     <string name="onboarding_location_body">Yakındaki durakları göstermek ve yol tarifine bulunduğun yerden başlamak için. Konumun cihazında kalır.</string>
     <string name="onboarding_allow_location">Konuma izin ver</string>
     <string name="onboarding_not_now">Şimdi değil</string>
+    <string name="update_title">Yeni sürüm var</string>
+    <string name="update_body">İzmir Transit %1$s yayımlandı (sendeki %2$s). İndirip yükleyince favorilerin ve ayarların korunur.</string>
+    <string name="update_download">İndir</string>
+    <string name="update_later">Sonra</string>
 </resources>

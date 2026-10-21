@@ -32,4 +32,16 @@
     <string name="settings_about_source_title">Açık kaynak</string>
     <string name="settings_about_source">GNU GPL v3 lisanslı, kaynak kodu github.com/aijeculate/izmir-transit adresinde. ESHOT, Metro İzmir, Tram İzmir, İZBAN ve İzdeniz ile bağlantısı yoktur.</string>
     <string name="settings_language">Dil</string>
+    <string name="settings_updates">Güncellemeler</string>
+    <string name="settings_updates_auto">Güncellemeleri otomatik denetle</string>
+    <string name="settings_updates_auto_hint">Günde bir kez GitHub\'da yeni sürüm var mı diye bakar.</string>
+    <string name="settings_updates_check">Güncellemeleri denetle</string>
+    <string name="settings_updates_current">Yüklü sürüm: %1$s</string>
+    <string name="settings_updates_checking">Denetleniyor…</string>
+    <string name="settings_updates_up_to_date">En son sürümü kullanıyorsun (%1$s).</string>
+    <string name="settings_updates_download">%1$s sürümünü indir</string>
+    <string name="settings_updates_available">Yeni sürüm hazır. Yüklü olan: %1$s</string>
+    <string name="settings_updates_failed">Denetlenemedi. İnternet bağlantını kontrol et.</string>
+    <string name="settings_repo">Kaynak kodu GitHub\'da</string>
+    <string name="settings_version">İzmir Transit %1$s</string>
 </resources>

@@ -41,4 +41,8 @@
     <string name="stop_walk_minutes">%1$d m · %2$d dk</string>
     <string name="stop_departures_next_day">Bugünkü seferler bitti. Sabahın ilk seferleri:</string>
     <string name="stop_show_on_map">Haritada göster</string>
+    <string name="stop_alert_blocked_title">Bildirimler kapalı</string>
+    <string name="stop_alert_blocked_body">Otobüs yaklaşınca haber verebilmem için İzmir Transit\'in bildirimlerini ayarlardan açman gerekiyor.</string>
+    <string name="stop_alert_open_settings">Ayarları aç</string>
+    <string name="stop_alert_not_now">Şimdi değil</string>
 </resources>

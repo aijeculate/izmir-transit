@@ -35,6 +35,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -115,8 +120,17 @@ fun HomeRoute(
         onOpenSettings = onOpenSettings,
         onPlanTrip = onPlanTrip,
         onShowOnMap = { code -> viewModel.showOnMap(code); onShowOnMap() },
+        editActions = FavouriteEditActions(viewModel::moveStop, viewModel::moveLine, viewModel::removeStop, viewModel::removeLine),
     )
 }
+
+/** What the favourites' edit mode can do: move a stop or line by some places, or remove it. */
+class FavouriteEditActions(
+    val moveStop: (String, Int) -> Unit = { _, _ -> },
+    val moveLine: (String, Int) -> Unit = { _, _ -> },
+    val removeStop: (String) -> Unit = {},
+    val removeLine: (String) -> Unit = {},
+)
 
 @Composable
 fun HomeScreen(
@@ -130,7 +144,11 @@ fun HomeScreen(
     onOpenSettings: () -> Unit = {},
     onPlanTrip: () -> Unit = {},
     onShowOnMap: (String) -> Unit = {},
+    editActions: FavouriteEditActions = FavouriteEditActions(),
 ) {
+    val hasFavourites = favourites.stops.isNotEmpty() || favourites.lines.isNotEmpty()
+    var editMode by rememberSaveable { mutableStateOf(false) }
+    val editing = editMode && hasFavourites
     LazyColumn(
         Modifier
             .fillMaxSize()
@@ -153,11 +171,50 @@ fun HomeScreen(
         }
         item("where-to") { WhereTo(onPlanTrip) }
 
-        item("fav-label") { SectionLabel(stringResource(R.string.home_favourites)) }
-        if (favourites.loaded && favourites.stops.isEmpty() && favourites.lines.isEmpty()) {
+        item("fav-label") {
+            SectionLabel(stringResource(R.string.home_favourites)) {
+                if (hasFavourites) {
+                    Text(
+                        stringResource(if (editing) R.string.home_favourites_done else R.string.home_favourites_edit),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Calm.colors.accent,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(role = Role.Button) { editMode = !editing }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+        if (favourites.loaded && !hasFavourites) {
             item("fav-empty") { EmptyFavourites() }
         }
-        items(favourites.stops, key = { "fav-stop-${it.stop.code}" }) { favourite ->
+        if (editing) {
+            if (favourites.stops.isNotEmpty()) item("fav-edit-stops") {
+                EditFavouritesPanel(
+                    favourites.stops,
+                    key = { it.stop.code },
+                    onMove = editActions.moveStop,
+                    onRemove = editActions.removeStop,
+                ) { favourite ->
+                    ModeIcon(favourite.stop.mode, size = 30.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(favourite.stop.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (favourites.lines.isNotEmpty()) item("fav-edit-lines") {
+                EditFavouritesPanel(
+                    favourites.lines,
+                    key = { it.code },
+                    onMove = editActions.moveLine,
+                    onRemove = editActions.removeLine,
+                ) { line ->
+                    LineBadge(line, strong = true)
+                    Spacer(Modifier.width(12.dp))
+                    Text(line.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        } else items(favourites.stops, key = { "fav-stop-${it.stop.code}" }) { favourite ->
             FavouriteStopPanel(
                 favourite,
                 arrivals[favourite.stop.code],
@@ -166,7 +223,7 @@ fun HomeScreen(
                 onShowOnMap = { onShowOnMap(favourite.stop.code) },
             )
         }
-        if (favourites.lines.isNotEmpty()) {
+        if (!editing && favourites.lines.isNotEmpty()) {
             item("fav-lines") { FavouriteLinesPanel(favourites.lines, onOpenLine) }
         }
 
@@ -317,6 +374,36 @@ private fun FavouriteStopPanel(
             }
             if (snapshot.status == LiveStatus.STALE) {
                 Text(liveErrorText(snapshot.lastError), style = MaterialTheme.typography.bodySmall, color = colors.onWarningSoft)
+            }
+        }
+    }
+}
+
+/** Favourites as a compact list with up, down and remove buttons on each row. */
+@Composable
+private fun <T> EditFavouritesPanel(
+    items: List<T>,
+    key: (T) -> String,
+    onMove: (String, Int) -> Unit,
+    onRemove: (String) -> Unit,
+    label: @Composable RowScope.(T) -> Unit,
+) {
+    val colors = Calm.colors
+    Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
+        items.forEachIndexed { index, item ->
+            if (index > 0) Hairline()
+            val code = key(item)
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { label(item) }
+                IconButton(onClick = { onMove(code, -1) }, enabled = index > 0) {
+                    Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.home_favourite_move_up), tint = if (index > 0) colors.accent else colors.hairline)
+                }
+                IconButton(onClick = { onMove(code, 1) }, enabled = index < items.lastIndex) {
+                    Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.home_favourite_move_down), tint = if (index < items.lastIndex) colors.accent else colors.hairline)
+                }
+                IconButton(onClick = { onRemove(code) }) {
+                    Icon(Icons.Filled.Close, stringResource(R.string.home_favourite_remove), tint = colors.textSecondary)
+                }
             }
         }
     }

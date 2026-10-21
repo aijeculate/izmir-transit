@@ -40,4 +40,8 @@
     <string name="stop_walk_minutes">%1$d m · %2$d min</string>
     <string name="stop_departures_next_day">No more departures today. First departures in the morning:</string>
     <string name="stop_show_on_map">Show on map</string>
+    <string name="stop_alert_blocked_title">Notifications are off</string>
+    <string name="stop_alert_blocked_body">To tell you when your bus is close, turn on notifications for İzmir Transit in Settings.</string>
+    <string name="stop_alert_open_settings">Open settings</string>
+    <string name="stop_alert_not_now">Not now</string>
 </resources>

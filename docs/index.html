@@ -8,6 +8,10 @@
 <meta property="og:title" content="İzmir Transit">
 <meta property="og:description" content="Canlı otobüsler, metro, tramvay, İZBAN ve vapur — tek uygulamada, internet olmadan da.">
 <meta property="og:image" content="https://aijeculate.github.io/izmir-transit/screenshots/map.jpg">
+<link rel="icon" href="icons/icon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+<link rel="icon" href="icons/icon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon-light-512.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-light-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -69,7 +73,8 @@
 
   header.top { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
-  .brand-mark { width: 34px; height: 34px; border-radius: 10px; background: #1f6fd1; display: grid; place-items: center; }
+  .brand-mark { width: 36px; height: 36px; display: block; }
+  .brand-mark img { width: 100%; height: 100%; display: block; }
   .lang { display: flex; gap: 4px; padding: 4px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--panel); }
   .lang button { border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
   .lang button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
@@ -142,9 +147,10 @@
 <div class="wrap">
   <header class="top">
     <a class="brand" href="./">
-      <span class="brand-mark" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M4 16c0 .88.39 1.67 1 2.22V20a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1h8v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm9 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM18 11H6V6h12v5z"/></svg>
-      </span>
+      <picture class="brand-mark" aria-hidden="true">
+        <source srcset="icons/icon-dark.svg" media="(prefers-color-scheme: dark)">
+        <img src="icons/icon-light.svg" alt="">
+      </picture>
       İzmir Transit
     </a>
     <div class="lang" role="group" aria-label="Language">

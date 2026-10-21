@@ -101,7 +101,7 @@ class ArrivalAlertService : Service() {
 
     private fun alert(request: AlertRequest, text: String) {
         val notification = NotificationCompat.Builder(this, ALERT_CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(getString(R.string.alert_title, request.lineCode))
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -115,7 +115,7 @@ class ArrivalAlertService : Service() {
 
     private fun trackingNotification(request: AlertRequest, stopsRemaining: Int?): Notification =
         NotificationCompat.Builder(this, TRACKING_CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(getString(R.string.alert_tracking_title, request.lineCode, request.stopName))
             .setContentText(
                 if (stopsRemaining == null) getString(R.string.alert_tracking_waiting, request.alertAtStops)

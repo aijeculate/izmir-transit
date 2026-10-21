@@ -1,20 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A front-facing bus, drawn inside the 66 dp safe zone of the 108 dp adaptive icon. -->
+<!-- Konak clock tower over the bay, inside the 66 dp safe zone of the 108 dp adaptive icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Wheels -->
-    <path android:fillColor="#FFFFFF" android:pathData="M38,72h8v8a2,2 0 0 1 -2,2h-4a2,2 0 0 1 -2,-2z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M62,72h8v8a2,2 0 0 1 -2,2h-4a2,2 0 0 1 -2,-2z" />
-    <!-- Body with windscreen, destination sign and headlights cut out -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M42,28h24a8,8 0 0 1 8,8v36a3,3 0 0 1 -3,3h-34a3,3 0 0 1 -3,-3v-36a8,8 0 0 1 8,-8z
-            M45,32h18a1.5,1.5 0 0 1 0,3h-18a1.5,1.5 0 0 1 0,-3z
-            M40,39h28a2,2 0 0 1 2,2v14a2,2 0 0 1 -2,2h-28a2,2 0 0 1 -2,-2v-14a2,2 0 0 1 2,-2z
-            M42.5,64m-3,0a3,3 0 1 0 6,0a3,3 0 1 0 -6,0
-            M65.5,64m-3,0a3,3 0 1 0 6,0a3,3 0 1 0 -6,0" />
+    <path android:fillColor="#1F6FD1" android:pathData="M54,50m-21,0a21,21 0 1,0 42,0a21,21 0 1,0 -42,0" />
+    <path android:strokeColor="#1F6FD1" android:strokeWidth="2.5" android:strokeLineCap="round"
+        android:pathData="M18,77 q3,-3 6,0 t6,0 t6,0 t6,0 M66,77 q3,-3 6,0 t6,0 t6,0 t6,0 M0,84 q3,-3 6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0" />
+    <path android:fillColor="#1C2430"
+        android:pathData="M54,21.5m-1.8,0a1.8,1.8 0 1,0 3.6,0a1.8,1.8 0 1,0 -3.6,0 M46.5,31 Q54,19 61.5,31 Z M45,30h18a1,1 0 0 1 1,1v1a1,1 0 0 1 -1,1h-18a1,1 0 0 1 -1,-1v-1a1,1 0 0 1 1,-1z M46,33h16v17h-16z M44,50h20a1,1 0 0 1 1,1v1a1,1 0 0 1 -1,1h-20a1,1 0 0 1 -1,-1v-1a1,1 0 0 1 1,-1z M45,53h18v12h-18z M43,65h22a1,1 0 0 1 1,1v1a1,1 0 0 1 -1,1h-22a1,1 0 0 1 -1,-1v-1a1,1 0 0 1 1,-1z M44,68h20v12h-20z M40.5,80h27a1.5,1.5 0 0 1 1.5,1.5v2a1.5,1.5 0 0 1 -1.5,1.5h-27a1.5,1.5 0 0 1 -1.5,-1.5v-2a1.5,1.5 0 0 1 1.5,-1.5z" />
+    <path android:fillColor="#1F6FD1" android:pathData="M54,41.5m-5.5,0a5.5,5.5 0 1,0 11,0a5.5,5.5 0 1,0 -11,0 M48.5,63 V58.5 a1.5,1.5 0 0 1 3,0 V63 Z M56.5,63 V58.5 a1.5,1.5 0 0 1 3,0 V63 Z" />
+    <path android:strokeColor="#1C2430" android:strokeWidth="1.5" android:strokeLineCap="round" android:pathData="M54,41.5 V38 M54,41.5 L56.6,43" />
+    <path android:fillColor="#EEF1F5" android:pathData="M50.5,80 V74 a3.5,3.5 0 0 1 7,0 V80 Z" />
 </vector>

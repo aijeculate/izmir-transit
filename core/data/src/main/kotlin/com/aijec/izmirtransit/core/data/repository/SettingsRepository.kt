@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.aijec.izmirtransit.core.model.AccentTheme
@@ -30,6 +31,12 @@ data class AppSettings(
     val onboardingDone: Boolean = false,
     /** Map layers that are switched on; all by default. */
     val mapLayers: Set<MapLayer> = MapLayer.entries.toSet(),
+    /** Look for a new release on GitHub about once a day. */
+    val autoCheckUpdates: Boolean = true,
+    /** When the last automatic update check succeeded, in epoch milliseconds. */
+    val lastUpdateCheck: Long = 0,
+    /** A release the user chose "Later" for; its prompt is not shown again. */
+    val skippedUpdate: String? = null,
 )
 
 /** User preferences, in the same DataStore file as favourites. */
@@ -48,6 +55,9 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
                 mapLayers = MapLayer.entries.toSet() - prefs[HIDDEN_LAYERS].orEmpty().mapNotNull { name ->
                     runCatching { MapLayer.valueOf(name) }.getOrNull()
                 }.toSet(),
+                autoCheckUpdates = prefs[AUTO_UPDATE_CHECK] ?: true,
+                lastUpdateCheck = prefs[LAST_UPDATE_CHECK] ?: 0,
+                skippedUpdate = prefs[SKIPPED_UPDATE],
             )
         }
         .distinctUntilChanged()
@@ -64,6 +74,12 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
 
     suspend fun setOnboardingDone(done: Boolean) = store.edit { it[ONBOARDING_DONE] = done }
 
+    suspend fun setAutoCheckUpdates(enabled: Boolean) = store.edit { it[AUTO_UPDATE_CHECK] = enabled }
+
+    suspend fun setLastUpdateCheck(epochMillis: Long) = store.edit { it[LAST_UPDATE_CHECK] = epochMillis }
+
+    suspend fun setSkippedUpdate(version: String) = store.edit { it[SKIPPED_UPDATE] = version }
+
     suspend fun setMapLayer(layer: MapLayer, visible: Boolean) = store.edit { prefs ->
         val hidden = prefs[HIDDEN_LAYERS].orEmpty()
         prefs[HIDDEN_LAYERS] = if (visible) hidden - layer.name else hidden + layer.name
@@ -77,5 +93,8 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
         val STYLE = stringPreferencesKey("ui_style")
         val BOTH_DIRECTIONS = booleanPreferencesKey("both_directions")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        val AUTO_UPDATE_CHECK = booleanPreferencesKey("auto_update_check")
+        val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
+        val SKIPPED_UPDATE = stringPreferencesKey("skipped_update")
     }
 }

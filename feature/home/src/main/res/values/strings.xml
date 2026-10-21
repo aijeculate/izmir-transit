@@ -34,4 +34,9 @@
     <string name="home_departures_none">Bugün başka sefer yok</string>
     <string name="home_where_to">Nereye gitmek istiyorsun?</string>
     <string name="home_show_on_map">Haritada göster</string>
+    <string name="home_favourites_edit">Düzenle</string>
+    <string name="home_favourites_done">Bitti</string>
+    <string name="home_favourite_move_up">Yukarı taşı</string>
+    <string name="home_favourite_move_down">Aşağı taşı</string>
+    <string name="home_favourite_remove">Favorilerden çıkar</string>
 </resources>

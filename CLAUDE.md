@@ -180,6 +180,14 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
   - `./gradlew :tools:importer:downloadData` fetches all sources for a fresh clone.
   - Signing reads git-ignored `keystore.properties` (unsigned without it). Version 1.0.0.
 
+**Added 22 Oct 2026:**
+
+- **App icon:** the Konak clock tower over the bay (the user's artwork). The adaptive icon uses the light version (`#EEF1F5` background) by default and the dark version (`#0E1217`) from `drawable-night`/`values-night`, so it follows the phone's dark mode where the launcher supports it. `ic_launcher_monochrome` (cut-out tower and waves) is the themed-icon layer and the notification small icon. The site and README use `docs/icons/icon-{light,dark}.svg` by `prefers-color-scheme`.
+- **Notifications** are asked for only when the user sets an alert (stop screen bell). If Android won't show the dialog any more, or notifications are blocked, a dialog offers the app's notification settings.
+- **Direction chevrons:** Google stamps the texture with the image's bottom toward the polyline's end, so the chevron bitmap points down (the old up-arrow pointed backwards). The selected line is 8 dp (11 dp casing) and the chevron fills its width on a tall canvas, so arrows are larger and spaced out.
+- **Favourites edit mode** on Home ("Edit" next to Favourites): up, down and remove per stop and line (`FavouritesRepository.moveStop/moveLine`).
+- **Update checker** (`core/data/update/UpdateChecker`): `GET api.github.com/repos/aijeculate/izmir-transit/releases/latest`, numeric version compare against `BuildConfig.VERSION_NAME`, downloads the `izmir-transit.apk` asset. Automatic check at most once a day on app start (`AppSettings.autoCheckUpdates`, `lastUpdateCheck`); "Later" stores `skippedUpdate`. Settings has the toggle, "Check for updates", a GitHub link and the version line. **Release tags must be `vX.Y.Z` and versionName `X.Y.Z`.**
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |

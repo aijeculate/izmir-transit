@@ -28,6 +28,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
+import com.aijec.izmirtransit.core.data.update.AppVersion
 import java.time.Clock
 import javax.inject.Singleton
 
@@ -44,6 +45,9 @@ object DataModule {
     fun requestPacer(): RequestPacer = RequestPacer()
 
     /** One HTTP client for the live API and the dataset downloads. */
+    @Provides
+    fun appVersion(): AppVersion = AppVersion(BuildConfig.VERSION_NAME)
+
     @Provides
     @Singleton
     fun httpClient(): OkHttpClient = IztekApi.httpClient("IzmirTransit/0.1 (Android)")

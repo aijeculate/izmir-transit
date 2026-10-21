@@ -63,7 +63,7 @@ data class FavouritesState(
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    favouritesRepository: FavouritesRepository,
+    private val favouritesRepository: FavouritesRepository,
     private val stops: StopRepository,
     private val lines: LineRepository,
     private val live: LiveBusRepository,
@@ -74,6 +74,22 @@ class HomeViewModel @Inject constructor(
 
     /** Asks the Map tab to centre on a stop; the caller then switches to it. */
     fun showOnMap(stopCode: String) = mapSelection.showStop(stopCode)
+
+    fun moveStop(code: String, by: Int) {
+        viewModelScope.launch { favouritesRepository.moveStop(code, by) }
+    }
+
+    fun moveLine(code: String, by: Int) {
+        viewModelScope.launch { favouritesRepository.moveLine(code, by) }
+    }
+
+    fun removeStop(code: String) {
+        viewModelScope.launch { favouritesRepository.setStop(code, false) }
+    }
+
+    fun removeLine(code: String) {
+        viewModelScope.launch { favouritesRepository.setLine(code, false) }
+    }
 
     val favourites: StateFlow<FavouritesState> = favouritesRepository.favourites
         .mapLatest { favourites ->

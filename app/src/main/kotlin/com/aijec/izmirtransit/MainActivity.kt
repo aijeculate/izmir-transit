@@ -10,6 +10,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import android.content.Intent
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
+import com.aijec.izmirtransit.core.data.update.UpdateChecker
 import android.graphics.Color
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -33,6 +42,7 @@ import javax.inject.Inject
 // AppCompatActivity so the in-app language choice also applies below Android 13.
 class MainActivity : AppCompatActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var updateChecker: UpdateChecker
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +64,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (settings.onboardingDone) {
                     AppNavHost(openStop = openStopRequest, onOpenStopHandled = { openStopRequest = null })
+                    UpdatePrompt(settings.skippedUpdate)
                 } else {
                     val scope = rememberCoroutineScope()
                     val glass = Calm.style == UiStyle.LIQUID_GLASS
@@ -63,6 +74,36 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Checks GitHub for a new release at most once a day (unless switched off in Settings)
+     * and offers it once; "Later" skips that version for good.
+     */
+    @Composable
+    private fun UpdatePrompt(skippedVersion: String?) {
+        LaunchedEffect(Unit) { updateChecker.checkIfDue() }
+        val update by updateChecker.available.collectAsStateWithLifecycle()
+        var dismissed by rememberSaveable { mutableStateOf(false) }
+        val pending = update?.takeIf { it.version != skippedVersion && !dismissed } ?: return
+        val scope = rememberCoroutineScope()
+        val uriHandler = LocalUriHandler.current
+        fun later() {
+            dismissed = true
+            scope.launch { settingsRepository.setSkippedUpdate(pending.version) }
+        }
+        AlertDialog(
+            onDismissRequest = { dismissed = true },
+            title = { Text(stringResource(R.string.update_title)) },
+            text = { Text(stringResource(R.string.update_body, pending.version, updateChecker.currentVersion)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    dismissed = true
+                    uriHandler.openUri(pending.downloadUrl)
+                }) { Text(stringResource(R.string.update_download)) }
+            },
+            dismissButton = { TextButton(onClick = ::later) { Text(stringResource(R.string.update_later)) } },
+        )
     }
 
     /** An alert notification tapped while the app is open: show that stop. */

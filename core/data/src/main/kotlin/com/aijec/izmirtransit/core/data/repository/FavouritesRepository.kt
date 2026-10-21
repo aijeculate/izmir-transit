@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 import java.io.IOException
 import javax.inject.Inject
 
-/** Starred lines and stops, newest first. */
+/** Starred lines and stops, newest first unless the user has reordered them. */
 data class Favourites(val lineCodes: List<String> = emptyList(), val stopCodes: List<String> = emptyList()) {
     fun hasLine(code: String) = code in lineCodes
     fun hasStop(code: String) = code in stopCodes
@@ -33,6 +33,21 @@ class FavouritesRepository @Inject constructor(private val store: DataStore<Pref
     suspend fun setLine(code: String, favourite: Boolean) = update(LINES, code, favourite)
 
     suspend fun setStop(code: String, favourite: Boolean) = update(STOPS, code, favourite)
+
+    /** Moves a favourite stop [by] places (negative is up), stopping at either end. */
+    suspend fun moveStop(code: String, by: Int) = move(STOPS, code, by)
+
+    suspend fun moveLine(code: String, by: Int) = move(LINES, code, by)
+
+    private suspend fun move(key: Preferences.Key<String>, code: String, by: Int) {
+        store.edit { prefs ->
+            val codes = decode(prefs[key]).toMutableList()
+            val from = codes.indexOf(code)
+            if (from < 0) return@edit
+            codes.add((from + by).coerceIn(0, codes.size - 1), codes.removeAt(from))
+            prefs[key] = encode(codes)
+        }
+    }
 
     private suspend fun update(key: Preferences.Key<String>, code: String, favourite: Boolean) {
         store.edit { prefs ->

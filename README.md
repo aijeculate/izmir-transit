@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/icons/icon-dark.svg">
+    <img src="docs/icons/icon-light.svg" width="112" alt="İzmir Transit icon">
+  </picture>
+</p>
+
 # İzmir Transit
 
 **All of İzmir's public transport in one fast, offline-first Android app** — ESHOT buses with live positions, Metro İzmir, Tram İzmir, İZBAN and İzdeniz ferries, timetables, interchanges and a trip planner.
@@ -18,7 +25,8 @@
 - **Timetables** for every line, with the next departure highlighted; for rail and ferries from any station.
 - **Trip planner**: type an address, a place or a stop and get which stop to walk to, which bus or train to take and where to change. It runs entirely on the phone.
 - **Interchanges** such as Hilal and Halkapınar (Metro ↔ İZBAN), Konak (Metro, tram, ferry).
-- **Favourites** with live arrivals on the home screen, a home-screen widget, and an alert when your bus is a few stops away.
+- **Favourites** with live arrivals on the home screen (tap Edit to reorder or remove them), a home-screen widget, and an alert when your bus is a few stops away.
+- **Update check**: once a day the app asks GitHub for the latest release and offers it; switch it off or check by hand in Settings.
 - **Works offline**: lines, stops, routes and timetables ship inside the app and refresh weekly on Wi-Fi.
 - **Turkish and English**, light / dark / AMOLED themes, a calm and a liquid-glass style.
 

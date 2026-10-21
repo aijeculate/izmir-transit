@@ -1,5 +1,6 @@
 package com.aijec.izmirtransit.core.map
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -10,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsBoat
 import androidx.compose.material.icons.filled.DirectionsBus
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Subway
 import androidx.compose.material.icons.filled.Train
 import androidx.compose.material.icons.filled.Tram
@@ -20,6 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -104,12 +108,27 @@ internal fun rememberVehicleIcon(mode: TransitMode, color: Color, size: Dp = 30.
         }
     }
 
-/** A white chevron stamped along a route line to show its direction of travel. */
+/**
+ * A white chevron stamped along a route line to show its direction of travel. Google Maps
+ * scales the texture to the line's width and stamps it with the image's bottom facing the
+ * line's end, so the chevron points down and fills the full width; the tall canvas spaces
+ * the arrows out instead of packing them nose to tail.
+ */
 @OptIn(MapsComposeExperimentalApi::class)
 @Composable
-internal fun rememberChevron(size: Dp = 12.dp): BitmapDescriptor =
-    rememberComposeBitmapDescriptor("chevron", size) {
-        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(size))
+internal fun rememberChevron(width: Dp = 14.dp): BitmapDescriptor =
+    rememberComposeBitmapDescriptor("chevron", width) {
+        Canvas(Modifier.size(width, width * 2.6f)) {
+            val w = size.width
+            val stroke = w * 0.2f
+            val tipY = size.height / 2 + w * 0.22f
+            val chevron = Path().apply {
+                moveTo(stroke * 0.7f, tipY - w * 0.42f)
+                lineTo(w / 2, tipY)
+                lineTo(w - stroke * 0.7f, tipY - w * 0.42f)
+            }
+            drawPath(chevron, Color.White, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
     }
 
 /** Start of a planned journey: a white-ringed accent disc. */

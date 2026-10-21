@@ -14,6 +14,7 @@ If you allow it, the app reads your location **on your phone** to show nearby st
 | --- | --- | --- |
 | İzmir Teknoloji (İztek) open web services | A line number or stop number | Live bus positions and arrivals |
 | Google Maps Platform | Map tiles for the area you look at; the text you type in the trip planner's place search, and the place you pick | Showing the map; finding addresses and places |
+| GitHub | A request for the app's latest release, about once a day (can be switched off in Settings) | Telling you when a new version is out |
 | izmir.bel.tr open data portal, ESHOT, Metro İzmir, Tram İzmir, İZBAN, İzdeniz | Plain downloads of public timetables, about once a week on Wi-Fi | Keeping the offline data current |
 
 None of these requests include your name, your location (except the map area you are viewing) or any identifier created by the app. Google's handling of map and place-search requests is covered by the [Google Privacy Policy](https://policies.google.com/privacy).
@@ -25,7 +26,7 @@ Favourite stops and lines, settings and arrival alerts are stored on your phone 
 ## Permissions
 
 - **Location** (optional): nearby stops, the map's location dot and directions from where you are.
-- **Notifications** (optional): the "my bus is N stops away" alert.
+- **Notifications** (optional): the "my bus is N stops away" alert. The app asks only when you set your first alert.
 - **Internet**: live data, the map and weekly data updates.
 
 ## Contact

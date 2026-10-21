@@ -31,4 +31,16 @@
     <string name="settings_about_source_title">Open source</string>
     <string name="settings_about_source">Licensed under the GNU GPL v3; source code at github.com/aijeculate/izmir-transit. Not affiliated with ESHOT, Metro İzmir, Tram İzmir, İZBAN or İzdeniz.</string>
     <string name="settings_language">Language</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_auto">Check for updates automatically</string>
+    <string name="settings_updates_auto_hint">Looks for a new version on GitHub once a day.</string>
+    <string name="settings_updates_check">Check for updates</string>
+    <string name="settings_updates_current">Installed version: %1$s</string>
+    <string name="settings_updates_checking">Checking…</string>
+    <string name="settings_updates_up_to_date">You\'re on the latest version (%1$s).</string>
+    <string name="settings_updates_download">Download version %1$s</string>
+    <string name="settings_updates_available">A new version is ready. Installed: %1$s</string>
+    <string name="settings_updates_failed">Couldn\'t check. Check your internet connection.</string>
+    <string name="settings_repo">Source code on GitHub</string>
+    <string name="settings_version">İzmir Transit %1$s</string>
 </resources>
