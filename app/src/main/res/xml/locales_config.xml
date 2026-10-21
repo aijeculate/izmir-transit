@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lets Android 13+ list the app under Settings > Apps > Language. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="tr" />
+    <locale android:name="en" />
+</locale-config>

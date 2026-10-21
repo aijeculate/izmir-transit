@@ -1,5 +1,7 @@
 package com.aijec.izmirtransit.feature.settings
 
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -141,6 +143,9 @@ fun SettingsScreen(
             )
         }
 
+        item { SectionLabel(stringResource(R.string.settings_language)) }
+        item { LanguageControl() }
+
         item { SectionLabel(stringResource(R.string.settings_style)) }
         item {
             SegmentedControl(
@@ -244,6 +249,35 @@ private fun AccentSwatch(accent: AccentTheme, selected: Boolean, onClick: () -> 
         Spacer(Modifier.height(6.dp))
         Text(name, style = MaterialTheme.typography.labelSmall, color = if (selected) colors.text else colors.textSecondary)
     }
+}
+
+private enum class AppLanguage(val tag: String) { SYSTEM(""), TURKISH("tr"), ENGLISH("en") }
+
+/**
+ * The app's own language, separate from the phone's. Android stores the choice (and on 13+
+ * shows it in the system's per-app language settings) and recreates the screen in it.
+ */
+@Composable
+private fun LanguageControl() {
+    val current = AppCompatDelegate.getApplicationLocales().toLanguageTags().substringBefore('-').substringBefore(',')
+    val selected = AppLanguage.entries.firstOrNull { it.tag == current && it != AppLanguage.SYSTEM } ?: AppLanguage.SYSTEM
+    SegmentedControl(
+        options = AppLanguage.entries,
+        selected = selected,
+        onSelect = { language ->
+            AppCompatDelegate.setApplicationLocales(
+                if (language == AppLanguage.SYSTEM) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(language.tag),
+            )
+        },
+        // Each language named in itself, so it's findable whichever one is showing.
+        label = { language ->
+            when (language) {
+                AppLanguage.SYSTEM -> stringResource(R.string.settings_theme_system)
+                AppLanguage.TURKISH -> "Türkçe"
+                AppLanguage.ENGLISH -> "English"
+            }
+        },
+    )
 }
 
 @Composable

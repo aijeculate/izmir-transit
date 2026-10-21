@@ -16,6 +16,7 @@ composeBom = "2026.06.01"
 activityCompose = "1.12.4"
 lifecycle = "2.10.0"
 androidxHilt = "1.3.0"
+appcompat = "1.7.1"
 coreKtx = "1.18.0"
 # maps-compose 8.3.x is the newest built for Kotlin 2.3 stdlib (readable by our 2.2 compiler); 8.4+ needs Kotlin 2.4.
 mapsCompose = "8.3.1"
@@ -32,6 +33,7 @@ kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 
 # Android
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
