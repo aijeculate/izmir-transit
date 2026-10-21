@@ -230,7 +230,7 @@ private fun DirectionPicker(state: TimetableUiState, onSelect: (Direction) -> Un
     val line = state.line
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         SegmentedControl(
-            options = Direction.entries,
+            options = state.directions,
             selected = state.direction,
             onSelect = onSelect,
             label = { direction ->

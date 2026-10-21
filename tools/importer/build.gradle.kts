@@ -52,3 +52,11 @@ tasks.register<JavaExec>("planSmoke") {
     jvmArgs("-Dstdout.encoding=UTF-8")
     systemProperty("izmir.root", rootDir.absolutePath)
 }
+
+tasks.register<JavaExec>("downloadData") {
+    description = "Downloads every data source into research/raw (~6 min), for building from a fresh clone."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.aijec.izmirtransit.tools.smoke.DownloadDataKt")
+    jvmArgs("-Dstdout.encoding=UTF-8")
+    systemProperty("izmir.root", rootDir.absolutePath)
+}

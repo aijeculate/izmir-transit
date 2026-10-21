@@ -1,0 +1,33 @@
+# Privacy policy
+
+*Last updated: 21 October 2026*
+
+İzmir Transit has no accounts, no analytics, no advertising and no server of its own. This page lists everything the app sends anywhere.
+
+## Your location
+
+If you allow it, the app reads your location **on your phone** to show nearby stops, centre the map on you, and start trip directions from where you are. Your location is not stored or sent anywhere by the app. Google Maps draws the blue "you are here" dot inside the map, under Google's privacy policy.
+
+## What leaves your phone
+
+| Sent to | What | Why |
+| --- | --- | --- |
+| İzmir Teknoloji (İztek) open web services | A line number or stop number | Live bus positions and arrivals |
+| Google Maps Platform | Map tiles for the area you look at; the text you type in the trip planner's place search, and the place you pick | Showing the map; finding addresses and places |
+| izmir.bel.tr open data portal, ESHOT, Metro İzmir, Tram İzmir, İZBAN, İzdeniz | Plain downloads of public timetables, about once a week on Wi-Fi | Keeping the offline data current |
+
+None of these requests include your name, your location (except the map area you are viewing) or any identifier created by the app. Google's handling of map and place-search requests is covered by the [Google Privacy Policy](https://policies.google.com/privacy).
+
+## On your phone only
+
+Favourite stops and lines, settings and arrival alerts are stored on your phone and never uploaded. Uninstalling the app deletes them.
+
+## Permissions
+
+- **Location** (optional): nearby stops, the map's location dot and directions from where you are.
+- **Notifications** (optional): the "my bus is N stops away" alert.
+- **Internet**: live data, the map and weekly data updates.
+
+## Contact
+
+Questions or concerns: open an issue at [github.com/aijec/izmir-transit](https://github.com/aijec/izmir-transit/issues).

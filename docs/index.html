@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>İzmir Transit</title>
+<meta name="description" content="İzmir'in tüm toplu taşıması tek uygulamada: canlı ESHOT otobüsleri, Metro, tramvay, İZBAN ve vapur; sefer saatleri, aktarmalar ve yol tarifi.">
+<meta property="og:title" content="İzmir Transit">
+<meta property="og:description" content="Canlı otobüsler, metro, tramvay, İZBAN ve vapur — tek uygulamada, internet olmadan da.">
+<meta property="og:image" content="https://aijec.github.io/izmir-transit/screenshots/map.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canvas: #eef1f5;
+    --panel: #ffffff;
+    --text: #1c2430;
+    --text-2: #5f6b7a;
+    --hairline: #e1e6ed;
+    --accent: #1f6fd1;
+    --on-accent: #ffffff;
+    --glow-a: rgba(31, 111, 209, 0.18);
+    --glow-b: rgba(41, 169, 224, 0.16);
+    --shadow: 0 18px 50px rgba(28, 36, 48, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --canvas: #05070d;
+      --panel: rgba(255, 255, 255, 0.06);
+      --text: #e8edf3;
+      --text-2: #97a2b0;
+      --hairline: rgba(255, 255, 255, 0.12);
+      --accent: #7db0ff;
+      --on-accent: #0b1a2e;
+      --glow-a: rgba(28, 79, 168, 0.55);
+      --glow-b: rgba(75, 54, 184, 0.25);
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --canvas: #05070d;
+    --panel: rgba(255, 255, 255, 0.06);
+    --text: #e8edf3;
+    --text-2: #97a2b0;
+    --hairline: rgba(255, 255, 255, 0.12);
+    --accent: #7db0ff;
+    --on-accent: #0b1a2e;
+    --glow-a: rgba(28, 79, 168, 0.55);
+    --glow-b: rgba(75, 54, 184, 0.25);
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text);
+    background: var(--canvas);
+    background-image:
+      radial-gradient(60rem 40rem at 100% 0%, var(--glow-a), transparent 70%),
+      radial-gradient(50rem 40rem at 0% 60%, var(--glow-b), transparent 70%);
+    background-attachment: fixed;
+    line-height: 1.55;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+  .brand-mark { width: 34px; height: 34px; border-radius: 10px; background: #1f6fd1; display: grid; place-items: center; }
+  .lang { display: flex; gap: 4px; padding: 4px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--panel); }
+  .lang button { border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+
+  .hero { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 40px; align-items: center; padding: 40px 0 56px; }
+  h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 18px; }
+  .lead { font-size: clamp(17px, 2.2vw, 20px); color: var(--text-2); margin: 0 0 28px; max-width: 34em; }
+  .modes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; padding: 0; list-style: none; }
+  .mode { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--hairline); font-weight: 600; font-size: 14px; }
+  .tile { width: 22px; height: 22px; border-radius: 7px; position: relative; overflow: hidden; flex: none; }
+  .tile::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 3px; height: 3px; border-radius: 3px; background: var(--stripe); }
+  .bus   { background: #d71920; --stripe: #ffffff; }
+  .metro { background: #2a52a3; --stripe: #e3262e; }
+  .tram  { background: #3da548; --stripe: #233f95; }
+  .izban { background: #0b5ba8; --stripe: #ffffff; }
+  .ferry { background: #1d3c8f; --stripe: #29a9e0; }
+
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 12px 22px; border-radius: 999px; font-weight: 600; text-decoration: none; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow); }
+  .btn.ghost { border: 1px solid var(--hairline); color: var(--text); background: var(--panel); }
+  .note { font-size: 13px; color: var(--text-2); margin-top: 14px; }
+
+  .phones { position: relative; height: 560px; }
+  .phone { position: absolute; width: 250px; border-radius: 34px; padding: 8px; background: #0b0d12; box-shadow: var(--shadow); }
+  .phone img { display: block; width: 100%; border-radius: 27px; }
+  .phone.a { left: 4%; top: 30px; transform: rotate(-5deg); }
+  .phone.b { right: 4%; top: 0; transform: rotate(4deg); }
+
+  section { padding: 48px 0; }
+  h2 { font-size: clamp(26px, 4vw, 36px); letter-spacing: -0.01em; margin: 0 0 10px; }
+  .sub { color: var(--text-2); margin: 0 0 28px; max-width: 40em; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--hairline); border-radius: 22px; padding: 22px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--text-2); font-size: 15px; }
+
+  .gallery { display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 18px; scroll-snap-type: x mandatory; }
+  .gallery figure { margin: 0; flex: 0 0 220px; scroll-snap-align: start; }
+  .gallery img { width: 100%; border-radius: 24px; border: 1px solid var(--hairline); box-shadow: var(--shadow); }
+  .gallery figcaption { font-size: 14px; color: var(--text-2); margin-top: 10px; text-align: center; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 12px 0; border-top: 1px solid var(--hairline); vertical-align: top; }
+  td:first-child { font-weight: 600; width: 34%; padding-right: 16px; }
+  td:last-child { color: var(--text-2); }
+
+  footer { padding: 36px 0 48px; color: var(--text-2); font-size: 14px; border-top: 1px solid var(--hairline); margin-top: 24px; }
+  footer p { margin: 6px 0; }
+
+  [data-lang="en"] .tr, [data-lang="tr"] .en { display: none; }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-top: 16px; }
+    .phones { height: 460px; }
+    .phone { width: 200px; }
+    .grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: 1fr; }
+    .phones { height: 400px; }
+    .phone { width: 170px; }
+    .phone.a { left: 0; }
+    .phone.b { right: 0; }
+    td:first-child { width: 42%; }
+  }
+</style>
+</head>
+<body data-lang="tr">
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="./">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M4 16c0 .88.39 1.67 1 2.22V20a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1h8v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm9 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM18 11H6V6h12v5z"/></svg>
+      </span>
+      İzmir Transit
+    </a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="tr" aria-pressed="true">TR</button>
+      <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div>
+        <h1>
+          <span class="tr">İzmir'in tüm ulaşımı, tek uygulamada.</span>
+          <span class="en">All of İzmir's transport, in one app.</span>
+        </h1>
+        <p class="lead">
+          <span class="tr">Canlı ESHOT otobüsleri, Metro, tramvay, İZBAN ve vapur. Sefer saatleri, aktarmalar ve yol tarifi — hızlı, sade ve internet olmadan da çalışır.</span>
+          <span class="en">Live ESHOT buses, Metro, tram, İZBAN and ferries. Timetables, interchanges and directions — fast, calm, and it works offline too.</span>
+        </p>
+        <ul class="modes" aria-label="Modes">
+          <li class="mode"><span class="tile bus"></span><span class="tr">Otobüs</span><span class="en">Bus</span></li>
+          <li class="mode"><span class="tile metro"></span>Metro</li>
+          <li class="mode"><span class="tile tram"></span><span class="tr">Tramvay</span><span class="en">Tram</span></li>
+          <li class="mode"><span class="tile izban"></span>İZBAN</li>
+          <li class="mode"><span class="tile ferry"></span><span class="tr">Vapur</span><span class="en">Ferry</span></li>
+        </ul>
+        <div class="ctas">
+          <a class="btn primary" href="https://github.com/aijec/izmir-transit/releases/latest">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+            <span class="tr">Android için indir</span><span class="en">Download for Android</span>
+          </a>
+          <a class="btn ghost" href="https://github.com/aijec/izmir-transit">
+            <span class="tr">Kaynak kodu</span><span class="en">Source code</span>
+          </a>
+        </div>
+        <p class="note">
+          <span class="tr">Ücretsiz ve açık kaynak (GPL v3). Hesap, reklam ya da takip yok.</span>
+          <span class="en">Free and open source (GPL v3). No accounts, no ads, no tracking.</span>
+        </p>
+      </div>
+      <div class="phones" aria-hidden="true">
+        <div class="phone a"><img src="screenshots/map.jpg" alt=""></div>
+        <div class="phone b"><img src="screenshots/stop.jpg" alt=""></div>
+      </div>
+    </div>
+
+    <section>
+      <h2><span class="tr">Neler yapabilirsin</span><span class="en">What it does</span></h2>
+      <p class="sub">
+        <span class="tr">Resmî açık verilerle yapıldı; hat, durak ve sefer saatleri telefonunda durur, sadece canlı konumlar internet ister.</span>
+        <span class="en">Built on official open data; lines, stops and timetables live on your phone, and only live positions need the internet.</span>
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h3><span class="tr">Canlı otobüsler</span><span class="en">Live buses</span></h3>
+          <p><span class="tr">446 ESHOT hattında otobüsler haritada akıcı ilerler; yaklaşan otobüslerin kaç durak ve kaç dakika uzakta olduğunu gör.</span><span class="en">Buses on all 446 ESHOT lines glide on the map; see how many stops and minutes away the next ones are.</span></p>
+        </div>
+        <div class="card">
+          <h3><span class="tr">Yol tarifi</span><span class="en">Trip planner</span></h3>
+          <p><span class="tr">Adresi ya da yeri yaz: hangi durağa yürüyeceğini, neye bineceğini ve nerede aktarma yapacağını gösterir. Hesaplama tamamen telefonda.</span><span class="en">Type an address or place: it shows which stop to walk to, what to take and where to change. Planned entirely on your phone.</span></p>
+        </div>
+        <div class="card">
+          <h3><span class="tr">Her durak, her istasyon</span><span class="en">Every stop and station</span></h3>
+          <p><span class="tr">Yakınlaştır, tüm duraklar görünsün; birine dokun, hatlarını ve aktarmalarını gör. Hilal ve Halkapınar gibi aktarma noktaları işaretli.</span><span class="en">Zoom in to see every stop; tap one for its lines and connections. Interchanges like Hilal and Halkapınar are marked.</span></p>
+        </div>
+        <div class="card">
+          <h3><span class="tr">Sefer saatleri</span><span class="en">Timetables</span></h3>
+          <p><span class="tr">Her hat için; metro, tramvay, İZBAN ve vapurda istediğin istasyondan. Sıradaki sefer vurgulu.</span><span class="en">For every line; for rail and ferries from any station. The next departure is highlighted.</span></p>
+        </div>
+        <div class="card">
+          <h3><span class="tr">Favoriler ve uyarılar</span><span class="en">Favourites and alerts</span></h3>
+          <p><span class="tr">Durak ve hatlarını kaydet, ana ekranda yaklaşan otobüsleri gör; otobüsün birkaç durak kalınca haber ver.</span><span class="en">Save stops and lines, see their next buses on Home, and get an alert when your bus is a few stops away.</span></p>
+        </div>
+        <div class="card">
+          <h3><span class="tr">Sana göre</span><span class="en">Yours</span></h3>
+          <p><span class="tr">Türkçe ve İngilizce; açık, koyu ve AMOLED tema; sakin ya da sıvı cam görünüm; tam ekran harita.</span><span class="en">Turkish and English; light, dark and AMOLED themes; a calm or liquid-glass look; a fullscreen map.</span></p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="tr">Ekran görüntüleri</span><span class="en">Screenshots</span></h2>
+      <div class="gallery">
+        <figure><img src="screenshots/map.jpg" alt="" loading="lazy"><figcaption><span class="tr">Tüm İzmir ağı</span><span class="en">The whole network</span></figcaption></figure>
+        <figure><img src="screenshots/stop.jpg" alt="" loading="lazy"><figcaption><span class="tr">İstasyon ve aktarmalar</span><span class="en">Station and interchanges</span></figcaption></figure>
+        <figure><img src="screenshots/planner.jpg" alt="" loading="lazy"><figcaption><span class="tr">Yol tarifi</span><span class="en">Trip planner</span></figcaption></figure>
+        <figure><img src="screenshots/timetable.jpg" alt="" loading="lazy"><figcaption><span class="tr">Sefer saatleri</span><span class="en">Timetable</span></figcaption></figure>
+        <figure><img src="screenshots/welcome.jpg" alt="" loading="lazy"><figcaption><span class="tr">İlk açılış</span><span class="en">First launch</span></figcaption></figure>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="tr">Veriler nereden geliyor</span><span class="en">Where the data comes from</span></h2>
+      <table>
+        <tr><td><span class="tr">ESHOT hat, durak, güzergâh ve saatler</span><span class="en">ESHOT lines, stops, routes, times</span></td><td><span class="tr">İzmir Büyükşehir Belediyesi açık veri portalı ve ESHOT GTFS</span><span class="en">İzmir Metropolitan Municipality open data portal and ESHOT GTFS</span></td></tr>
+        <tr><td><span class="tr">Canlı otobüs konumları</span><span class="en">Live bus positions</span></td><td><span class="tr">İzmir Teknoloji (İztek) açık web servisleri</span><span class="en">İzmir Teknoloji (İztek) open web services</span></td></tr>
+        <tr><td>Metro, <span class="tr">tramvay</span><span class="en">tram</span></td><td><span class="tr">İşletmelerin GTFS yayınları</span><span class="en">The operators' GTFS feeds</span></td></tr>
+        <tr><td>İZBAN</td><td><span class="tr">izban.com.tr sefer saatleri</span><span class="en">The izban.com.tr timetable</span></td></tr>
+        <tr><td><span class="tr">Vapur</span><span class="en">Ferries</span></td><td><span class="tr">İzdeniz açık API</span><span class="en">İzdeniz open API</span></td></tr>
+        <tr><td><span class="tr">Harita</span><span class="en">Map</span></td><td>Google Maps</td></tr>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <span class="tr">İzmir Transit; ESHOT, Metro İzmir, Tram İzmir, İZBAN, İzdeniz ve İzmir Büyükşehir Belediyesi ile bağlantılı değildir. Varış süreleri tahminidir.</span>
+      <span class="en">İzmir Transit is not affiliated with ESHOT, Metro İzmir, Tram İzmir, İZBAN, İzdeniz or İzmir Metropolitan Municipality. Arrival times are estimates.</span>
+    </p>
+    <p>
+      <a href="https://github.com/aijec/izmir-transit">GitHub</a> ·
+      <a href="privacy.html"><span class="tr">Gizlilik</span><span class="en">Privacy</span></a> ·
+      <a href="https://github.com/aijec/izmir-transit/blob/main/LICENSE">GPL v3</a>
+    </p>
+  </footer>
+</div>
+<script>
+  (function () {
+    var body = document.body;
+    function set(lang) {
+      body.setAttribute('data-lang', lang);
+      document.documentElement.lang = lang;
+      document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === lang));
+      });
+      try { localStorage.setItem('lang', lang); } catch (e) {}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('lang'); } catch (e) {}
+    set(saved || ((navigator.language || 'tr').toLowerCase().indexOf('tr') === 0 ? 'tr' : 'en'));
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+      b.addEventListener('click', function () { set(b.getAttribute('data-set-lang')); });
+    });
+  })();
+</script>
+</body>
+</html>

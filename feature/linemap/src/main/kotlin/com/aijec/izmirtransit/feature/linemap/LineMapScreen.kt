@@ -1,5 +1,13 @@
 package com.aijec.izmirtransit.feature.linemap
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.border
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.Place
 import com.aijec.izmirtransit.core.ui.ModeIcon
@@ -18,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
@@ -103,10 +112,13 @@ import com.aijec.izmirtransit.core.ui.tabular
 @Composable
 fun LineMapRoute(
     onOpenStop: (stopCode: String) -> Unit,
-    onOpenTimetable: (lineCode: String) -> Unit,
+    /** Opens a line's timetable, at [stopCode] when the line was opened from a stop. */
+    onOpenTimetable: (lineCode: String, stopCode: String?) -> Unit,
     onBack: () -> Unit = {},
     /** Opens the trip planner, optionally with a destination already chosen. */
     onPlanTrip: (PlanDestination?) -> Unit = {},
+    /** Fullscreen hides the app's tab bar too; the host is told when it starts and ends. */
+    onFullscreenChange: (Boolean) -> Unit = {},
     viewModel: LineMapViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -142,7 +154,7 @@ fun LineMapRoute(
         layers = layers,
         isFavourite = isFavourite,
         onToggleFavourite = viewModel::toggleFavourite,
-        onOpenTimetable = { state.lineCode?.let(onOpenTimetable) },
+        onOpenTimetable = { state.lineCode?.let { onOpenTimetable(it, viewModel.fromStop) } },
         onClose = if (state.pinned) onBack else viewModel::clearLine,
         searchAtBottom = searchAtBottom,
         onLocate = {
@@ -163,6 +175,7 @@ fun LineMapRoute(
         onPlanTrip = onPlanTrip,
         bothDirections = bothDirections,
         onSwitchDirection = viewModel::switchDirection,
+        onFullscreenChange = onFullscreenChange,
     )
 }
 
@@ -190,8 +203,14 @@ fun LineMapScreen(
     onPlanTrip: (PlanDestination?) -> Unit = {},
     bothDirections: Boolean = false,
     onSwitchDirection: () -> Unit = {},
+    onFullscreenChange: (Boolean) -> Unit = {},
 ) {
     var showLayers by rememberSaveable { mutableStateOf(false) }
+    // Fullscreen: only the map, for looking around on small screens; Back leaves it.
+    var fullscreen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(fullscreen) { onFullscreenChange(fullscreen) }
+    DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
+    BackHandler(enabled = fullscreen) { fullscreen = false }
     // One direction at a time unless the user asked for both: simpler to read.
     val shownRoutes = remember(state.routes, state.direction, bothDirections) {
         if (bothDirections) state.routes else state.routes.filter { it.direction == state.direction }
@@ -204,8 +223,11 @@ fun LineMapScreen(
             routeMode = state.line?.mode ?: TransitMode.BUS,
             buses = shownBuses,
             // Keeps the route clear of the search pill above and the panels below.
-            contentPadding = if (searchAtBottom) MapPadding(start = 24.dp, top = 60.dp, end = 24.dp, bottom = 400.dp)
-            else MapPadding(start = 24.dp, top = 120.dp, end = 24.dp, bottom = 330.dp),
+            contentPadding = when {
+                fullscreen -> MapPadding()
+                searchAtBottom -> MapPadding(start = 24.dp, top = 60.dp, end = 24.dp, bottom = 400.dp)
+                else -> MapPadding(start = 24.dp, top = 120.dp, end = 24.dp, bottom = 330.dp)
+            },
             overview = if (state.lineCode == null) overview else emptyList(),
             // With a line chosen, only its own stops: others would bury it.
             areaStops = if (state.lineCode == null) state.areaStops else emptyList(),
@@ -223,6 +245,24 @@ fun LineMapScreen(
             onViewportChanged = onViewportChanged,
             modifier = Modifier.fillMaxSize(),
         )
+        if (fullscreen) {
+            Column(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CircleIconButton(
+                    Icons.Filled.FullscreenExit,
+                    contentDescription = stringResource(R.string.linemap_fullscreen_exit),
+                    onClick = { fullscreen = false },
+                    glass = true,
+                )
+                LocateButton(state.locating, onLocate)
+            }
+            return@Box
+        }
         if (!searchAtBottom) {
             Search(
                 state = state,
@@ -249,6 +289,12 @@ fun LineMapScreen(
                 if (showLayers) {
                     LayersPanel(layers, onSetLayer, onClose = { showLayers = false })
                 }
+                CircleIconButton(
+                    Icons.Filled.Fullscreen,
+                    contentDescription = stringResource(R.string.linemap_fullscreen),
+                    onClick = { showLayers = false; fullscreen = true },
+                    glass = true,
+                )
                 CircleIconButton(
                     Icons.Filled.Layers,
                     contentDescription = stringResource(R.string.linemap_layers),
@@ -281,51 +327,56 @@ fun LineMapScreen(
     }
 }
 
-/** Which modes the map draws, and whether stops in view are shown. */
+/** Which modes the map draws, and whether stops in view are shown: a small grid of toggles. */
 @Composable
 private fun LayersPanel(layers: Set<MapLayer>, onSet: (MapLayer, Boolean) -> Unit, onClose: () -> Unit) {
     val colors = Calm.colors
-    Panel(Modifier.width(260.dp), glass = true, padding = PaddingValues(vertical = 6.dp)) {
-        Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.linemap_layers), style = MaterialTheme.typography.titleSmall, color = colors.text, modifier = Modifier.weight(1f))
-            CircleIconButton(Icons.Filled.Close, stringResource(R.string.linemap_close_layers), onClick = onClose, tint = colors.textSecondary, plain = true)
-        }
-        MapLayer.entries.forEach { layer ->
-            val on = layer in layers
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(role = Role.Switch) { onSet(layer, !on) }
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    Panel(Modifier.width(236.dp), glass = true, padding = PaddingValues(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.linemap_layers),
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.textSecondary,
+                modifier = Modifier.weight(1f).padding(start = 4.dp),
+            )
+            Box(
+                Modifier.size(32.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose),
+                contentAlignment = Alignment.Center,
             ) {
-                val mode = layerMode(layer)
-                if (mode != null) {
-                    ModeIcon(mode, size = 24.dp)
-                } else {
-                    Icon(Icons.Filled.Place, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(24.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                Text(layerLabel(layer), style = MaterialTheme.typography.bodyMedium, color = colors.text, modifier = Modifier.weight(1f))
-                Switch(
-                    checked = on,
-                    onCheckedChange = { onSet(layer, it) },
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = colors.accent,
-                        checkedThumbColor = colors.onAccent,
-                        uncheckedTrackColor = colors.hairline,
-                        uncheckedBorderColor = colors.hairline,
-                        uncheckedThumbColor = colors.textSecondary,
-                    ),
-                )
+                Icon(Icons.Filled.Close, stringResource(R.string.linemap_close_layers), tint = colors.textSecondary, modifier = Modifier.size(18.dp))
             }
         }
-        Text(
-            stringResource(R.string.linemap_layers_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.textSecondary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-        )
+        Spacer(Modifier.height(6.dp))
+        MapLayer.entries.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                pair.forEach { layer -> LayerChip(layer, on = layer in layers, onToggle = { onSet(layer, it) }, modifier = Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LayerChip(layer: MapLayer, on: Boolean, onToggle: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val colors = Calm.colors
+    Row(
+        modifier
+            .height(36.dp)
+            .clip(Calm.PillShape)
+            .background(if (on) colors.accentSoft else Color.Transparent)
+            .border(1.dp, if (on) Color.Transparent else colors.hairline, Calm.PillShape)
+            .toggleable(value = on, role = Role.Switch, onValueChange = onToggle)
+            .alpha(if (on) 1f else 0.5f)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val mode = layerMode(layer)
+        if (mode != null) {
+            ModeIcon(mode, size = 20.dp)
+        } else {
+            Icon(Icons.Filled.Place, contentDescription = null, tint = colors.text, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(6.dp))
+        Text(layerLabel(layer), style = MaterialTheme.typography.labelMedium, color = if (on) colors.onAccentSoft else colors.text, maxLines = 1)
     }
 }
 
@@ -341,7 +392,6 @@ private fun layerMode(layer: MapLayer): TransitMode? = when (layer) {
 @Composable
 private fun layerLabel(layer: MapLayer): String = when (layer) {
     MapLayer.STOPS -> stringResource(R.string.linemap_layer_stops)
-    MapLayer.BUS_LINES -> stringResource(R.string.linemap_layer_bus)
     else -> modeLabel(layerMode(layer)!!)
 }
 

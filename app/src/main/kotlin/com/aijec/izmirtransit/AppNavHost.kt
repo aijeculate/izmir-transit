@@ -1,5 +1,8 @@
 package com.aijec.izmirtransit
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import com.aijec.izmirtransit.core.ui.style
 import com.aijec.izmirtransit.core.ui.glassBackdrop
 import com.aijec.izmirtransit.core.model.UiStyle
@@ -51,9 +54,9 @@ import com.aijec.izmirtransit.feature.timetable.TimetableViewModel
 private const val HOME_ROUTE = "home"
 private const val MAP_ROUTE = "map"
 private const val SETTINGS_ROUTE = "settings"
-private const val LINE_ROUTE = "line/{${LineMapViewModel.KEY_LINE}}"
+private const val LINE_ROUTE = "line/{${LineMapViewModel.KEY_LINE}}?stop={${LineMapViewModel.KEY_FROM_STOP}}"
 private const val STOP_ROUTE = "stop/{${StopViewModel.STOP_CODE_ARG}}"
-private const val TIMETABLE_ROUTE = "timetable/{${TimetableViewModel.LINE_CODE_ARG}}"
+private const val TIMETABLE_ROUTE = "timetable/{${TimetableViewModel.LINE_CODE_ARG}}?stop={${TimetableViewModel.STOP_ARG}}"
 
 private const val PLAN_ROUTE =
     "plan?${PlannerViewModel.ARG_LAT}={${PlannerViewModel.ARG_LAT}}&${PlannerViewModel.ARG_LON}={${PlannerViewModel.ARG_LON}}&${PlannerViewModel.ARG_NAME}={${PlannerViewModel.ARG_NAME}}"
@@ -61,9 +64,12 @@ private const val PLAN_ROUTE =
 private fun planDestination(to: PlanDestination?) =
     if (to == null) "plan" else "plan?lat=${to.location.latitude}&lon=${to.location.longitude}&name=${Uri.encode(to.name.orEmpty())}"
 
-private fun lineDestination(code: String) = "line/${Uri.encode(code)}"
+/** [fromStop]: the stop the line was opened from, so the line shows the direction serving it. */
+private fun lineDestination(code: String, fromStop: String? = null) =
+    "line/${Uri.encode(code)}" + (fromStop?.let { "?stop=${Uri.encode(it)}" } ?: "")
 private fun stopDestination(code: String) = "stop/${Uri.encode(code)}"
-private fun timetableDestination(code: String) = "timetable/${Uri.encode(code)}"
+private fun timetableDestination(code: String, stop: String? = null) =
+    "timetable/${Uri.encode(code)}" + (stop?.let { "?stop=${Uri.encode(it)}" } ?: "")
 
 /**
  * Two tabs: Home (start) and Map (the all-lines overview, or the line chosen there).
@@ -83,7 +89,9 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
     }
     val entry by nav.currentBackStackEntryAsState()
     val currentRoute = entry?.destination?.route
-    val showTabs = currentRoute == HOME_ROUTE || currentRoute == MAP_ROUTE || currentRoute == LINE_ROUTE
+    // A fullscreen map hides the tab bar as well.
+    var mapFullscreen by remember { mutableStateOf(false) }
+    val showTabs = !mapFullscreen && (currentRoute == HOME_ROUTE || currentRoute == MAP_ROUTE || currentRoute == LINE_ROUTE)
     // A line map belongs to whichever tab it was opened from.
     // Re-read whenever the current entry changes; getBackStackEntry throws when absent.
     val onMapTab = entry.let { runCatching { nav.getBackStackEntry(MAP_ROUTE) }.isSuccess }
@@ -102,18 +110,27 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
             }
             composable(MAP_ROUTE) {
                 LineMapRoute(
+                    onFullscreenChange = { mapFullscreen = it },
                     onOpenStop = { nav.navigate(stopDestination(it)) },
-                    onOpenTimetable = { nav.navigate(timetableDestination(it)) },
+                    onOpenTimetable = { code, stop -> nav.navigate(timetableDestination(code, stop)) },
                     onPlanTrip = { nav.navigate(planDestination(it)) },
                 )
             }
             composable(
                 LINE_ROUTE,
-                arguments = listOf(navArgument(LineMapViewModel.KEY_LINE) { type = NavType.StringType }),
+                arguments = listOf(
+                    navArgument(LineMapViewModel.KEY_LINE) { type = NavType.StringType },
+                    navArgument(LineMapViewModel.KEY_FROM_STOP) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
             ) {
                 LineMapRoute(
+                    onFullscreenChange = { mapFullscreen = it },
                     onOpenStop = { nav.navigate(stopDestination(it)) },
-                    onOpenTimetable = { nav.navigate(timetableDestination(it)) },
+                    onOpenTimetable = { code, stop -> nav.navigate(timetableDestination(code, stop)) },
                     onBack = { nav.popBackStack() },
                     onPlanTrip = { nav.navigate(planDestination(it)) },
                 )
@@ -133,10 +150,11 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
             composable(
                 STOP_ROUTE,
                 arguments = listOf(navArgument(StopViewModel.STOP_CODE_ARG) { type = NavType.StringType }),
-            ) {
+            ) { entry ->
+                val stopCode = entry.arguments?.getString(StopViewModel.STOP_CODE_ARG)
                 StopRoute(
                     onBack = { nav.popBackStack() },
-                    onOpenLine = { nav.navigate(lineDestination(it)) },
+                    onOpenLine = { nav.navigate(lineDestination(it, fromStop = stopCode)) },
                     onOpenStop = { nav.navigate(stopDestination(it)) },
                     onShowOnMap = { nav.openMapTab() },
                 )
@@ -146,7 +164,14 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
             }
             composable(
                 TIMETABLE_ROUTE,
-                arguments = listOf(navArgument(TimetableViewModel.LINE_CODE_ARG) { type = NavType.StringType }),
+                arguments = listOf(
+                    navArgument(TimetableViewModel.LINE_CODE_ARG) { type = NavType.StringType },
+                    navArgument(TimetableViewModel.STOP_ARG) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
             ) {
                 TimetableRoute(onBack = { nav.popBackStack() })
             }

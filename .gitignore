@@ -10,3 +10,8 @@ local.properties
 research/raw/
 research/gtfs/
 research/yon/
+
+# Release signing: never commit the keystore or its passwords.
+keystore.properties
+*.jks
+*.keystore

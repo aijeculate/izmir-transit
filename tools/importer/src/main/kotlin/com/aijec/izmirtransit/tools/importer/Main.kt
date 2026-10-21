@@ -37,6 +37,7 @@ fun main(args: Array<String>) {
 
     if (!rawDir.isDirectory) {
         System.err.println("Raw data directory not found: $rawDir")
+        System.err.println("Download the sources first: ./gradlew :tools:importer:downloadData")
         exitProcess(1)
     }
 

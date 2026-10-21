@@ -164,6 +164,21 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 - **AMOLED** is a fourth theme mode (`ThemeMode.AMOLED`): a pure black canvas, near-black panels (`AmoledCalm`), `LocalAmoled` for dimmer glass glows, and the dark map.
 - **First-run tutorial** (`app/onboarding/Onboarding.kt`): five pager pages (welcome with the mode tiles, map, line, planner, location permission). It sits behind `AppSettings.onboardingDone`, and Settings has "Show the tutorial again". The location permission is only requested from the last page, after explaining why.
 
+**Release prep (21 Oct 2026):**
+
+- **Map:** fullscreen button (hides search, cards and the tab bar; Back exits). The layers menu is a compact 2×3 chip grid.
+- **Lines opened from a stop** show the direction serving that stop, and their timetable starts at that stop (`?stop=` nav argument on `line/` and `timetable/`).
+- **Fixes:**
+  - The planner's cached network is cleared after the weekly refresh.
+  - Loop lines' timetables show only their one direction.
+- **Open source:**
+  - GPL-3.0 (`LICENSE`), `README.md`, `PRIVACY.md`.
+  - Landing page in `docs/` (GitHub Pages, TR/EN, screenshots in `docs/screenshots`).
+  - CI runs unit tests (`.github/workflows/build.yml`).
+- **Release build:**
+  - `./gradlew :tools:importer:downloadData` fetches all sources for a fresh clone.
+  - Signing reads git-ignored `keystore.properties` (unsigned without it). Version 1.0.0.
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |

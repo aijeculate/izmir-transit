@@ -29,4 +29,6 @@
     <string name="settings_both_directions_hint">Hat seçilince gidiş (mavi) ve dönüş (turuncu) aynı anda çizilir. Kapalıyken tek yön gösterilir; yönü bir düğmeyle değiştirirsin.</string>
     <string name="settings_theme_amoled">AMOLED</string>
     <string name="settings_replay_tutorial">Tanıtımı yeniden göster</string>
+    <string name="settings_about_source_title">Açık kaynak</string>
+    <string name="settings_about_source">GNU GPL v3 lisanslı, kaynak kodu github.com/aijec/izmir-transit adresinde. ESHOT, Metro İzmir, Tram İzmir, İZBAN ve İzdeniz ile bağlantısı yoktur.</string>
 </resources>

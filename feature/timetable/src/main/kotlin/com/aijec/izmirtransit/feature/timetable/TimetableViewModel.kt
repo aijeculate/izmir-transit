@@ -36,6 +36,8 @@ data class TimetableUiState(
     val departures: List<Departure> = emptyList(),
     /** Rail and ferry: the stations of the selected direction, and the one the times are for. */
     val stations: List<Stop> = emptyList(),
+    /** Loop lines (Çiğli tram, the Ring) run one way only. */
+    val directions: List<Direction> = Direction.entries,
     val station: Stop? = null,
     val loading: Boolean = true,
     /** Set only when the selected day is the timetable running now. */
@@ -57,11 +59,14 @@ class TimetableViewModel @Inject constructor(
 ) : ViewModel() {
     private val lineCode: String = checkNotNull(savedState[LINE_CODE_ARG]) { "lineCode argument missing" }
 
+    /** The stop the user came from: its station and direction are shown first. */
+    private val fromStop: String? = savedState[STOP_ARG]
+
     private val header = MutableStateFlow(TimetableUiState(lineCode))
 
     private data class Selection(val day: ServiceDay, val direction: Direction, val stationCode: String? = null)
     private val selection = MutableStateFlow(
-        Selection(TimetableRepository.serviceMoment(TimetableRepository.localNow(clock)).serviceDay, Direction.OUTBOUND),
+        Selection(TimetableRepository.serviceMoment(TimetableRepository.localNow(clock)).serviceDay, Direction.OUTBOUND, fromStop),
     )
 
     /** Buses only have times from their first stop; rail and ferry have every station's. */
@@ -76,7 +81,14 @@ class TimetableViewModel @Inject constructor(
         }
     }
 
-    private data class Loaded(val day: ServiceDay, val direction: Direction, val stations: List<Stop>, val station: Stop?, val list: List<Departure>)
+    private data class Loaded(
+        val day: ServiceDay,
+        val direction: Direction,
+        val stations: List<Stop>,
+        val station: Stop?,
+        val list: List<Departure>,
+        val directions: List<Direction>,
+    )
 
     private val departures = combine(selection, routes) { selected, routes -> selected to routes }.mapLatest { (selected, routes) ->
         val stations = routes.firstOrNull { it.direction == selected.direction }?.stops.orEmpty()
@@ -85,7 +97,8 @@ class TimetableViewModel @Inject constructor(
         val station = stations.firstOrNull { it.code == selected.stationCode } ?: stations.firstOrNull()
         val list = if (station != null) timetable.departuresAt(station.code, lineCode, selected.day, selected.direction)
         else timetable.departures(lineCode, selected.day, selected.direction)
-        Loaded(selected.day, selected.direction, stations, station, list)
+        val directions = if (routes.isEmpty()) Direction.entries else routes.map { it.direction }.distinct().sorted()
+        Loaded(selected.day, selected.direction, stations, station, list, directions)
     }
 
     val state: StateFlow<TimetableUiState> = combine(header, departures, minuteTicker) { head, loaded, moment ->
@@ -97,10 +110,26 @@ class TimetableViewModel @Inject constructor(
             if (index < 0) NextDeparture.ServiceOver
             else NextDeparture.At(index, list[index].minutesAfterMidnight - moment.minutesAfterMidnight)
         }
-        head.copy(serviceDay = day, direction = direction, departures = list, stations = stations, station = station, loading = false, next = next)
+        head.copy(
+            serviceDay = day,
+            direction = direction,
+            departures = list,
+            stations = stations,
+            station = station,
+            directions = loaded.directions,
+            loading = false,
+            next = next,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimetableUiState(lineCode))
 
     init {
+        if (fromStop != null) {
+            viewModelScope.launch {
+                // Start in the direction that leaves from that stop.
+                val direction = lines.routes(lineCode).firstOrNull { r -> r.stops.dropLast(1).any { it.code == fromStop } }?.direction
+                if (direction != null) selection.update { it.copy(direction = direction) }
+            }
+        }
         viewModelScope.launch {
             val line = lines.line(lineCode)
             val announcements = timetable.activeAnnouncements(lineCode, TimetableRepository.localNow(clock))
@@ -117,5 +146,6 @@ class TimetableViewModel @Inject constructor(
 
     companion object {
         const val LINE_CODE_ARG = "lineCode"
+        const val STOP_ARG = "stop"
     }
 }

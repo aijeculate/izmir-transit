@@ -19,7 +19,7 @@ android {
     defaultConfig {
         applicationId = "com.aijec.izmirtransit"
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
         // Google keys from local.properties (MAPS_API_KEY=…, PLACES_API_KEY=…), never committed.
         // Places falls back to the Maps key when one key has both APIs.
         val localProperties = Properties().apply {
@@ -33,8 +33,22 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    // Release signing from keystore.properties (storeFile, storePassword, keyAlias,
+    // keyPassword), which is git-ignored. Without it the release APK is left unsigned.
+    val keystoreProperties = Properties().apply {
+        rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
+    val releaseSigning = keystoreProperties.getProperty("storeFile")?.let { store ->
+        signingConfigs.create("release") {
+            storeFile = rootProject.file(store)
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
+    }
     buildTypes {
         release {
+            signingConfig = releaseSigning
             // R8: shrink, optimize and obfuscate; libraries ship their own keep rules.
             isMinifyEnabled = true
             isShrinkResources = true

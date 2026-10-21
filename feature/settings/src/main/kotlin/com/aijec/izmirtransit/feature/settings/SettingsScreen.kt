@@ -191,6 +191,8 @@ fun SettingsScreen(
                 AboutRow(stringResource(R.string.settings_about_map_title), stringResource(R.string.settings_about_map))
                 Hairline()
                 AboutRow(stringResource(R.string.settings_about_font_title), stringResource(R.string.settings_about_font))
+                Hairline()
+                AboutRow(stringResource(R.string.settings_about_source_title), stringResource(R.string.settings_about_source))
             }
         }
         item {

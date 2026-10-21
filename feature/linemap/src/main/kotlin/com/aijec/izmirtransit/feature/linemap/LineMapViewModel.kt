@@ -113,6 +113,9 @@ class LineMapViewModel @Inject constructor(
 
     /** Set when opened for a specific line; absent on the Map tab. */
     private val pinnedLine: String? = savedState[KEY_LINE]
+
+    /** The stop this line was opened from: its direction is shown first, its timetable opened. */
+    val fromStop: String? = savedState[KEY_FROM_STOP]
     private val lineCode: StateFlow<String?> =
         if (pinnedLine != null) savedState.getStateFlow<String?>(KEY_LINE, pinnedLine) else selection.line
     private val query = MutableStateFlow("")
@@ -225,8 +228,10 @@ class LineMapViewModel @Inject constructor(
                         announcements = announcements,
                         connections = connections,
                         loadingRoute = false,
-                        // Loop lines have only one direction.
-                        direction = routes.firstOrNull { r -> r.direction == Direction.OUTBOUND }?.direction
+                        // The direction serving the stop the user came from (a bus stop is on one
+                        // side of the street); otherwise outbound. Loop lines have one direction.
+                        direction = routes.firstOrNull { r -> fromStop != null && r.stops.dropLast(1).any { s -> s.code == fromStop } }?.direction
+                            ?: routes.firstOrNull { r -> r.direction == Direction.OUTBOUND }?.direction
                             ?: routes.firstOrNull()?.direction ?: Direction.OUTBOUND,
                     )
                 }
@@ -331,6 +336,7 @@ class LineMapViewModel @Inject constructor(
     companion object {
         /** Navigation argument; also where the selected line survives process death. */
         const val KEY_LINE = "lineCode"
+        const val KEY_FROM_STOP = "stop"
 
         /** Stops in view are drawn from this zoom on; below it they would crowd. */
         const val AREA_STOPS_ZOOM = 15f

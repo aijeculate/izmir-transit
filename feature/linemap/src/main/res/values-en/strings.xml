@@ -40,9 +40,7 @@
     <string name="linemap_schedule_none">%1$s: no more departures today</string>
     <string name="linemap_layers">Map layers</string>
     <string name="linemap_close_layers">Close layers</string>
-    <string name="linemap_layers_hint">Stops appear when you zoom in.</string>
     <string name="linemap_layer_stops">Stops</string>
-    <string name="linemap_layer_bus">Bus lines</string>
     <string name="linemap_close_stop">Close</string>
     <string name="linemap_open_stop">Open stop</string>
     <string name="linemap_directions_here">Directions here</string>
@@ -50,4 +48,6 @@
     <string name="linemap_plan_trip">Directions</string>
     <string name="linemap_switch_direction">Switch direction</string>
     <string name="linemap_transfer">Change for</string>
+    <string name="linemap_fullscreen">Fullscreen map</string>
+    <string name="linemap_fullscreen_exit">Exit fullscreen</string>
 </resources>

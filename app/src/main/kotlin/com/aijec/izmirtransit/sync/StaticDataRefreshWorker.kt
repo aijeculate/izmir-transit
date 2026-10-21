@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.aijec.izmirtransit.core.data.importer.StaticDataRefresher
 import com.aijec.izmirtransit.core.data.repository.LineRepository
+import com.aijec.izmirtransit.core.data.routing.NetworkRepository
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -30,6 +31,7 @@ class StaticDataRefreshWorker(context: Context, params: WorkerParameters) : Coro
     interface Dependencies {
         fun refresher(): StaticDataRefresher
         fun lineRepository(): LineRepository
+        fun networkRepository(): NetworkRepository
     }
 
     override suspend fun doWork(): Result {
@@ -38,6 +40,8 @@ class StaticDataRefreshWorker(context: Context, params: WorkerParameters) : Coro
             when (val outcome = deps.refresher().refresh()) {
                 is StaticDataRefresher.Outcome.Updated -> {
                     deps.lineRepository().clearCaches()
+                    // The trip planner's network is built from the old data; rebuild on next use.
+                    deps.networkRepository().clear()
                     Log.i(TAG, "Static data refreshed:\n${outcome.report}")
                     Result.success()
                 }
