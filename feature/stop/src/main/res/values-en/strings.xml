@@ -47,5 +47,5 @@
     <string name="stop_just_left_title">Just left</string>
     <string name="stop_just_left_scheduled">Scheduled %1$s</string>
     <string name="stop_just_left_ago">%1$s ago</string>
-    <string name="stop_just_left_note">Estimated from the timetable. Services often run a few minutes late, so one shown as just left may not have reached the station yet.</string>
+    <string name="stop_just_left_note">Estimated from the timetable. Services can run a few minutes late, so one shown as just left may not have reached the station yet.</string>
 </resources>

@@ -99,6 +99,13 @@ class RailAndFerryImporterTest {
         assertEquals(listOf("I3", "I2", "I1"), routes.getValue(Direction.RETURN).stops.map { it.code })
         assertEquals(3, routes.getValue(Direction.OUTBOUND).shape.size)
 
+        // The short train towards Biçerova runs only the first two stations; a full one is the whole route.
+        val short = lines.tripRoute(routes.getValue(Direction.OUTBOUND), "Biçerova")!!
+        assertEquals(listOf("I1", "I2"), short.stops.map { it.code })
+        assertEquals(2, short.shape.size)
+        assertEquals(routes.getValue(Direction.OUTBOUND), lines.tripRoute(routes.getValue(Direction.OUTBOUND), "Cumaovası"))
+        assertEquals(null, lines.tripRoute(routes.getValue(Direction.OUTBOUND), "Nowhere"))
+
         // Weekday board at Biçerova: the 06:10 short trip ends there, so it isn't a departure.
         val weekday = stops.scheduledDepartures("I2", ServiceDay.WEEKDAY, 0)
         assertEquals(listOf(7 * 60 + 10, 24 * 60 + 50), weekday.map { it.minutesAfterMidnight })

@@ -66,6 +66,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aijec.izmirtransit.core.data.repository.FavouriteItem
 import com.aijec.izmirtransit.core.location.LocationProvider
 import com.aijec.izmirtransit.core.model.ApproachingBus
 import com.aijec.izmirtransit.core.model.EtaBasis
@@ -120,16 +121,14 @@ fun HomeRoute(
         onOpenSettings = onOpenSettings,
         onPlanTrip = onPlanTrip,
         onShowOnMap = { code -> viewModel.showOnMap(code); onShowOnMap() },
-        editActions = FavouriteEditActions(viewModel::moveStop, viewModel::moveLine, viewModel::removeStop, viewModel::removeLine),
+        editActions = FavouriteEditActions(viewModel::moveFavourite, viewModel::removeFavourite),
     )
 }
 
 /** What the favourites' edit mode can do: move a stop or line by some places, or remove it. */
 class FavouriteEditActions(
-    val moveStop: (String, Int) -> Unit = { _, _ -> },
-    val moveLine: (String, Int) -> Unit = { _, _ -> },
-    val removeStop: (String) -> Unit = {},
-    val removeLine: (String) -> Unit = {},
+    val move: (FavouriteItem, Int) -> Unit = { _, _ -> },
+    val remove: (FavouriteItem) -> Unit = {},
 )
 
 @Composable
@@ -146,7 +145,7 @@ fun HomeScreen(
     onShowOnMap: (String) -> Unit = {},
     editActions: FavouriteEditActions = FavouriteEditActions(),
 ) {
-    val hasFavourites = favourites.stops.isNotEmpty() || favourites.lines.isNotEmpty()
+    val hasFavourites = favourites.entries.isNotEmpty()
     var editMode by rememberSaveable { mutableStateOf(false) }
     val editing = editMode && hasFavourites
     LazyColumn(
@@ -190,41 +189,42 @@ fun HomeScreen(
             item("fav-empty") { EmptyFavourites() }
         }
         if (editing) {
-            if (favourites.stops.isNotEmpty()) item("fav-edit-stops") {
-                EditFavouritesPanel(
-                    favourites.stops,
-                    key = { it.stop.code },
-                    onMove = editActions.moveStop,
-                    onRemove = editActions.removeStop,
-                ) { favourite ->
-                    ModeIcon(favourite.stop.mode, size = 30.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Text(favourite.stop.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            item("fav-edit") {
+                EditFavouritesPanel(favourites.entries, onMove = editActions.move, onRemove = editActions.remove) { entry ->
+                    when (entry) {
+                        is FavouriteEntry.StopEntry -> {
+                            ModeIcon(entry.favourite.stop.mode, size = 30.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(entry.favourite.stop.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        is FavouriteEntry.LineEntry -> {
+                            LineBadge(entry.line, strong = true)
+                            Spacer(Modifier.width(12.dp))
+                            Text(entry.line.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
                 }
             }
-            if (favourites.lines.isNotEmpty()) item("fav-edit-lines") {
-                EditFavouritesPanel(
-                    favourites.lines,
-                    key = { it.code },
-                    onMove = editActions.moveLine,
-                    onRemove = editActions.removeLine,
-                ) { line ->
-                    LineBadge(line, strong = true)
-                    Spacer(Modifier.width(12.dp))
-                    Text(line.name, style = MaterialTheme.typography.bodyLarge, color = Calm.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        } else {
+            // In the user's order; neighbouring lines share one panel.
+            for (group in favouriteGroups(favourites.entries)) {
+                when (group) {
+                    is FavouriteEntry.StopEntry -> item("fav-stop-${group.favourite.stop.code}") {
+                        FavouriteStopPanel(
+                            group.favourite,
+                            arrivals[group.favourite.stop.code],
+                            boards[group.favourite.stop.code],
+                            onClick = { onOpenStop(group.favourite.stop.code) },
+                            onShowOnMap = { onShowOnMap(group.favourite.stop.code) },
+                        )
+                    }
+                    is List<*> -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val lines = (group as List<FavouriteEntry.LineEntry>).map { it.line }
+                        item("fav-lines-${lines.first().code}") { FavouriteLinesPanel(lines, onOpenLine) }
+                    }
                 }
             }
-        } else items(favourites.stops, key = { "fav-stop-${it.stop.code}" }) { favourite ->
-            FavouriteStopPanel(
-                favourite,
-                arrivals[favourite.stop.code],
-                boards[favourite.stop.code],
-                onClick = { onOpenStop(favourite.stop.code) },
-                onShowOnMap = { onShowOnMap(favourite.stop.code) },
-            )
-        }
-        if (!editing && favourites.lines.isNotEmpty()) {
-            item("fav-lines") { FavouriteLinesPanel(favourites.lines, onOpenLine) }
         }
 
         item("nearby-label") {
@@ -379,20 +379,35 @@ private fun FavouriteStopPanel(
     }
 }
 
+/** Stops on their own, runs of neighbouring lines as one list each. */
+private fun favouriteGroups(entries: List<FavouriteEntry>): List<Any> {
+    val groups = mutableListOf<Any>()
+    for (entry in entries) {
+        when (entry) {
+            is FavouriteEntry.StopEntry -> groups.add(entry)
+            is FavouriteEntry.LineEntry -> {
+                @Suppress("UNCHECKED_CAST")
+                val run = groups.lastOrNull() as? MutableList<FavouriteEntry.LineEntry>
+                if (run != null) run.add(entry) else groups.add(mutableListOf(entry))
+            }
+        }
+    }
+    return groups
+}
+
 /** Favourites as a compact list with up, down and remove buttons on each row. */
 @Composable
-private fun <T> EditFavouritesPanel(
-    items: List<T>,
-    key: (T) -> String,
-    onMove: (String, Int) -> Unit,
-    onRemove: (String) -> Unit,
-    label: @Composable RowScope.(T) -> Unit,
+private fun EditFavouritesPanel(
+    items: List<FavouriteEntry>,
+    onMove: (FavouriteItem, Int) -> Unit,
+    onRemove: (FavouriteItem) -> Unit,
+    label: @Composable RowScope.(FavouriteEntry) -> Unit,
 ) {
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
         items.forEachIndexed { index, item ->
             if (index > 0) Hairline()
-            val code = key(item)
+            val code = item.item
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { label(item) }
                 IconButton(onClick = { onMove(code, -1) }, enabled = index > 0) {

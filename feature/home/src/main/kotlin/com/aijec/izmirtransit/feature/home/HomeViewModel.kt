@@ -3,6 +3,7 @@ package com.aijec.izmirtransit.feature.home
 import com.aijec.izmirtransit.core.data.repository.MapSelection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aijec.izmirtransit.core.data.repository.FavouriteItem
 import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
 import com.aijec.izmirtransit.core.data.repository.LineRepository
 import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
@@ -54,11 +55,26 @@ sealed interface NearbyState {
     data class Found(val stops: List<NearbyStopItem>) : NearbyState
 }
 
+/** One favourite as Home shows it, in the user's order. */
+sealed interface FavouriteEntry {
+    val item: FavouriteItem
+
+    data class StopEntry(val favourite: FavouriteStop) : FavouriteEntry {
+        override val item get() = FavouriteItem.StopItem(favourite.stop.code)
+    }
+
+    data class LineEntry(val line: Line) : FavouriteEntry {
+        override val item get() = FavouriteItem.LineItem(line.code)
+    }
+}
+
 data class FavouritesState(
     val loaded: Boolean = false,
-    val stops: List<FavouriteStop> = emptyList(),
-    val lines: List<Line> = emptyList(),
-)
+    val entries: List<FavouriteEntry> = emptyList(),
+) {
+    val stops: List<FavouriteStop> get() = entries.filterIsInstance<FavouriteEntry.StopEntry>().map { it.favourite }
+    val lines: List<Line> get() = entries.filterIsInstance<FavouriteEntry.LineEntry>().map { it.line }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -75,30 +91,31 @@ class HomeViewModel @Inject constructor(
     /** Asks the Map tab to centre on a stop; the caller then switches to it. */
     fun showOnMap(stopCode: String) = mapSelection.showStop(stopCode)
 
-    fun moveStop(code: String, by: Int) {
-        viewModelScope.launch { favouritesRepository.moveStop(code, by) }
+    fun moveFavourite(item: FavouriteItem, by: Int) {
+        viewModelScope.launch { favouritesRepository.move(item, by) }
     }
 
-    fun moveLine(code: String, by: Int) {
-        viewModelScope.launch { favouritesRepository.moveLine(code, by) }
-    }
-
-    fun removeStop(code: String) {
-        viewModelScope.launch { favouritesRepository.setStop(code, false) }
-    }
-
-    fun removeLine(code: String) {
-        viewModelScope.launch { favouritesRepository.setLine(code, false) }
+    fun removeFavourite(item: FavouriteItem) {
+        viewModelScope.launch {
+            when (item) {
+                is FavouriteItem.StopItem -> favouritesRepository.setStop(item.code, false)
+                is FavouriteItem.LineItem -> favouritesRepository.setLine(item.code, false)
+            }
+        }
     }
 
     val favourites: StateFlow<FavouritesState> = favouritesRepository.favourites
         .mapLatest { favourites ->
             FavouritesState(
                 loaded = true,
-                stops = favourites.stopCodes.mapNotNull { code ->
-                    stops.stop(code)?.let { FavouriteStop(it, stops.linesAtStop(code)) }
+                entries = favourites.items.mapNotNull { item ->
+                    when (item) {
+                        is FavouriteItem.StopItem -> stops.stop(item.code)?.let {
+                            FavouriteEntry.StopEntry(FavouriteStop(it, stops.linesAtStop(item.code)))
+                        }
+                        is FavouriteItem.LineItem -> lines.line(item.code)?.let { FavouriteEntry.LineEntry(it) }
+                    }
                 },
-                lines = favourites.lineCodes.mapNotNull { lines.line(it) },
             )
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FavouritesState())

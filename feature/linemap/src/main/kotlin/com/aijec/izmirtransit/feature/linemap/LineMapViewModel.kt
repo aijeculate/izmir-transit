@@ -116,6 +116,12 @@ class LineMapViewModel @Inject constructor(
 
     /** The stop this line was opened from: its direction is shown first, its timetable opened. */
     val fromStop: String? = savedState[KEY_FROM_STOP]
+
+    /** A rail departure's destination ("Tepeköy"): show only the part of the line that train runs. */
+    private val toward: String? = savedState[KEY_TOWARD]
+
+    /** The direction trimmed to [toward], if any; its next departures count only those trains. */
+    private var tripDirection: Direction? = null
     private val lineCode: StateFlow<String?> =
         if (pinnedLine != null) savedState.getStateFlow<String?>(KEY_LINE, pinnedLine) else selection.line
     private val query = MutableStateFlow("")
@@ -218,7 +224,26 @@ class LineMapViewModel @Inject constructor(
                 }
                 _state.update { it.copy(lineCode = code, nextDepartures = emptyMap(), loadingRoute = true) }
                 val line = lines.line(code)
-                val routes = lines.routes(code)
+                val direction = { all: List<LineRoute> ->
+                    // The direction serving the stop the user came from (a bus stop is on one
+                    // side of the street); otherwise outbound. Loop lines have one direction.
+                    all.firstOrNull { r -> fromStop != null && r.stops.dropLast(1).any { s -> s.code == fromStop } }?.direction
+                        ?: all.firstOrNull { r -> r.direction == Direction.OUTBOUND }?.direction
+                        ?: all.firstOrNull()?.direction ?: Direction.OUTBOUND
+                }
+                var routes = lines.routes(code)
+                tripDirection = null
+                if (toward != null && !isBusCode(code) && code == pinnedLine) {
+                    // Of the directions passing the stop, the one where this train ends at [toward].
+                    val trimmed = routes.firstNotNullOfOrNull { route ->
+                        if (fromStop != null && route.stops.dropLast(1).none { it.code == fromStop }) null
+                        else lines.tripRoute(route, toward)
+                    }
+                    if (trimmed != null) {
+                        routes = routes.map { if (it.direction == trimmed.direction) trimmed else it }
+                        tripDirection = trimmed.direction
+                    }
+                }
                 val announcements = timetable.activeAnnouncements(code, TimetableRepository.localNow(clock))
                 val connections = lines.connections(code)
                 _state.update {
@@ -228,11 +253,7 @@ class LineMapViewModel @Inject constructor(
                         announcements = announcements,
                         connections = connections,
                         loadingRoute = false,
-                        // The direction serving the stop the user came from (a bus stop is on one
-                        // side of the street); otherwise outbound. Loop lines have one direction.
-                        direction = routes.firstOrNull { r -> fromStop != null && r.stops.dropLast(1).any { s -> s.code == fromStop } }?.direction
-                            ?: routes.firstOrNull { r -> r.direction == Direction.OUTBOUND }?.direction
-                            ?: routes.firstOrNull()?.direction ?: Direction.OUTBOUND,
+                        direction = tripDirection ?: direction(routes),
                     )
                 }
                 if (!isBusCode(code)) {
@@ -281,6 +302,7 @@ class LineMapViewModel @Inject constructor(
             val first = route.stops.firstOrNull() ?: return@mapNotNull null
             val minutes = stops.scheduledDepartures(first.code, moment.serviceDay, moment.minutesAfterMidnight, limit = 60)
                 .filter { it.line.code == code && it.direction == route.direction }
+                .filter { route.direction != tripDirection || it.headsign == toward }
                 .map { it.minutesAfterMidnight }
                 .distinct()
                 .take(NEXT_DEPARTURES)
@@ -337,6 +359,7 @@ class LineMapViewModel @Inject constructor(
         /** Navigation argument; also where the selected line survives process death. */
         const val KEY_LINE = "lineCode"
         const val KEY_FROM_STOP = "stop"
+        const val KEY_TOWARD = "toward"
 
         /** Stops in view are drawn from this zoom on; below it they would crowd. */
         const val AREA_STOPS_ZOOM = 15f

@@ -48,5 +48,5 @@
     <string name="stop_just_left_title">Az önce kalkanlar</string>
     <string name="stop_just_left_scheduled">Tarifeye göre %1$s</string>
     <string name="stop_just_left_ago">%1$s önce</string>
-    <string name="stop_just_left_note">Tarifeden tahmin. Seferler çoğu zaman birkaç dakika gecikir; az önce kalkmış görünen sefer henüz gelmemiş olabilir.</string>
+    <string name="stop_just_left_note">Tarifeden tahmin. Seferler birkaç dakika gecikebilir; az önce kalkmış görünen sefer henüz gelmemiş olabilir.</string>
 </resources>

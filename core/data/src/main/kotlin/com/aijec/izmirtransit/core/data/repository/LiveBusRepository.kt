@@ -2,6 +2,7 @@ package com.aijec.izmirtransit.core.data.repository
 
 import com.aijec.izmirtransit.core.data.live.EtaEstimator
 import com.aijec.izmirtransit.core.data.live.FetchResult
+import com.aijec.izmirtransit.core.data.live.DirectionResolver
 import com.aijec.izmirtransit.core.data.live.GhostFilter
 import com.aijec.izmirtransit.core.data.live.map
 import com.aijec.izmirtransit.core.data.live.pollLive
@@ -37,13 +38,14 @@ class LiveBusRepository @Inject constructor(
         val routes = lines.measuredRoutes(lineCode)
         var previousRaw = emptyList<RawBusPosition>()
         var previousSelected = emptyMap<Int, LatLng>()
+        val directions = DirectionResolver()
         emitAll(
             pollLive(interval, clock) {
                 source.lineBusPositions(lineCode).map { raw ->
                     val result = ghostFilter.filter(lineCode, raw, routes, previousRaw, previousSelected)
                     previousRaw = raw
                     previousSelected = result.buses.associate { it.busId to it.position }
-                    result.buses
+                    directions.resolve(result.buses, routes)
                 }
             },
         )

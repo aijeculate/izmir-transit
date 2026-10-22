@@ -194,6 +194,10 @@ interface StopDao {
     )
     suspend fun lineDeparturesAt(stopCode: String, lineCode: String, direction: Int, serviceDay: Int): List<StopDepartureEntity>
 
+    /** Stations that trains of one line, direction and destination leave from. */
+    @Query("SELECT DISTINCT stop_code FROM stop_departures WHERE line_code = :lineCode AND direction = :direction AND headsign = :headsign")
+    suspend fun stationsWithHeadsign(lineCode: String, direction: Int, headsign: String): List<String>
+
     @Query("SELECT * FROM stops")
     suspend fun allStops(): List<StopEntity>
 

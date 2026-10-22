@@ -102,6 +102,31 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
         }
     }
 
+    /**
+     * The part of a rail line one train runs: from the first station trains to [headsign]
+     * leave from, to the station named [headsign]. A short İZBAN train "towards Tepeköy"
+     * then shows Tepeköy as its end, not the line's far terminus. Null when nothing matches
+     * (buses, or a headsign that isn't a station on this route).
+     */
+    suspend fun tripRoute(route: LineRoute, headsign: String): LineRoute? = withContext(Dispatchers.Default) {
+        val end = route.stops.indexOfLast { TurkishText.fold(it.name) == TurkishText.fold(headsign) }
+        if (end <= 0) return@withContext null
+        val served = database.stopDao().stationsWithHeadsign(route.lineCode, route.direction.datasetCode, headsign).toSet()
+        val start = route.stops.indexOfFirst { it.code in served }
+        if (start < 0 || start >= end) return@withContext null
+        if (start == 0 && end == route.stops.lastIndex) return@withContext route
+        val stops = route.stops.subList(start, end + 1)
+        val shape = if (route.shape.size < 2) {
+            route.shape
+        } else {
+            val measured = MeasuredPolyline(route.shape)
+            val from = measured.project(stops.first().location)?.distanceAlongMeters ?: 0.0
+            val to = measured.projectAfter(stops.last().location, from)?.distanceAlongMeters ?: measured.lengthMeters
+            measured.slice(from, to)
+        }
+        route.copy(shape = shape, stops = stops)
+    }
+
     /** Measured shapes for snapping buses and estimating arrival; cached because polls repeat. */
     suspend fun measuredRoutes(code: String): Map<Direction, MeasuredPolyline> = withContext(Dispatchers.Default) { measuredRoutesNow(code) }
 

@@ -92,6 +92,7 @@ import com.aijec.izmirtransit.core.ui.tabular
 fun StopRoute(
     onBack: () -> Unit,
     onOpenLine: (String) -> Unit,
+    onOpenTrip: (lineCode: String, headsign: String) -> Unit = { line, _ -> onOpenLine(line) },
     onOpenStop: (String) -> Unit = {},
     onShowOnMap: () -> Unit = {},
     viewModel: StopViewModel = hiltViewModel(),
@@ -164,6 +165,7 @@ fun StopRoute(
         onToggleFavourite = viewModel::toggleFavourite,
         onBack = onBack,
         onOpenLine = onOpenLine,
+        onOpenTrip = onOpenTrip,
         onOpenStop = onOpenStop,
         onShowOnMap = { viewModel.showOnMap(); onShowOnMap() },
         alertBusId = activeAlert?.takeIf { it.stopCode == state.stopCode }?.busId,
@@ -187,6 +189,7 @@ fun StopScreen(
     onToggleFavourite: () -> Unit,
     onBack: () -> Unit,
     onOpenLine: (String) -> Unit,
+    onOpenTrip: (lineCode: String, headsign: String) -> Unit = { line, _ -> onOpenLine(line) },
     onOpenStop: (String) -> Unit = {},
     onShowOnMap: () -> Unit = {},
     alertBusId: Int? = null,
@@ -229,13 +232,13 @@ fun StopScreen(
             item("just-left-label") {
                 SectionLabel(stringResource(R.string.stop_just_left_title), Modifier.padding(horizontal = 16.dp))
             }
-            item("just-left") { JustLeftPanel(board.justLeft, onOpenLine) }
+            item("just-left") { JustLeftPanel(board.justLeft, onOpenTrip) }
         }
         if (board != null) {
             item("departures-label") {
                 SectionLabel(stringResource(R.string.stop_departures_title), Modifier.padding(horizontal = 16.dp))
             }
-            item("departures") { DeparturesPanel(board, onOpenLine) }
+            item("departures") { DeparturesPanel(board, onOpenTrip) }
             item("departures-note") {
                 Text(
                     stringResource(if (state.stop?.mode == TransitMode.IZBAN) R.string.stop_departures_note_izban else R.string.stop_departures_note),
@@ -313,17 +316,17 @@ private fun walkMinutes(meters: Double): Int = kotlin.math.ceil(meters * 1.25 / 
 
 /**
  * What the timetable says left in the last 20 minutes, counting up by the second. Trains and
- * ferries are often a few minutes late, so the one "just gone" may still be coming.
+ * ferries can run a few minutes late, so the one "just gone" may still be coming.
  */
 @Composable
-private fun JustLeftPanel(recent: List<RecentDeparture>, onOpenLine: (String) -> Unit) {
+private fun JustLeftPanel(recent: List<RecentDeparture>, onOpenTrip: (String, String) -> Unit) {
     val colors = Calm.colors
     val now by rememberNow()
     Panel(Modifier.fillMaxWidth().padding(horizontal = 16.dp), padding = PaddingValues(vertical = 4.dp)) {
         recent.forEachIndexed { index, item ->
             val departure = item.departure
             if (index > 0) Hairline()
-            CalmRow(onClick = { onOpenLine(departure.line.code) }, padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+            CalmRow(onClick = { onOpenTrip(departure.line.code, departure.headsign) }, padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
                 LineBadge(departure.line)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -359,7 +362,7 @@ private fun JustLeftPanel(recent: List<RecentDeparture>, onOpenLine: (String) ->
 }
 
 @Composable
-private fun DeparturesPanel(board: StationBoard, onOpenLine: (String) -> Unit) {
+private fun DeparturesPanel(board: StationBoard, onOpenTrip: (String, String) -> Unit) {
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth().padding(horizontal = 16.dp), padding = PaddingValues(vertical = 4.dp)) {
         if (board.nextDay && board.departures.isNotEmpty()) {
@@ -380,7 +383,7 @@ private fun DeparturesPanel(board: StationBoard, onOpenLine: (String) -> Unit) {
         }
         board.departures.forEachIndexed { index, departure ->
             if (index > 0) Hairline()
-            CalmRow(onClick = { onOpenLine(departure.line.code) }, padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+            CalmRow(onClick = { onOpenTrip(departure.line.code, departure.headsign) }, padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
                 LineBadge(departure.line, strong = true)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
