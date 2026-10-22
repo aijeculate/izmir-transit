@@ -59,4 +59,23 @@
     <string name="widget_config_first">First favourite</string>
     <string name="widget_config_first_hint">Whichever stop is at the top of your favourites</string>
     <string name="widget_no_departures">No more departures today.</string>
+    <string name="trip_title">Trip to %1$s</string>
+    <string name="trip_destination">your destination</string>
+    <string name="trip_starting">Waiting for your location…</string>
+    <string name="trip_walk_to">Walk to %1$s (%2$d m)</string>
+    <string name="trip_then_take">then %1$s towards %2$s at %3$s</string>
+    <string name="trip_wait_for">Wait for %1$s towards %2$s, %3$s</string>
+    <plurals name="trip_stops_left">
+        <item quantity="one">%1$d stop to %2$s</item>
+        <item quantity="other">%1$d stops to %2$s</item>
+    </plurals>
+    <string name="trip_next_stop">next: %1$s</string>
+    <string name="trip_get_off_next">Get off at the next stop: %1$s</string>
+    <string name="trip_get_off_now">Get off now: %1$s.</string>
+    <string name="trip_change_to">Change to %1$s towards %2$s.</string>
+    <string name="trip_walk_destination">Walk %2$d m to %1$s</string>
+    <string name="trip_arrived">You\'ve arrived.</string>
+    <string name="trip_stop">Stop tracking</string>
+    <string name="trip_channel_tracking">Trip tracking</string>
+    <string name="trip_channel_alerts">Trip alerts</string>
 </resources>

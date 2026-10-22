@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(projects.core.map)
+    implementation(projects.core.location)
     implementation(libs.compose.material.icons.extended)
 }
 

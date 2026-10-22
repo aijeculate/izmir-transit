@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
@@ -90,9 +91,25 @@ import com.aijec.izmirtransit.core.ui.tabular
 @Composable
 fun PlannerRoute(onBack: () -> Unit, onOpenStop: (String) -> Unit, viewModel: PlannerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val tracking by viewModel.tracking.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.values.any { it }) viewModel.useMyLocation()
+    }
+    // Trip tracking counts stops, so it needs precise location; notifications carry its alerts.
+    val tripPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+        if (viewModel.hasPreciseLocation()) viewModel.startTrip()
+        else Toast.makeText(context, R.string.planner_trip_needs_precise, Toast.LENGTH_LONG).show()
+    }
+    fun startTrip() {
+        val needed = buildList {
+            if (!viewModel.hasPreciseLocation()) addAll(LocationProvider.PERMISSIONS)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+                androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (needed.isEmpty()) viewModel.startTrip() else tripPermissions.launch(needed.toTypedArray())
     }
     LaunchedEffect(state.message) {
         val message = state.message ?: return@LaunchedEffect
@@ -114,6 +131,9 @@ fun PlannerRoute(onBack: () -> Unit, onOpenStop: (String) -> Unit, viewModel: Pl
         onTime = viewModel::setTime,
         onStartSaving = viewModel::startSaving,
         onClearRecents = viewModel::clearRecents,
+        tracking = tracking,
+        onStartTrip = ::startTrip,
+        onStopTrip = viewModel::stopTrip,
         onSelect = viewModel::select,
         onAskLocation = { viewModel.consumeMessage(); permission.launch(LocationProvider.PERMISSIONS) },
         onOpenStop = onOpenStop,
@@ -142,6 +162,9 @@ fun PlannerScreen(
     onOpenStop: (String) -> Unit,
     onStartSaving: (SavedKind) -> Unit = {},
     onClearRecents: () -> Unit = {},
+    tracking: Boolean = false,
+    onStartTrip: () -> Unit = {},
+    onStopTrip: () -> Unit = {},
 ) {
     val journey = state.selectedJourney
     val from = state.from
@@ -176,7 +199,8 @@ fun PlannerScreen(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ResultsPanel(state, onTime, onSelect, onAskLocation)
+                if (tracking) TrackingBanner(onStopTrip)
+                ResultsPanel(state, onTime, onSelect, onAskLocation, if (tracking) null else onStartTrip)
             }
         }
     }
@@ -331,7 +355,27 @@ private fun suggestionKey(s: Suggestion): String = when (s) {
 }
 
 @Composable
-private fun ResultsPanel(state: PlannerUiState, onTime: (TimeMode, LocalDateTime?) -> Unit, onSelect: (Int) -> Unit, onAskLocation: () -> Unit) {
+private fun TrackingBanner(onStop: () -> Unit) {
+    val colors = Calm.colors
+    Panel(Modifier.fillMaxWidth(), glass = true, padding = PaddingValues(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Navigation, contentDescription = null, tint = colors.accent, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.planner_trip_tracking), style = MaterialTheme.typography.bodyMedium, color = colors.text, modifier = Modifier.weight(1f))
+            TextButton(onClick = onStop) { Text(stringResource(R.string.planner_trip_stop), color = colors.accent) }
+        }
+    }
+}
+
+@Composable
+private fun ResultsPanel(
+    state: PlannerUiState,
+    onTime: (TimeMode, LocalDateTime?) -> Unit,
+    onSelect: (Int) -> Unit,
+    onAskLocation: () -> Unit,
+    /** Null while a trip is already being tracked. */
+    onStartTrip: (() -> Unit)?,
+) {
     val colors = Calm.colors
     var picking by remember { mutableStateOf<TimeMode?>(null) }
     picking?.let { mode ->
@@ -406,7 +450,12 @@ private fun ResultsPanel(state: PlannerUiState, onTime: (TimeMode, LocalDateTime
                 }
                 itemsIndexed(state.journeys) { index, journey ->
                     if (index > 0) Hairline()
-                    JourneyCard(journey, expanded = index == state.selected, onClick = { onSelect(index) })
+                    JourneyCard(
+                        journey,
+                        expanded = index == state.selected,
+                        onClick = { onSelect(index) },
+                        onStartTrip = onStartTrip?.takeIf { journey.rides.isNotEmpty() },
+                    )
                 }
             }
             state.from == null || state.to == null -> Text(
@@ -457,7 +506,7 @@ private fun TimeDialog(mode: TimeMode, initial: LocalDateTime, onDismiss: () -> 
 }
 
 @Composable
-private fun JourneyCard(journey: Journey, expanded: Boolean, onClick: () -> Unit) {
+private fun JourneyCard(journey: Journey, expanded: Boolean, onClick: () -> Unit, onStartTrip: (() -> Unit)?) {
     val colors = Calm.colors
     Column(
         Modifier
@@ -501,6 +550,14 @@ private fun JourneyCard(journey: Journey, expanded: Boolean, onClick: () -> Unit
         if (expanded) {
             Spacer(Modifier.size(8.dp))
             journey.legs.forEach { leg -> LegRow(leg) }
+            if (onStartTrip != null) {
+                Spacer(Modifier.size(8.dp))
+                com.aijec.izmirtransit.core.ui.PillButton(
+                    stringResource(R.string.planner_trip_start),
+                    onClick = onStartTrip,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

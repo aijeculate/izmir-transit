@@ -8,7 +8,13 @@ import android.location.LocationManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.aijec.izmirtransit.core.model.geo.LatLng
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
+import android.os.Looper
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -54,6 +60,35 @@ class LocationProvider @Inject constructor(@ApplicationContext private val conte
         }
         val location = fresh ?: runCatching { client.lastLocation.await() }.getOrNull()
         return location?.let { LocationResult.Found(LatLng(it.latitude, it.longitude)) } ?: LocationResult.Unavailable
+    }
+
+    /** Precise location, which trip tracking needs to count stops. */
+    fun hasPrecisePermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    /** A fix with its accuracy in metres. */
+    data class Fix(val location: LatLng, val accuracyMeters: Float?)
+
+    /**
+     * Continuous high-accuracy fixes every few seconds, for trip tracking. Stops when the
+     * collector stops; emits nothing without permission.
+     */
+    @SuppressLint("MissingPermission") // checked by hasPermission()
+    fun updates(intervalMillis: Long = 5_000): Flow<Fix> = callbackFlow {
+        if (!hasPermission()) {
+            close()
+            return@callbackFlow
+        }
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMillis)
+            .setMinUpdateIntervalMillis(intervalMillis / 2)
+            .build()
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                result.lastLocation?.let { trySend(Fix(LatLng(it.latitude, it.longitude), if (it.hasAccuracy()) it.accuracy else null)) }
+            }
+        }
+        client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        awaitClose { client.removeLocationUpdates(callback) }
     }
 
     companion object {

@@ -55,4 +55,8 @@
     <string name="planner_set_work_hint">Search for your work address</string>
     <string name="planner_recents">Recent</string>
     <string name="planner_recents_clear">Clear</string>
+    <string name="planner_trip_start">Start trip</string>
+    <string name="planner_trip_stop">Stop</string>
+    <string name="planner_trip_tracking">Following your trip; a notification will tell you when to get off.</string>
+    <string name="planner_trip_needs_precise">Trip tracking needs precise location to count stops.</string>
 </resources>

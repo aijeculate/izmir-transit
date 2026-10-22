@@ -60,4 +60,23 @@
     <string name="widget_config_first">İlk favori</string>
     <string name="widget_config_first_hint">Favorilerinin en üstündeki durak</string>
     <string name="widget_no_departures">Bugün başka sefer yok.</string>
+    <string name="trip_title">Yolculuk: %1$s</string>
+    <string name="trip_destination">varış noktası</string>
+    <string name="trip_starting">Konum bekleniyor…</string>
+    <string name="trip_walk_to">%1$s durağına yürü (%2$d m)</string>
+    <string name="trip_then_take">sonra %1$s, %2$s yönü, %3$s</string>
+    <string name="trip_wait_for">%1$s hattını bekle: %2$s yönü, %3$s</string>
+    <plurals name="trip_stops_left">
+        <item quantity="one">%2$s için %1$d durak kaldı</item>
+        <item quantity="other">%2$s için %1$d durak kaldı</item>
+    </plurals>
+    <string name="trip_next_stop">sıradaki: %1$s</string>
+    <string name="trip_get_off_next">Sonraki durakta in: %1$s</string>
+    <string name="trip_get_off_now">Şimdi in: %1$s.</string>
+    <string name="trip_change_to">Aktarma: %1$s, %2$s yönü.</string>
+    <string name="trip_walk_destination">%1$s için %2$d m yürü</string>
+    <string name="trip_arrived">Vardın. İyi günler!</string>
+    <string name="trip_stop">Takibi bitir</string>
+    <string name="trip_channel_tracking">Yolculuk takibi</string>
+    <string name="trip_channel_alerts">Yolculuk uyarıları</string>
 </resources>

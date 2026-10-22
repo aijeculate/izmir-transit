@@ -32,6 +32,11 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Clock
+import com.aijec.izmirtransit.core.data.trip.ActiveTrip
+import com.aijec.izmirtransit.core.data.trip.TripTracking
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -87,12 +92,30 @@ class PlannerViewModel @Inject constructor(
     private val places: PlacesRepository,
     private val networks: NetworkRepository,
     private val savedPlaces: SavedPlacesRepository,
+    private val trips: TripTracking,
     private val location: LocationProvider,
     private val clock: Clock,
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val _state = MutableStateFlow(PlannerUiState(placesEnabled = places.enabled))
     val state: StateFlow<PlannerUiState> = _state.asStateFlow()
+
+    /** A trip is being followed (by the tracking service). */
+    val tracking: StateFlow<Boolean> = trips.active
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), trips.active.value != null)
+
+    fun hasPreciseLocation(): Boolean = location.hasPrecisePermission()
+
+    /** Follows the selected journey with GPS and notifications. */
+    fun startTrip() {
+        val state = _state.value
+        val journey = state.selectedJourney ?: return
+        val name = state.to?.name.orEmpty()
+        trips.start(ActiveTrip(journey, name))
+    }
+
+    fun stopTrip() = trips.stop()
     private val query = MutableStateFlow("")
     private var planJob: Job? = null
 

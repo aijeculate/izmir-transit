@@ -21,11 +21,12 @@
 
 - **Live buses** on the map, gliding between updates, for all 446 ESHOT lines.
 - **Every stop and station**: ESHOT stops, Metro and İZBAN stations, tram stops and ferry piers. Zoom in to see them all; tap one for its lines and interchanges.
-- **Arrivals** at bus stops (stops away and minutes), and **departure boards** at stations and piers.
-- **Timetables** for every line, with the next departure highlighted; for rail and ferries from any station.
-- **Trip planner**: type an address, a place or a stop and get which stop to walk to, which bus or train to take and where to change. It runs entirely on the phone.
+- **Arrivals** at bus stops (stops away and minutes), and **departure boards** at stations and piers, with the train that "just left" in case it's running late.
+- **Timetables** for every line, with the next departure highlighted; for rail and ferries from any station. Metro and tram times follow the operators' current service plans; public holidays and bayrams use the holiday timetable.
+- **Trip planner**: type an address, a place or a stop and get which stop to walk to, which bus or train to take and where to change. Leave now, leave at or arrive by a time; save home and work for one-tap trips. It runs entirely on the phone (multi-criteria RAPTOR: time, changes and walking).
+- **Trip tracking**: start a planned trip and a notification tells you where to walk, how many stops are left and when to get off.
 - **Interchanges** such as Hilal and Halkapınar (Metro ↔ İZBAN), Konak (Metro, tram, ferry).
-- **Favourites** with live arrivals on the home screen (tap Edit to reorder or remove them), a home-screen widget, and an alert when your bus is a few stops away.
+- **Favourites** with live arrivals on the home screen (tap Edit to reorder or remove them, lines and stops in any order), home-screen widgets that each show a stop or station you choose, and an alert when your bus is a few stops away.
 - **Update check**: once a day the app asks GitHub for the latest release and offers it; switch it off or check by hand in Settings.
 - **Works offline**: lines, stops, routes and timetables ship inside the app and refresh weekly on Wi-Fi.
 - **Turkish and English**, light / dark / AMOLED themes, a calm and a liquid-glass style.
