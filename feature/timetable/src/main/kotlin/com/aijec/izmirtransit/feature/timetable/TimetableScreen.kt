@@ -55,6 +55,8 @@ import com.aijec.izmirtransit.core.data.repository.TimetableRepository
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.ServiceDay
 import com.aijec.izmirtransit.core.ui.AnnouncementCard
+import com.aijec.izmirtransit.core.ui.HolidayNotice
+import com.aijec.izmirtransit.core.data.repository.Holidays
 import com.aijec.izmirtransit.core.ui.Calm
 import com.aijec.izmirtransit.core.ui.Dot
 import com.aijec.izmirtransit.core.ui.LineBadge
@@ -110,6 +112,9 @@ fun TimetableScreen(
                 leading = { state.line?.let { LineBadge(it, strong = true) } ?: LineBadge(state.lineCode, strong = true) },
                 horizontalPadding = 0.dp,
             )
+        }
+        Holidays.on(TimetableRepository.localNow(java.time.Clock.systemUTC()).toLocalDate())?.let { holiday ->
+            fullWidth("holiday") { HolidayNotice(holiday.name, holiday.eve) }
         }
         state.announcements.forEachIndexed { index, announcement ->
             fullWidth("notice-$index") { AnnouncementCard(announcement, showLine = false) }

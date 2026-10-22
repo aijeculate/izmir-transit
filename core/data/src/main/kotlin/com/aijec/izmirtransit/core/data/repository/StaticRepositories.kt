@@ -267,10 +267,11 @@ class TimetableRepository @Inject constructor(private val database: IzmirDatabas
 
         fun localNow(clock: Clock): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), IZMIR_ZONE)
 
-        /** Public holidays are not modelled yet; they run the Sunday timetable. */
-        fun serviceDayFor(date: LocalDate): ServiceDay = when (date.dayOfWeek) {
-            DayOfWeek.SATURDAY -> ServiceDay.SATURDAY
-            DayOfWeek.SUNDAY -> ServiceDay.SUNDAY
+        /** Public holidays and bayram days run the Sunday timetable ([Holidays]); an arife runs its usual one. */
+        fun serviceDayFor(date: LocalDate): ServiceDay = when {
+            Holidays.on(date)?.eve == false -> ServiceDay.SUNDAY
+            date.dayOfWeek == DayOfWeek.SATURDAY -> ServiceDay.SATURDAY
+            date.dayOfWeek == DayOfWeek.SUNDAY -> ServiceDay.SUNDAY
             else -> ServiceDay.WEEKDAY
         }
 

@@ -339,6 +339,16 @@ fun EtaText(minutes: Int, modifier: Modifier = Modifier, uncertain: Boolean = fa
 }
 
 /** A route change or disruption notice: soft amber panel. */
+/**
+ * Today is a public holiday or a bayram eve: timetables show the Sunday plan, or the usual
+ * one on an eve, and the operators may run a special one.
+ */
+@Composable
+fun HolidayNotice(name: String, eve: Boolean, modifier: Modifier = Modifier) {
+    val text = stringResource(if (eve) R.string.ui_holiday_eve else R.string.ui_holiday, name)
+    AnnouncementCard(Announcement(lineCode = "", title = text, startsAt = null, endsAt = null), showLine = false, modifier = modifier)
+}
+
 @Composable
 fun AnnouncementCard(announcement: Announcement, showLine: Boolean, modifier: Modifier = Modifier) {
     val colors = Calm.colors

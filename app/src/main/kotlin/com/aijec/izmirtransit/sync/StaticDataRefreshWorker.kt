@@ -17,6 +17,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -32,10 +33,12 @@ class StaticDataRefreshWorker(context: Context, params: WorkerParameters) : Coro
         fun refresher(): StaticDataRefresher
         fun lineRepository(): LineRepository
         fun networkRepository(): NetworkRepository
+        fun httpClient(): OkHttpClient
     }
 
     override suspend fun doWork(): Result {
         val deps = EntryPointAccessors.fromApplication(applicationContext, Dependencies::class.java)
+        HolidayFile.refresh(applicationContext, deps.httpClient())
         return try {
             when (val outcome = deps.refresher().refresh()) {
                 is StaticDataRefresher.Outcome.Updated -> {

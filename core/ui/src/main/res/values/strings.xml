@@ -31,4 +31,6 @@
     <string name="ui_stop_tram">Tramvay durağı</string>
     <string name="ui_stop_izban">İZBAN istasyonu</string>
     <string name="ui_stop_ferry">İskele</string>
+    <string name="ui_holiday">Bugün %1$s: Pazar tarifesi gösteriliyor. Bayram ve tatil günlerinde seferler farklı olabilir.</string>
+    <string name="ui_holiday_eve">Bugün %1$s: öğleden sonra seferler azalabilir.</string>
 </resources>

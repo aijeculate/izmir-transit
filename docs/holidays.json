@@ -1,0 +1,10 @@
+{
+  "note": "Bayram dates for the İzmir Transit app (first day and length; the day before is the arife). Fixed national holidays are built into the app. Source: Diyanet İşleri Başkanlığı calendar.",
+  "updated": "2026-10-23",
+  "bayrams": [
+    { "name": "Ramazan Bayramı", "start": "2026-03-20", "days": 3 },
+    { "name": "Kurban Bayramı", "start": "2026-05-27", "days": 4 },
+    { "name": "Ramazan Bayramı", "start": "2027-03-09", "days": 3 },
+    { "name": "Kurban Bayramı", "start": "2027-05-16", "days": 4 }
+  ]
+}

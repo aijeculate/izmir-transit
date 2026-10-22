@@ -30,4 +30,6 @@
     <string name="ui_stop_tram">Tram stop</string>
     <string name="ui_stop_izban">İZBAN station</string>
     <string name="ui_stop_ferry">Ferry pier</string>
+    <string name="ui_holiday">Today is %1$s: showing the Sunday timetable. Services may differ on holidays.</string>
+    <string name="ui_holiday_eve">Today is %1$s (a half-day holiday): there may be fewer services in the afternoon.</string>
 </resources>

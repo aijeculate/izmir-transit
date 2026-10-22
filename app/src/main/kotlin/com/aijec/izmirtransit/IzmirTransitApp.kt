@@ -3,6 +3,7 @@ package com.aijec.izmirtransit
 import android.app.Application
 import android.content.pm.ApplicationInfo
 import android.os.StrictMode
+import com.aijec.izmirtransit.sync.HolidayFile
 import com.aijec.izmirtransit.sync.StaticDataRefreshWorker
 import dagger.hilt.android.HiltAndroidApp
 import com.google.android.gms.maps.MapsInitializer
@@ -20,5 +21,7 @@ class IzmirTransitApp : Application() {
         // Marker bitmaps are built before the first map appears; that needs Maps initialised.
         MapsInitializer.initialize(this, MapsInitializer.Renderer.LATEST) {}
         StaticDataRefreshWorker.schedule(this)
+        // Bayram dates fetched since this build; a tiny file, read off the main thread.
+        Thread { HolidayFile.load(this) }.start()
     }
 }

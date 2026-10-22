@@ -61,7 +61,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aijec.izmirtransit.core.data.repository.Holidays
 import com.aijec.izmirtransit.core.data.repository.TimetableRepository
+import com.aijec.izmirtransit.core.ui.HolidayNotice
 import com.aijec.izmirtransit.core.model.ApproachingBus
 import com.aijec.izmirtransit.core.model.TransitMode
 import com.aijec.izmirtransit.core.model.Direction
@@ -227,6 +229,11 @@ fun StopScreen(
         }
         items(state.announcements, key = { "notice-${it.lineCode}-${it.title.hashCode()}" }) { announcement ->
             AnnouncementCard(announcement, showLine = true, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        }
+        if (board != null) {
+            Holidays.on(TimetableRepository.localNow(java.time.Clock.systemUTC()).toLocalDate())?.let { holiday ->
+                item("holiday") { HolidayNotice(holiday.name, holiday.eve, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+            }
         }
         if (board != null && board.justLeft.isNotEmpty()) {
             item("just-left-label") {
