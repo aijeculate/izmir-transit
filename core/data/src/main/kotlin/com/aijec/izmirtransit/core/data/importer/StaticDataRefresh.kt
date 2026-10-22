@@ -233,8 +233,19 @@ class OtherModesDownloader(
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * The feed's GTFS, plus the website's service bands beside it ([RailFrequencies]) for
+     * metro and tram. Without the bands the GTFS times are used, so their failure is not fatal.
+     */
     suspend fun downloadRail(feed: RailFeed, dir: File): File = withContext(Dispatchers.IO) {
         dir.mkdirs()
+        RailFrequencies.url(feed)?.let { url ->
+            val target = RailFrequencies.file(feed, dir)
+            runCatching {
+                fetch(url, target)
+                RailFrequencies.parse(target.readText()).also { check(it.isNotEmpty()) { "no bands" } }
+            }.onFailure { target.delete() }
+        }
         File(dir, feed.fileName).also { fetch(feed.url, it) }
     }
 

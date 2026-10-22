@@ -43,6 +43,9 @@ enum class RailFeed(val mode: TransitMode, val fileName: String, val url: String
  *   so its direction comes from geography: southbound (towards Selçuk) is outbound.
  * - Every stop time becomes a [StopDepartureEntity], the station board; each trip's first
  *   departure goes in the line timetable.
+ * - Where the metro and tram websites publish newer service bands ([RailFrequencies]),
+ *   a line's trips on that day are laid out on the bands instead, with the GTFS's stations
+ *   and running times.
  */
 object RailImporter {
     private val GTFS_DATE = DateTimeFormatter.BASIC_ISO_DATE
@@ -70,8 +73,14 @@ object RailImporter {
     private class Trip(val lineCode: String, val days: Set<ServiceDay>, val directionId: Int, val headsign: String, val wheelchair: Boolean)
     private class StopTime(val sequence: Int, val stopId: String, val minute: Int)
     private class RailStop(val name: String, val location: LatLng)
+    private class ResolvedTrip(val trip: Trip, val direction: Direction, val calls: List<StopTime>)
 
-    fun build(feed: RailFeed, zipFile: File, now: Instant = Instant.now()): ImportResult = ZipFile(zipFile).use { zip ->
+    fun build(
+        feed: RailFeed,
+        zipFile: File,
+        now: Instant = Instant.now(),
+        frequencies: List<RailFrequencies.Band>? = RailFrequencies.readBeside(feed, zipFile),
+    ): ImportResult = ZipFile(zipFile).use { zip ->
         fun reader(name: String) = zip.getEntry(name)?.let { InputStreamReader(zip.getInputStream(it), Charsets.UTF_8) }
             ?: error("$name missing from ${zipFile.name}")
         val issues = ImportIssues()
@@ -144,8 +153,7 @@ object RailImporter {
         }
 
         // Resolve each trip's direction and ordered calls.
-        class ResolvedTrip(val trip: Trip, val direction: Direction, val calls: List<StopTime>)
-        val resolved = stopTimes.mapNotNull { (tripId, times) ->
+        val gtfsTrips = stopTimes.mapNotNull { (tripId, times) ->
             val calls = times.sortedBy { it.sequence }
             if (calls.size < 2) return@mapNotNull null.also { issues.add("trip with fewer than 2 stops", tripId) }
             val trip = trips.getValue(tripId)
@@ -156,6 +164,78 @@ object RailImporter {
                 if (trip.directionId == 0) Direction.OUTBOUND else Direction.RETURN
             }
             ResolvedTrip(trip, direction, calls)
+        }
+        val lineCodesInFeed = routes.values.map { it.lineCode }.distinct()
+        val resolved = if (frequencies.isNullOrEmpty()) gtfsTrips else {
+            // Lay each banded line's trips out on the bands, one template trip per pattern
+            // (the GTFS's most common stop sequence for that pattern and direction).
+            class Generated(val trip: ResolvedTrip, val everyMinutes: Double, val stops: Int)
+            val replaced = HashSet<Pair<String, ServiceDay>>()
+            val generated = ArrayList<Generated>()
+            for ((siteName, bands) in frequencies.groupBy { it.lineName }) {
+                val lineCode = RailFrequencies.lineCodeFor(feed, siteName, lineCodesInFeed)
+                if (lineCode == null) {
+                    warnings += "${feed.name}: no line for website schedule \"$siteName\""
+                    continue
+                }
+                val ends = RailFrequencies.terminals(siteName)
+                for (direction in Direction.entries) {
+                    val candidates = gtfsTrips.filter { t ->
+                        t.trip.lineCode == lineCode && t.direction == direction && (
+                            ends == null || RailFrequencies.sameEnds(
+                                ends,
+                                stops.getValue(t.calls.first().stopId).name,
+                                stops.getValue(t.calls.last().stopId).name,
+                            )
+                            )
+                    }
+                    if (candidates.isEmpty()) continue
+                    val template = candidates.groupBy { t -> t.calls.map { it.stopId } }.maxBy { it.value.size }.value.first()
+                    val first = template.calls.first().minute
+                    for ((day, dayBands) in bands.groupBy { it.day }) {
+                        replaced += lineCode to day
+                        val every = dayBands.minOf { it.everyMinutes }
+                        for (start in RailFrequencies.departures(dayBands)) {
+                            val trip = ResolvedTrip(
+                                Trip(lineCode, setOf(day), template.trip.directionId, template.trip.headsign, template.trip.wheelchair),
+                                direction,
+                                template.calls.map { StopTime(it.sequence, it.stopId, start + it.minute - first) },
+                            )
+                            generated += Generated(trip, every, template.calls.size)
+                        }
+                    }
+                }
+            }
+            if (generated.isEmpty()) {
+                gtfsTrips
+            } else {
+                // Two patterns can share track (the metro's every-4-minutes trunk includes the
+                // every-8 trains that go on to Narlıdere): longer patterns go first, and a
+                // shorter trip passing its first station within half its headway of one
+                // already kept is the same train.
+                val kept = ArrayList<ResolvedTrip>()
+                val passing = HashMap<Triple<String, Direction, ServiceDay>, MutableMap<String, MutableList<Int>>>()
+                for (g in generated.sortedByDescending { it.stops }) {
+                    val day = g.trip.trip.days.single()
+                    val times = passing.getOrPut(Triple(g.trip.trip.lineCode, g.trip.direction, day)) { HashMap() }
+                    val firstCall = g.trip.calls.first()
+                    val same = times[firstCall.stopId].orEmpty().any { kotlin.math.abs(it - firstCall.minute) < g.everyMinutes / 2 }
+                    if (same) continue
+                    kept += g.trip
+                    g.trip.calls.forEach { times.getOrPut(it.stopId) { ArrayList() } += it.minute }
+                }
+                warnings += "${feed.name}: ${replaced.size} line-days timed from the website's service bands"
+                // GTFS trips keep only the days the website doesn't cover.
+                val rest = gtfsTrips.mapNotNull { t ->
+                    val days = t.trip.days.filterTo(HashSet()) { (t.trip.lineCode to it) !in replaced }
+                    when {
+                        days.isEmpty() -> null
+                        days.size == t.trip.days.size -> t
+                        else -> ResolvedTrip(Trip(t.trip.lineCode, days, t.trip.directionId, t.trip.headsign, t.trip.wheelchair), t.direction, t.calls)
+                    }
+                }
+                rest + kept
+            }
         }
         val byLineDirection = resolved.groupBy { it.trip.lineCode to it.direction }
 
@@ -176,7 +256,7 @@ object RailImporter {
             shapes += ShapeEntity(mode, key.first, key.second.datasetCode, PolylineCodec.encode(points), MeasuredPolyline(points).lengthMeters)
         }
 
-        val lineCodes = routes.values.map { it.lineCode }.distinct().filter { code -> byLineDirection.keys.any { it.first == code } }
+        val lineCodes = lineCodesInFeed.filter { code -> byLineDirection.keys.any { it.first == code } }
         val lines = lineCodes.map { code ->
             val route = routes.values.first { it.lineCode == code }
             val outbound = order[code to Direction.OUTBOUND] ?: order[code to Direction.RETURN].orEmpty()
