@@ -40,8 +40,8 @@
     </plurals>
     <string name="planner_leave_at">Leave at</string>
     <string name="planner_arrive_by">Arrive by</string>
-    <string name="planner_leave_at_at">Leave %1$s at %2$s</string>
-    <string name="planner_arrive_by_at">Arrive %1$s by %2$s</string>
+    <string name="planner_leave_at_at">Leave at %2$s · %1$s</string>
+    <string name="planner_arrive_by_at">Arrive by %2$s · %1$s</string>
     <string name="planner_today">Today</string>
     <string name="planner_tomorrow">Tomorrow</string>
     <string name="planner_time_ok">OK</string>
@@ -59,4 +59,6 @@
     <string name="planner_trip_stop">Stop</string>
     <string name="planner_trip_tracking">Following your trip; a notification will tell you when to get off.</string>
     <string name="planner_trip_needs_precise">Trip tracking needs precise location to count stops.</string>
+    <string name="planner_remove_home">Remove saved home</string>
+    <string name="planner_remove_work">Remove saved work</string>
 </resources>

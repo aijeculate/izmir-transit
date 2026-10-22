@@ -236,8 +236,7 @@ class LineMapViewModel @Inject constructor(
                 if (toward != null && !isBusCode(code) && code == pinnedLine) {
                     // Of the directions passing the stop, the one where this train ends at [toward].
                     val trimmed = routes.firstNotNullOfOrNull { route ->
-                        if (fromStop != null && route.stops.dropLast(1).none { it.code == fromStop }) null
-                        else lines.tripRoute(route, toward)
+                        lines.tripRoute(route, toward, fromStop)
                     }
                     if (trimmed != null) {
                         routes = routes.map { if (it.direction == trimmed.direction) trimmed else it }

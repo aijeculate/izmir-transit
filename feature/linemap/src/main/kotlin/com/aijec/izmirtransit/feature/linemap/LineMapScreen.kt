@@ -632,11 +632,15 @@ private fun LinePanel(
         state.line?.let { line ->
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val available = if (line.mode == TransitMode.BUS) Direction.entries else state.routes.map { it.direction }
+                // Rail and ferry name the route's last station: a short train ends before the line does.
+                fun towards(direction: Direction): String =
+                    state.routes.takeIf { line.mode != TransitMode.BUS }?.firstOrNull { it.direction == direction }?.stops?.lastOrNull()?.name
+                        ?: if (direction == Direction.OUTBOUND) line.destination else line.origin
                 if (bothDirections || available.size < 2) {
                     available.forEach { direction ->
                         DirectionLegend(
                             direction,
-                            stringResource(R.string.linemap_towards, if (direction == Direction.OUTBOUND) line.destination else line.origin),
+                            stringResource(R.string.linemap_towards, towards(direction)),
                             state.nextDepartures[direction],
                         )
                     }
@@ -646,7 +650,7 @@ private fun LinePanel(
                         Box(Modifier.weight(1f)) {
                             DirectionLegend(
                                 state.direction,
-                                stringResource(R.string.linemap_towards, if (state.direction == Direction.OUTBOUND) line.destination else line.origin),
+                                stringResource(R.string.linemap_towards, towards(state.direction)),
                                 state.nextDepartures[state.direction],
                             )
                         }

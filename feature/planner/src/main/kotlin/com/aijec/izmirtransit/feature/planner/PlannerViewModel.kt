@@ -53,6 +53,8 @@ sealed interface Suggestion {
     /** Home or work; [place] is null until the user sets it. */
     data class Saved(val kind: SavedKind, val place: SavedPlace?) : Suggestion
     data class Recent(val place: SavedPlace) : Suggestion
+    /** While choosing a new home or work: forget the saved one instead. */
+    data class ClearSaved(val kind: SavedKind) : Suggestion
 }
 
 /** Leave now, leave at a time, or arrive by a time. */
@@ -171,7 +173,14 @@ class PlannerViewModel @Inject constructor(
 
     /** Pick a new place for home or work: the next search result chosen is saved. */
     fun startSaving(kind: SavedKind) {
-        _state.update { it.copy(saving = kind, query = "", suggestions = emptyList(), editing = it.editing ?: Field.TO) }
+        _state.update {
+            it.copy(
+                saving = kind,
+                query = "",
+                suggestions = if (it.saved[kind] != null) listOf(Suggestion.ClearSaved(kind)) else emptyList(),
+                editing = it.editing ?: Field.TO,
+            )
+        }
         query.value = ""
     }
 
@@ -206,6 +215,10 @@ class PlannerViewModel @Inject constructor(
                 if (place == null) startSaving(suggestion.kind) else set(field, Endpoint(place.name, place.location), remember = false)
             }
             is Suggestion.Recent -> set(field, Endpoint(suggestion.place.name, suggestion.place.location))
+            is Suggestion.ClearSaved -> {
+                clearSaved(suggestion.kind)
+                edit(field)
+            }
         }
     }
 

@@ -60,4 +60,6 @@
     <string name="planner_trip_stop">Bitir</string>
     <string name="planner_trip_tracking">Yolculuğun takip ediliyor; ne zaman ineceğini bildirimle söyleyeceğim.</string>
     <string name="planner_trip_needs_precise">Durakları sayabilmek için tam konum izni gerekiyor.</string>
+    <string name="planner_remove_home">Kayıtlı evi sil</string>
+    <string name="planner_remove_work">Kayıtlı işi sil</string>
 </resources>

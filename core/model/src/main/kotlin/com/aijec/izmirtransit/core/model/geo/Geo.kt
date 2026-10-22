@@ -35,6 +35,9 @@ data class BoundingBox(
 const val EARTH_RADIUS_METERS = 6_371_008.8
 internal const val METERS_PER_DEGREE = EARTH_RADIUS_METERS * PI / 180.0
 
+/** A stop this close to a route is on it (stops sit up to ~20 m off the drawn line). */
+private const val NEAR_METERS = 50.0
+
 internal fun Double.toRadians() = this * PI / 180.0
 
 fun distanceMeters(a: LatLng, b: LatLng): Double {
@@ -87,7 +90,9 @@ class MeasuredPolyline(val points: List<LatLng>) {
 
     /**
      * Like [project], but only onto the part of the line from [fromMeters] on: stops taken in
-     * order then never snap back to an earlier pass of a looping route.
+     * order then never snap back to an earlier pass of a looping route. The first stretch
+     * that passes within [NEAR_METERS] wins over a closer one further on, so a stop near a
+     * loop's start isn't snapped to its end (line 27 timed nine stops at zero minutes).
      */
     fun projectAfter(point: LatLng, fromMeters: Double): PolylineProjection? {
         if (points.size < 2) return project(point)
@@ -95,6 +100,7 @@ class MeasuredPolyline(val points: List<LatLng>) {
         val kx = METERS_PER_DEGREE * cos(point.latitude.toRadians())
         val ky = METERS_PER_DEGREE
         var best: PolylineProjection? = null
+        var near: PolylineProjection? = null
         for (i in start until points.size - 1) {
             val a = points[i]
             val b = points[i + 1]
@@ -109,12 +115,14 @@ class MeasuredPolyline(val points: List<LatLng>) {
             val dx = apx - t * abx
             val dy = apy - t * aby
             val distance = sqrt(dx * dx + dy * dy)
+            if (near != null && distance > NEAR_METERS) break
             if (best == null || distance < best.distanceFromLineMeters) {
                 val snapped = LatLng(a.latitude + t * (b.latitude - a.latitude), a.longitude + t * (b.longitude - a.longitude))
                 best = PolylineProjection(cumulative[i] + t * segmentLength, distance, snapped)
             }
+            if (distance <= NEAR_METERS && (near == null || distance < near.distanceFromLineMeters)) near = best
         }
-        return best
+        return near ?: best
     }
 
     /** The part of the line between two distances along it, for drawing a ride. */

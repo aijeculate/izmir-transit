@@ -105,6 +105,9 @@ class RailAndFerryImporterTest {
         assertEquals(2, short.shape.size)
         assertEquals(routes.getValue(Direction.OUTBOUND), lines.tripRoute(routes.getValue(Direction.OUTBOUND), "Cumaovası"))
         assertEquals(null, lines.tripRoute(routes.getValue(Direction.OUTBOUND), "Nowhere"))
+        // From a station that train doesn't leave from (Biçerova is its end), no match.
+        assertEquals(null, lines.tripRoute(routes.getValue(Direction.OUTBOUND), "Biçerova", fromStop = "I2"))
+        assertEquals(listOf("I1", "I2"), lines.tripRoute(routes.getValue(Direction.OUTBOUND), "Biçerova", fromStop = "I1")!!.stops.map { it.code })
 
         // Weekday board at Biçerova: the 06:10 short trip ends there, so it isn't a departure.
         val weekday = stops.scheduledDepartures("I2", ServiceDay.WEEKDAY, 0)

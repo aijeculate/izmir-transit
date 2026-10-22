@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Work
@@ -314,6 +315,11 @@ private fun SearchPanel(
                                     suggestion.place?.name?.ifBlank { stringResource(R.string.planner_dropped_pin) } ?: stringResource(R.string.planner_tap_to_set),
                                 )
                                 is Suggestion.Recent -> Triple(Icons.Filled.History, suggestion.place.name.ifBlank { stringResource(R.string.planner_dropped_pin) }, "")
+                                is Suggestion.ClearSaved -> Triple(
+                                    Icons.Filled.Close,
+                                    stringResource(if (suggestion.kind == SavedKind.HOME) R.string.planner_remove_home else R.string.planner_remove_work),
+                                    "",
+                                )
                             }
                             if (suggestion is Suggestion.StopResult) {
                                 ModeIcon(suggestion.stop.mode, size = 28.dp)
@@ -352,6 +358,7 @@ private fun suggestionKey(s: Suggestion): String = when (s) {
     is Suggestion.StopResult -> "stop-${s.stop.code}"
     is Suggestion.Saved -> "saved-${s.kind}"
     is Suggestion.Recent -> "recent-${s.place.latitude},${s.place.longitude},${s.place.name}"
+    is Suggestion.ClearSaved -> "clear-${s.kind}"
 }
 
 @Composable
@@ -454,7 +461,7 @@ private fun ResultsPanel(
                         journey,
                         expanded = index == state.selected,
                         onClick = { onSelect(index) },
-                        onStartTrip = onStartTrip?.takeIf { journey.rides.isNotEmpty() },
+                        onStartTrip = onStartTrip?.takeIf { journey.rides.isNotEmpty() && state.timeMode == TimeMode.NOW && !state.nextDay },
                     )
                 }
             }

@@ -106,12 +106,18 @@ class LineRepository @Inject constructor(private val database: IzmirDatabase) {
      * The part of a rail line one train runs: from the first station trains to [headsign]
      * leave from, to the station named [headsign]. A short İZBAN train "towards Tepeköy"
      * then shows Tepeköy as its end, not the line's far terminus. Null when nothing matches
-     * (buses, or a headsign that isn't a station on this route).
+     * (buses, or a headsign that isn't a station on this route). With [fromStop], only a
+     * direction where such a train leaves [fromStop] matches: İZBAN has trains to Çiğli both
+     * ways, and one from Hilal goes north.
      */
-    suspend fun tripRoute(route: LineRoute, headsign: String): LineRoute? = withContext(Dispatchers.Default) {
+    suspend fun tripRoute(route: LineRoute, headsign: String, fromStop: String? = null): LineRoute? = withContext(Dispatchers.Default) {
         val end = route.stops.indexOfLast { TurkishText.fold(it.name) == TurkishText.fold(headsign) }
         if (end <= 0) return@withContext null
         val served = database.stopDao().stationsWithHeadsign(route.lineCode, route.direction.datasetCode, headsign).toSet()
+        if (fromStop != null) {
+            val at = route.stops.indexOfFirst { it.code == fromStop }
+            if (fromStop !in served || at < 0 || at >= end) return@withContext null
+        }
         val start = route.stops.indexOfFirst { it.code in served }
         if (start < 0 || start >= end) return@withContext null
         if (start == 0 && end == route.stops.lastIndex) return@withContext route
