@@ -18,7 +18,7 @@
     </plurals>
     <string name="alert_stop">Durdur</string>
     <string name="widget_title">Favori durak</string>
-    <string name="widget_description">İlk favori durağının sıradaki otobüsleri</string>
+    <string name="widget_description">Seçtiğin favori durağın sıradaki otobüs ya da trenleri</string>
     <string name="widget_no_favourite">Uygulamada bir durağı ♥ ile favorilere ekle.</string>
     <string name="widget_refresh">Yenile</string>
     <string name="widget_unavailable">Canlı veri alınamadı.</string>
@@ -54,4 +54,10 @@
     <string name="update_body">İzmir Transit %1$s yayımlandı (sendeki %2$s). İndirip yükleyince favorilerin ve ayarların korunur.</string>
     <string name="update_download">İndir</string>
     <string name="update_later">Sonra</string>
+    <string name="widget_config_title">Widget</string>
+    <string name="widget_config_hint">Bu widget\'ta hangi durak ya da istasyon görünsün? Sonradan değiştirmek için widget\'a basılı tut.</string>
+    <string name="widget_config_section">Favori duraklar</string>
+    <string name="widget_config_first">İlk favori</string>
+    <string name="widget_config_first_hint">Favorilerinin en üstündeki durak</string>
+    <string name="widget_no_departures">Bugün başka sefer yok.</string>
 </resources>

@@ -12,6 +12,7 @@ import androidx.glance.ImageProvider
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
@@ -48,6 +49,7 @@ import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
 import com.aijec.izmirtransit.core.data.repository.StopRepository
 import com.aijec.izmirtransit.core.data.repository.TimetableRepository
 import com.aijec.izmirtransit.core.model.ApproachingBus
+import com.aijec.izmirtransit.core.model.ScheduledDeparture
 import com.aijec.izmirtransit.core.model.Stop
 import com.aijec.izmirtransit.core.model.isBusCode
 import dagger.hilt.EntryPoint
@@ -60,9 +62,11 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 /**
- * Home-screen widget: the first favourite bus stop and its next three arrivals. Widgets can't
- * poll every 15 s like the app, so it refreshes every 15 minutes (the Android minimum)
- * and whenever the refresh button is tapped; the "updated" time says how fresh it is.
+ * Home-screen widget: a stop chosen per widget ([WidgetConfigActivity]; the first favourite
+ * by default) with its next three arrivals, or a station or pier with its next three
+ * departures as clock times. Widgets can't poll every 15 s like the app, so it refreshes
+ * every 15 minutes (the Android minimum) and whenever the refresh button is tapped; the
+ * "updated" time says how fresh it is.
  */
 class FavouriteStopWidget : GlanceAppWidget() {
 
@@ -78,19 +82,25 @@ class FavouriteStopWidget : GlanceAppWidget() {
     private sealed interface Content {
         data object NoFavourite : Content
         data class Arrivals(val stop: Stop, val buses: List<ApproachingBus>?, val updatedAt: String) : Content
+        data class Board(val stop: Stop, val departures: List<ScheduledDeparture>, val updatedAt: String) : Content
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val deps = EntryPointAccessors.fromApplication(context, Dependencies::class.java)
-        // Bus stops only: a station board would go stale between the widget's 15-minute refreshes.
-        val stopCode = deps.favourites().favourites.first().stopCodes.firstOrNull(::isBusCode)
+        val appWidgetId = runCatching { GlanceAppWidgetManager(context).getAppWidgetId(id) }.getOrNull()
+        val favourites = deps.favourites().favourites.first().stopCodes
+        val stopCode = appWidgetId?.let { WidgetStops.get(context, it) } ?: favourites.firstOrNull()
         val stop = stopCode?.let { deps.stops().stop(it) }
-        val content = if (stop == null) {
-            Content.NoFavourite
-        } else {
-            val buses = (deps.live().stopArrivalsOnce(stop.code) as? FetchResult.Success)?.value
-            val time = TimetableRepository.localNow(deps.clock()).format(DateTimeFormatter.ofPattern("HH:mm"))
-            Content.Arrivals(stop, buses, time)
+        val now = TimetableRepository.localNow(deps.clock())
+        val time = now.format(DateTimeFormatter.ofPattern("HH:mm"))
+        val content = when {
+            stop == null -> Content.NoFavourite
+            isBusCode(stop.code) -> Content.Arrivals(stop, (deps.live().stopArrivalsOnce(stop.code) as? FetchResult.Success)?.value, time)
+            else -> {
+                // Clock times, not countdowns, so they stay right between refreshes.
+                val moment = TimetableRepository.serviceMoment(now)
+                Content.Board(stop, deps.stops().scheduledDepartures(stop.code, moment.serviceDay, moment.minutesAfterMidnight, BOARD_ROWS), time)
+            }
         }
         provideContent { Widget(context, content) }
     }
@@ -98,7 +108,11 @@ class FavouriteStopWidget : GlanceAppWidget() {
     @androidx.compose.runtime.Composable
     private fun Widget(context: Context, content: Content) {
         val openApp = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        if (content is Content.Arrivals) openApp.putExtra(MainActivity.EXTRA_OPEN_STOP, content.stop.code)
+        when (content) {
+            is Content.Arrivals -> openApp.putExtra(MainActivity.EXTRA_OPEN_STOP, content.stop.code)
+            is Content.Board -> openApp.putExtra(MainActivity.EXTRA_OPEN_STOP, content.stop.code)
+            Content.NoFavourite -> Unit
+        }
         Column(
             GlanceModifier
                 .fillMaxSize()
@@ -113,20 +127,19 @@ class FavouriteStopWidget : GlanceAppWidget() {
                     Spacer(GlanceModifier.height(6.dp))
                     Text(context.getString(R.string.widget_no_favourite), style = TextStyle(color = TextSecondary, fontSize = 13.sp))
                 }
-                is Content.Arrivals -> {
-                    Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            content.stop.name,
-                            maxLines = 1,
-                            style = TextStyle(color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium),
-                            modifier = GlanceModifier.defaultWeight(),
-                        )
-                        Image(
-                            ImageProvider(R.drawable.ic_widget_refresh),
-                            contentDescription = context.getString(R.string.widget_refresh),
-                            modifier = GlanceModifier.size(28.dp).padding(4.dp).clickable(actionRunCallback<RefreshAction>()),
-                        )
+                is Content.Board -> {
+                    Header(context, content.stop.name)
+                    Spacer(GlanceModifier.height(6.dp))
+                    if (content.departures.isEmpty()) {
+                        Text(context.getString(R.string.widget_no_departures), style = TextStyle(color = TextSecondary, fontSize = 13.sp))
+                    } else {
+                        content.departures.forEach { departure -> DepartureRow(departure) }
                     }
+                    Spacer(GlanceModifier.defaultWeight())
+                    Text(context.getString(R.string.widget_updated, content.updatedAt), style = TextStyle(color = TextSecondary, fontSize = 11.sp))
+                }
+                is Content.Arrivals -> {
+                    Header(context, content.stop.name)
                     Spacer(GlanceModifier.height(6.dp))
                     val buses = content.buses
                     when {
@@ -138,6 +151,38 @@ class FavouriteStopWidget : GlanceAppWidget() {
                     Text(context.getString(R.string.widget_updated, content.updatedAt), style = TextStyle(color = TextSecondary, fontSize = 11.sp))
                 }
             }
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun Header(context: Context, name: String) {
+        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                name,
+                maxLines = 1,
+                style = TextStyle(color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                modifier = GlanceModifier.defaultWeight(),
+            )
+            Image(
+                ImageProvider(R.drawable.ic_widget_refresh),
+                contentDescription = context.getString(R.string.widget_refresh),
+                modifier = GlanceModifier.size(28.dp).padding(4.dp).clickable(actionRunCallback<RefreshAction>()),
+            )
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun DepartureRow(departure: ScheduledDeparture) {
+        Row(GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(GlanceModifier.cornerRadius(10.dp).background(AccentSoft).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                Text(departure.line.displayCode, style = TextStyle(color = OnAccentSoft, fontSize = 12.sp, fontWeight = FontWeight.Medium))
+            }
+            Spacer(GlanceModifier.width(8.dp))
+            Text(departure.headsign, maxLines = 1, style = TextStyle(color = TextSecondary, fontSize = 12.sp), modifier = GlanceModifier.defaultWeight())
+            Text(
+                TimetableRepository.formatClock(departure.minutesAfterMidnight),
+                style = TextStyle(color = Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+            )
         }
     }
 
@@ -161,6 +206,8 @@ class FavouriteStopWidget : GlanceAppWidget() {
     }
 
     private companion object {
+        const val BOARD_ROWS = 3
+
         // The app's calm palette, light and dark (see core:ui Theme.kt).
         val Panel = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF192028))
         val TextPrimary = ColorProvider(day = Color(0xFF1C2430), night = Color(0xFFE8EDF3))
@@ -185,6 +232,11 @@ class FavouriteStopWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         WidgetRefreshWorker.schedule(context)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        appWidgetIds.forEach { WidgetStops.set(context, it, null) }
     }
 
     /** Last widget removed: stop it, so the app does no background work for nothing. */

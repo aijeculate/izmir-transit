@@ -17,7 +17,7 @@
     </plurals>
     <string name="alert_stop">Stop</string>
     <string name="widget_title">Favourite stop</string>
-    <string name="widget_description">Next buses at your first favourite stop</string>
+    <string name="widget_description">Next buses or trains at a favourite stop you choose</string>
     <string name="widget_no_favourite">Add a stop with ♥ in the app.</string>
     <string name="widget_refresh">Refresh</string>
     <string name="widget_unavailable">Live data unavailable.</string>
@@ -53,4 +53,10 @@
     <string name="update_body">İzmir Transit %1$s is out (you have %2$s). Download and install it; your favourites and settings are kept.</string>
     <string name="update_download">Download</string>
     <string name="update_later">Later</string>
+    <string name="widget_config_title">Widget</string>
+    <string name="widget_config_hint">Which stop or station should this widget show? Touch and hold the widget to change it later.</string>
+    <string name="widget_config_section">Favourite stops</string>
+    <string name="widget_config_first">First favourite</string>
+    <string name="widget_config_first_hint">Whichever stop is at the top of your favourites</string>
+    <string name="widget_no_departures">No more departures today.</string>
 </resources>
