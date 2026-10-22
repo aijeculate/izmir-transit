@@ -316,7 +316,10 @@ fun LineMapScreen(
                     )
                     pin != null -> PinPanel(onPlan = { onPlanTrip(PlanDestination(null, pin)) }, onClose = onMapClick)
                     state.lineCode == null -> OverviewPanel(overview)
-                    else -> LinePanel(state, shownLive, isFavourite, onToggleFavourite, onOpenTimetable, onClose, bothDirections, onSwitchDirection)
+                    else -> LinePanel(
+                        state, shownLive, isFavourite, onToggleFavourite, onOpenTimetable, onClose, bothDirections, onSwitchDirection,
+                        otherDirectionBuses = live.data.orEmpty().size - shownBuses.size,
+                    )
                 }
             }
             if (searchAtBottom) {
@@ -605,6 +608,8 @@ private fun LinePanel(
     onClose: () -> Unit,
     bothDirections: Boolean = true,
     onSwitchDirection: () -> Unit = {},
+    /** Buses running the direction not shown, so "none" doesn't hide them. */
+    otherDirectionBuses: Int = 0,
 ) {
     val lineCode = state.lineCode ?: return
     var showAnnouncements by rememberSaveable(lineCode) { mutableStateOf(false) }
@@ -702,7 +707,14 @@ private fun LinePanel(
                         modifier = Modifier.padding(vertical = 10.dp),
                     )
                 } else {
-                    LiveStatusLine(live)
+                    val line = state.line
+                    val otherTowards = line?.let { if (state.direction.opposite == Direction.OUTBOUND) it.destination else it.origin }
+                    LiveStatusLine(
+                        live,
+                        towards = line?.let { if (state.direction == Direction.OUTBOUND) it.destination else it.origin }.takeIf { !bothDirections },
+                        otherDirection = if (bothDirections) 0 else otherDirectionBuses,
+                        otherTowards = otherTowards,
+                    )
                 }
             }
             if (state.line != null) TextAction(stringResource(R.string.linemap_timetable), onOpenTimetable)
@@ -767,16 +779,20 @@ private fun DirectionLegend(direction: Direction, label: String, next: NextDepar
 
 /** Explicit loading, empty, fresh, stale and unavailable states; never a blank. */
 @Composable
-private fun LiveStatusLine(live: LiveSnapshot<List<LiveBus>>) {
+private fun LiveStatusLine(live: LiveSnapshot<List<LiveBus>>, towards: String? = null, otherDirection: Int = 0, otherTowards: String? = null) {
     val now by rememberNow()
     val age = live.lastUpdated?.let { formatAge(it, now) }.orEmpty()
     val buses = live.data.orEmpty()
     val colors = Calm.colors
     val (text, color) = when (live.status) {
         LiveStatus.LOADING -> stringResource(R.string.linemap_live_loading) to colors.textSecondary
-        LiveStatus.FRESH ->
-            if (buses.isEmpty()) stringResource(R.string.linemap_live_none) to colors.textSecondary
-            else pluralStringResource(R.plurals.linemap_live_count, buses.size, buses.size, age) to colors.text
+        LiveStatus.FRESH -> when {
+            buses.isNotEmpty() -> pluralStringResource(R.plurals.linemap_live_count, buses.size, buses.size, age) to colors.text
+            // One direction shown and every bus is heading the other way: say so, not "none".
+            otherDirection > 0 && towards != null && otherTowards != null ->
+                pluralStringResource(R.plurals.linemap_live_other_direction, otherDirection, towards, otherDirection, otherTowards) to colors.text
+            else -> stringResource(R.string.linemap_live_none) to colors.textSecondary
+        }
         LiveStatus.STALE -> stringResource(R.string.linemap_live_stale, liveErrorText(live.lastError), age) to colors.onWarningSoft
         LiveStatus.UNAVAILABLE -> stringResource(R.string.linemap_live_unavailable, liveErrorText(live.lastError)) to colors.onWarningSoft
     }

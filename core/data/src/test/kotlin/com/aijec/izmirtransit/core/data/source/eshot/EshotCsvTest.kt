@@ -84,6 +84,20 @@ class EshotCsvTest {
     }
 
     @Test
+    fun `night lines belong to the service day they end`() {
+        // 910 (Gaziemir - Konak) runs only at night, as in the 22 Oct 2026 file.
+        val csv = """
+            HAT_NO;TARIFE_ID;GIDIS_SAATI;DONUS_SAATI;SIRA
+            910;1;00:15;05:00;1
+            910;1;02:00;01:00;2
+            910;1;04:00;03:00;3
+        """.trimIndent()
+        val departures = EshotCsv.parseTimetable(csv.reader(), issues)
+        assertEquals(listOf(24 * 60 + 15, 26 * 60, 4 * 60), departures.filter { it.direction == Direction.OUTBOUND }.map { it.minutesAfterMidnight })
+        assertEquals(listOf(5 * 60, 25 * 60, 27 * 60), departures.filter { it.direction == Direction.RETURN }.map { it.minutesAfterMidnight })
+    }
+
+    @Test
     fun `lines keep quoted notes containing the delimiter`() {
         val csv = "HAT_NO;HAT_ADI;GUZERGAH_ACIKLAMA;ACIKLAMA;HAT_BASLANGIC;HAT_BITIS\r\n" +
             "799;ÇATALCA - CUMAOVASI AKTARMA;AKÇAKÖY;\"Hafta içi ve cumartesi günleri;Çatalca'dan\";ÇATALCA;CUMAOVASI AKTARMA\r\n"

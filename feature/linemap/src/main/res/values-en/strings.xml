@@ -50,4 +50,8 @@
     <string name="linemap_transfer">Change for</string>
     <string name="linemap_fullscreen">Fullscreen map</string>
     <string name="linemap_fullscreen_exit">Exit fullscreen</string>
+    <plurals name="linemap_live_other_direction">
+        <item quantity="one">No buses towards %1$s · %2$d towards %3$s</item>
+        <item quantity="other">No buses towards %1$s · %2$d towards %3$s</item>
+    </plurals>
 </resources>

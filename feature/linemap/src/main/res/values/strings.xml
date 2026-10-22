@@ -51,4 +51,8 @@
     <string name="linemap_transfer">Aktarma</string>
     <string name="linemap_fullscreen">Tam ekran harita</string>
     <string name="linemap_fullscreen_exit">Tam ekrandan çık</string>
+    <plurals name="linemap_live_other_direction">
+        <item quantity="one">%1$s yönünde otobüs yok · %3$s yönünde %2$d otobüs var</item>
+        <item quantity="other">%1$s yönünde otobüs yok · %3$s yönünde %2$d otobüs var</item>
+    </plurals>
 </resources>

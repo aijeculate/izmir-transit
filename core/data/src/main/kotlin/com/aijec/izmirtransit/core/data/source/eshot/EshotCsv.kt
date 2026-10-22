@@ -142,8 +142,6 @@ object EshotCsv {
                     val wheelchair = if (direction == Direction.OUTBOUND) "GIDIS_ENGELLI_DESTEGI" else "DONUS_ENGELLI_DESTEGI"
                     val bike = if (direction == Direction.OUTBOUND) "BISIKLETLI_GIDIS" else "BISIKLETLI_DONUS"
                     val electric = if (direction == Direction.OUTBOUND) "GIDIS_ELEKTRIKLI_OTOBUS" else "DONUS_ELEKTRIKLI_OTOBUS"
-                    var previous = -1
-                    var dayOffset = 0
                     for ((sequence, row) in ordered) {
                         val raw = row[timeColumn]
                         if (raw.isEmpty()) continue
@@ -152,12 +150,11 @@ object EshotCsv {
                             issues.add("bad departure time", row)
                             continue
                         }
-                        // "00:05" after "23:40" is a late trip of the same service day.
-                        if (dayOffset == 0 && previous >= LATE_EVENING && minutes < EARLY_MORNING) {
-                            dayOffset = MINUTES_PER_DAY
-                        }
-                        val adjusted = minutes + dayOffset
-                        previous = adjusted
+                        // The service day runs 04:00 to 04:00: "00:05" is a late trip (minute
+                        // 1445), whether after a 23:40 or on a night line (910, 920, 930) that
+                        // only runs 00:15–05:00. Stored as early morning, night trips never
+                        // matched "now" after midnight.
+                        val adjusted = if (minutes < EARLY_MORNING) minutes + MINUTES_PER_DAY else minutes
                         departures += EshotDeparture(
                             lineCode = line,
                             serviceDay = day,
@@ -221,7 +218,6 @@ object EshotCsv {
     }
 
     private const val MINUTES_PER_DAY = 24 * 60
-    private const val LATE_EVENING = 20 * 60
     private const val EARLY_MORNING = 4 * 60
 
     private val DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
