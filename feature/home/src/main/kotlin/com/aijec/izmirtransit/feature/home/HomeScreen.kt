@@ -89,6 +89,8 @@ import com.aijec.izmirtransit.core.ui.LineBadge
 import com.aijec.izmirtransit.core.ui.Panel
 import com.aijec.izmirtransit.core.ui.PillButton
 import com.aijec.izmirtransit.core.ui.SectionLabel
+import com.aijec.izmirtransit.core.ui.entrance
+import com.aijec.izmirtransit.core.ui.rememberEntrance
 import com.aijec.izmirtransit.core.ui.liveErrorText
 import com.aijec.izmirtransit.core.ui.rememberNow
 import com.aijec.izmirtransit.core.ui.stopKindLabel
@@ -158,6 +160,9 @@ fun HomeScreen(
     val hasFavourites = favourites.entries.isNotEmpty()
     var editMode by rememberSaveable { mutableStateOf(false) }
     val editing = editMode && hasFavourites
+    // Cards rise in one after another the first time Home is shown.
+    val entrance = rememberEntrance()
+    val groups = favouriteGroups(favourites.entries)
     LazyColumn(
         Modifier
             .fillMaxSize()
@@ -173,15 +178,15 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item("header") {
-            Row(verticalAlignment = Alignment.Top) {
+            Row(Modifier.entrance(entrance, 0), verticalAlignment = Alignment.Top) {
                 Box(Modifier.weight(1f)) { Greeting() }
                 CircleIconButton(Icons.Filled.Settings, stringResource(R.string.home_settings), onOpenSettings, tint = Calm.colors.textSecondary)
             }
         }
-        item("where-to") { WhereTo(onPlanTrip, saved, onPlanTo) }
+        item("where-to") { Box(Modifier.entrance(entrance, 1)) { WhereTo(onPlanTrip, saved, onPlanTo) } }
 
         item("fav-label") {
-            SectionLabel(stringResource(R.string.home_favourites)) {
+            SectionLabel(stringResource(R.string.home_favourites), Modifier.entrance(entrance, 2)) {
                 if (hasFavourites) {
                     Text(
                         stringResource(if (editing) R.string.home_favourites_done else R.string.home_favourites_edit),
@@ -217,28 +222,30 @@ fun HomeScreen(
             }
         } else {
             // In the user's order; neighbouring lines share one panel.
-            for (group in favouriteGroups(favourites.entries)) {
+            groups.forEachIndexed { i, group ->
                 when (group) {
                     is FavouriteEntry.StopEntry -> item("fav-stop-${group.favourite.stop.code}") {
-                        FavouriteStopPanel(
-                            group.favourite,
-                            arrivals[group.favourite.stop.code],
-                            boards[group.favourite.stop.code],
-                            onClick = { onOpenStop(group.favourite.stop.code) },
-                            onShowOnMap = { onShowOnMap(group.favourite.stop.code) },
-                        )
+                        Box(Modifier.entrance(entrance, 3 + i)) {
+                            FavouriteStopPanel(
+                                group.favourite,
+                                arrivals[group.favourite.stop.code],
+                                boards[group.favourite.stop.code],
+                                onClick = { onOpenStop(group.favourite.stop.code) },
+                                onShowOnMap = { onShowOnMap(group.favourite.stop.code) },
+                            )
+                        }
                     }
                     is List<*> -> {
                         @Suppress("UNCHECKED_CAST")
                         val lines = (group as List<FavouriteEntry.LineEntry>).map { it.line }
-                        item("fav-lines-${lines.first().code}") { FavouriteLinesPanel(lines, onOpenLine) }
+                        item("fav-lines-${lines.first().code}") { Box(Modifier.entrance(entrance, 3 + i)) { FavouriteLinesPanel(lines, onOpenLine) } }
                     }
                 }
             }
         }
 
         item("nearby-label") {
-            SectionLabel(stringResource(R.string.home_nearby)) {
+            SectionLabel(stringResource(R.string.home_nearby), Modifier.entrance(entrance, 3 + groups.size)) {
                 if (nearby is NearbyState.Found || nearby is NearbyState.Unavailable) {
                     Box(
                         Modifier

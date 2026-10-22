@@ -79,4 +79,5 @@
     <string name="trip_stop">Takibi bitir</string>
     <string name="trip_channel_tracking">Yolculuk takibi</string>
     <string name="trip_channel_alerts">Yolculuk uyarıları</string>
+    <string name="trip_banner_next">Sonraki durakta in</string>
 </resources>

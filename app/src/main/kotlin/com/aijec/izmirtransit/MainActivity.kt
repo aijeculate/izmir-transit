@@ -43,6 +43,7 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var updateChecker: UpdateChecker
+    @Inject lateinit var tripTracking: com.aijec.izmirtransit.trip.AndroidTripTracking
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +64,11 @@ class MainActivity : AppCompatActivity() {
                     onDispose { }
                 }
                 if (settings.onboardingDone) {
-                    AppNavHost(openStop = openStopRequest, onOpenStopHandled = { openStopRequest = null })
+                    val tripStatus by tripTracking.status.collectAsStateWithLifecycle()
+                    Box(Modifier.fillMaxSize()) {
+                        AppNavHost(openStop = openStopRequest, onOpenStopHandled = { openStopRequest = null })
+                        com.aijec.izmirtransit.trip.TripAlertBanner(tripStatus, Modifier.align(androidx.compose.ui.Alignment.TopCenter))
+                    }
                     UpdatePrompt(settings.skippedUpdate)
                 } else {
                     val scope = rememberCoroutineScope()

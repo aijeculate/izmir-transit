@@ -131,6 +131,26 @@ internal fun rememberChevron(width: Dp = 14.dp): BitmapDescriptor =
         }
     }
 
+/**
+ * A chevron for [FlowingChevrons]: white with a dark outline so it reads on any route
+ * colour, pointing north (the marker's rotation turns it along the route).
+ */
+@OptIn(MapsComposeExperimentalApi::class)
+@Composable
+internal fun rememberFlowChevron(size: Dp = 16.dp): BitmapDescriptor =
+    rememberComposeBitmapDescriptor("flow-chevron", size) {
+        Canvas(Modifier.size(size)) {
+            val w = size.toPx()
+            val chevron = Path().apply {
+                moveTo(w * 0.22f, w * 0.68f)
+                lineTo(w * 0.5f, w * 0.36f)
+                lineTo(w * 0.78f, w * 0.68f)
+            }
+            drawPath(chevron, Color(0xCC0B1220), style = Stroke(width = w * 0.30f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(chevron, Color.White, style = Stroke(width = w * 0.16f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+
 /** Start of a planned journey: a white-ringed accent disc. */
 @OptIn(MapsComposeExperimentalApi::class)
 @Composable

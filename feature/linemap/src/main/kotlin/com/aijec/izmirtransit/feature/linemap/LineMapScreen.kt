@@ -15,6 +15,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import com.aijec.izmirtransit.core.ui.RollingText
+import com.aijec.izmirtransit.core.ui.bouncySpring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -613,7 +617,8 @@ private fun LinePanel(
 ) {
     val lineCode = state.lineCode ?: return
     var showAnnouncements by rememberSaveable(lineCode) { mutableStateOf(false) }
-    Panel(Modifier.fillMaxWidth().animateContentSize(), glass = true, padding = PaddingValues(0.dp)) {
+    // The panel grows and shrinks on a spring (announcements opening, a direction switched).
+    Panel(Modifier.fillMaxWidth().animateContentSize(bouncySpring()), glass = true, padding = PaddingValues(0.dp)) {
         Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             state.line?.let { LineBadge(it, strong = true) } ?: LineBadge(lineCode, strong = true)
             Spacer(Modifier.width(10.dp))
@@ -758,8 +763,11 @@ private fun OverviewPanel(overview: List<OverviewRoute>) {
 
 @Composable
 private fun DirectionLegend(direction: Direction, label: String, next: NextDepartures? = null) {
+    val dot by animateColorAsState(TransitColors.forDirection(direction), tween(420), label = "direction")
+    // Switching direction: the new label and times slide in as the old ones leave.
+    RollingText("$direction|$label") {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Dot(TransitColors.forDirection(direction))
+        Dot(dot)
         Spacer(Modifier.width(10.dp))
         Column {
             Text(label, style = MaterialTheme.typography.bodyMedium, color = Calm.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -774,6 +782,7 @@ private fun DirectionLegend(direction: Direction, label: String, next: NextDepar
                 )
             }
         }
+    }
     }
 }
 

@@ -51,6 +51,23 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import com.aijec.izmirtransit.core.model.Announcement
 import com.aijec.izmirtransit.core.model.ConnectionType
 import com.aijec.izmirtransit.core.model.LiveError
@@ -328,11 +345,14 @@ fun EtaText(minutes: Int, modifier: Modifier = Modifier, uncertain: Boolean = fa
         return
     }
     Row(verticalAlignment = Alignment.Bottom, modifier = modifier) {
-        Text(
-            (if (uncertain) "~" else "") + minutes,
-            style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = TabularNumbers),
-            color = color,
-        )
+        // Live minutes roll as they count down.
+        RollingText((if (uncertain) "~" else "") + minutes) { text ->
+            Text(
+                text,
+                style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = TabularNumbers),
+                color = color,
+            )
+        }
         Spacer(Modifier.width(3.dp))
         Text(stringResource(R.string.ui_eta_unit), style = MaterialTheme.typography.labelMedium, color = color, modifier = Modifier.padding(bottom = 3.dp))
     }
@@ -486,29 +506,70 @@ val FloatingBarClearance: Dp = 84.dp
 /** One destination in [FloatingTabBar]. */
 data class FloatingTab(val label: String, val icon: ImageVector, val selected: Boolean, val onClick: () -> Unit)
 
-/** A glass pill holding the main destinations, floating above content and the map. */
+/**
+ * A glass pill holding the main destinations, floating above content and the map. The
+ * selected tab's highlight slides to the tapped tab on a spring; its leading edge moves
+ * faster than its trailing one, so it stretches on the way like a drop of liquid.
+ */
 @Composable
 fun FloatingTabBar(tabs: List<FloatingTab>, modifier: Modifier = Modifier) {
     val colors = Calm.colors
-    Row(
+    val glass = Calm.style == UiStyle.LIQUID_GLASS
+    val pillColor = if (glass) Calm.selectedFill() else colors.accentSoft
+    val reduced = rememberReducedMotion()
+    // Each tab's left and right edge inside the bar, in px, once laid out.
+    val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
+    val selected = tabs.indexOfFirst { it.selected }
+    val left = remember { Animatable(0f) }
+    val right = remember { Animatable(0f) }
+    var placed by remember { mutableStateOf(false) }
+    val target = bounds[selected]
+    LaunchedEffect(target) {
+        val (l, r) = target ?: return@LaunchedEffect
+        if (!placed || reduced) {
+            left.snapTo(l)
+            right.snapTo(r)
+            placed = true
+            return@LaunchedEffect
+        }
+        val movingRight = l > left.value
+        val fast = spring<Float>(dampingRatio = 0.7f, stiffness = 700f)
+        val slow = spring<Float>(dampingRatio = 0.75f, stiffness = 260f)
+        launch { left.animateTo(l, if (movingRight) slow else fast) }
+        launch { right.animateTo(r, if (movingRight) fast else slow) }
+    }
+    Box(
         modifier
             .calmSurface(Calm.PillShape, overMap = true)
             .padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        tabs.forEach { tab ->
-            Row(
+        if (placed && selected >= 0) {
+            val density = LocalDensity.current
+            Box(
                 Modifier
-                    .heightIn(min = 48.dp)
+                    .offset { IntOffset(left.value.roundToInt(), 0) }
+                    .width(with(density) { (right.value - left.value).coerceAtLeast(0f).toDp() })
+                    .height(48.dp)
                     .clip(Calm.PillShape)
-                    .background(if (tab.selected) (if (Calm.style == UiStyle.LIQUID_GLASS) Calm.selectedFill() else colors.accentSoft) else Color.Transparent)
-                    .clickable(role = Role.Tab, onClick = tab.onClick)
-                    .padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(tab.icon, contentDescription = null, tint = if (tab.selected) colors.onAccentSoft else colors.textSecondary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(tab.label, style = MaterialTheme.typography.labelLarge, color = if (tab.selected) colors.onAccentSoft else colors.textSecondary)
+                    .background(pillColor),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            tabs.forEachIndexed { index, tab ->
+                val tint by animateColorAsState(if (tab.selected) colors.onAccentSoft else colors.textSecondary, tween(300), label = "tab")
+                Row(
+                    Modifier
+                        .onGloballyPositioned { bounds[index] = it.positionInParent().x to it.positionInParent().x + it.size.width }
+                        .heightIn(min = 48.dp)
+                        .clip(Calm.PillShape)
+                        .clickable(role = Role.Tab, onClick = tab.onClick)
+                        .padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(tab.label, style = MaterialTheme.typography.labelLarge, color = tint)
+                }
             }
         }
     }

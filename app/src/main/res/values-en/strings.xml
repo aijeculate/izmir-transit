@@ -78,4 +78,5 @@
     <string name="trip_stop">Stop tracking</string>
     <string name="trip_channel_tracking">Trip tracking</string>
     <string name="trip_channel_alerts">Trip alerts</string>
+    <string name="trip_banner_next">Get off at the next stop</string>
 </resources>

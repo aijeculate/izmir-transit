@@ -60,6 +60,10 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberUpdatedMarkerState
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.mutableFloatStateOf
+import com.aijec.izmirtransit.core.ui.rememberReducedMotion
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.yield
 import com.google.android.gms.maps.model.LatLng as GLatLng
@@ -69,6 +73,13 @@ private val HideGoogleTransit = MapStyleOptions(
     """[{"featureType":"transit.station","stylers":[{"visibility":"off"}]}]""",
 )
 private const val VEHICLE_FRAME_MILLIS = 66L
+private const val ROUTE_FADE_MILLIS = 420
+/** One flowing chevron per this much route, at most [MAX_CHEVRONS] (each is a marker moved every frame). */
+private const val CHEVRON_SPACING_METERS = 500.0
+private const val MAX_CHEVRONS = 24
+/** Time for a chevron to travel one spacing. */
+private const val CHEVRON_PERIOD_MILLIS = 1_800L
+private const val CHEVRON_FRAME_MILLIS = 66L
 
 /** Zoom bands that change how stops are drawn. */
 private enum class StopDetail { NONE, DOTS, BADGES }
@@ -149,6 +160,9 @@ fun TransitMap(
 
     // Marker artwork.
     val chevron = rememberChevron()
+    val flowChevron = rememberFlowChevron()
+    // With animations off, the route keeps its static stamped arrows instead of flowing ones.
+    val reducedMotion = rememberReducedMotion()
     val ringOutbound = rememberRingDot(TransitColors.Outbound)
     val ringReturn = rememberRingDot(TransitColors.Return)
     val badgeOutbound = rememberFilledBadge(routeMode, TransitColors.Outbound)
@@ -231,10 +245,13 @@ fun TransitMap(
             val route = routes.firstOrNull { it.direction == direction }
             if (route != null && route.shape.size >= 2) {
             val points = remember(route) { route.shape.map { it.toGoogle() } }
-            val color = TransitColors.forDirection(direction)
+            // A route fades in when it appears (a line chosen, a direction switched).
+            val fade = remember(route) { Animatable(if (reducedMotion) 1f else 0f) }
+            LaunchedEffect(route) { fade.animateTo(1f, tween(ROUTE_FADE_MILLIS)) }
+            val color = TransitColors.forDirection(direction).copy(alpha = fade.value)
             com.google.maps.android.compose.Polyline(
                 points = points,
-                color = casing,
+                color = casing.copy(alpha = casing.alpha * fade.value),
                 width = selectedCasingWidth,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
@@ -246,7 +263,7 @@ fun TransitMap(
                 spans = listOf(
                     StyleSpan(
                         StrokeStyle.colorBuilder(color.toArgb())
-                            .stamp(TextureStyle.newBuilder(chevron).build())
+                            .apply { if (reducedMotion) stamp(TextureStyle.newBuilder(chevron).build()) }
                             .build(),
                     ),
                 ),
@@ -296,6 +313,13 @@ fun TransitMap(
                     contentDescription = stop.name,
                     onClick = { onStopClick(stop); true },
                 )
+            }
+        }
+
+        // --- Chevrons flowing along the selected line, the way its vehicles travel.
+        if (!reducedMotion) {
+            for (route in routes) key("flow", route.direction) {
+                if (route.shape.size >= 2) FlowingChevrons(route, flowChevron)
             }
         }
 
@@ -438,6 +462,52 @@ private fun Vehicles(motion: BusMotion, outbound: BitmapDescriptor, inbound: Bit
             )
         }
     }
+}
+
+/**
+ * Chevrons gliding along a route in its direction of travel, evenly spaced: each moves one
+ * spacing per cycle, so the row looks endless. Flat markers turn with the map. In their own
+ * composable, like [Vehicles], so only they recompose on each frame.
+ */
+@Composable
+@GoogleMapComposable
+private fun FlowingChevrons(route: LineRoute, icon: BitmapDescriptor) {
+    val path = remember(route) { MeasuredPolyline(route.shape) }
+    val count = remember(path) { (path.lengthMeters / CHEVRON_SPACING_METERS).toInt().coerceIn(3, MAX_CHEVRONS) }
+    val spacing = path.lengthMeters / count
+    var phase by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(path) {
+        val start = SystemClock.elapsedRealtime()
+        while (isActive) {
+            phase = ((SystemClock.elapsedRealtime() - start) % CHEVRON_PERIOD_MILLIS) / CHEVRON_PERIOD_MILLIS.toFloat()
+            delay(CHEVRON_FRAME_MILLIS)
+        }
+    }
+    for (i in 0 until count) {
+        key(i) {
+            val along = (i + phase) * spacing
+            val point = path.pointAt(along)
+            val ahead = path.pointAt((along + 10.0).coerceAtMost(path.lengthMeters))
+            val behind = path.pointAt((along - 10.0).coerceAtLeast(0.0))
+            val state = remember { MarkerState(point.toGoogle()) }
+            state.position = point.toGoogle()
+            Marker(
+                state = state,
+                icon = icon,
+                flat = true,
+                rotation = bearing(behind, ahead),
+                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                zIndex = 4.2f,
+            )
+        }
+    }
+}
+
+/** Compass bearing from [from] to [to], degrees clockwise from north. */
+private fun bearing(from: LatLng, to: LatLng): Float {
+    val dLon = Math.toRadians(to.longitude - from.longitude) * kotlin.math.cos(Math.toRadians(from.latitude))
+    val dLat = Math.toRadians(to.latitude - from.latitude)
+    return Math.toDegrees(kotlin.math.atan2(dLon, dLat)).toFloat()
 }
 
 /** Camera positions kept for the life of the app process, by [TransitMap]'s memoryKey. */
