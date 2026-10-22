@@ -30,8 +30,9 @@ val Calm.style: UiStyle
  *
  * Liquid glass, like iOS 26:
  * - Light: frosted white with a soft top sheen and a bright rim.
- * - Dark: smoky glass with no sheen, a faint fill, and a thin rim brightest at the top-left
- *   where light would catch it.
+ * - Dark ("Frosted Night", chosen by the user on 23 Oct 2026): an even white frost at 8 %,
+ *   a hairline rim at 14 % that is brighter along the top edge, over a near-black wash
+ *   with blue, violet and teal glows.
  *
  * A real backdrop blur isn't possible over Google's map (a separate surface Compose can't
  * sample), so panes over the map are more opaque to keep their text legible. Behind ordinary
@@ -53,7 +54,7 @@ fun Modifier.calmSurface(shape: Shape, overMap: Boolean = false): Modifier {
 fun Calm.selectedFill(): Color {
     val colors = Calm.colors
     return when {
-        style == UiStyle.LIQUID_GLASS && colors.isDark -> Color.White.copy(alpha = 0.13f)
+        style == UiStyle.LIQUID_GLASS && colors.isDark -> Color.White.copy(alpha = 0.16f)
         style == UiStyle.LIQUID_GLASS -> Color.White.copy(alpha = 0.9f)
         else -> colors.panel
     }
@@ -77,19 +78,18 @@ private fun Modifier.lightGlass(shape: Shape, overMap: Boolean): Modifier {
 }
 
 private fun Modifier.darkGlass(shape: Shape, overMap: Boolean, amoled: Boolean): Modifier {
-    // Over the map the pane must hide the streets behind its text; elsewhere it stays faint.
-    val fill = if (overMap) {
-        val base = if (amoled) Color(0xFF07090D) else Color(0xFF0E1626)
-        Brush.linearGradient(listOf(base.copy(alpha = 0.90f), base.copy(alpha = 0.84f)))
-    } else {
-        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.10f), Color.White.copy(alpha = 0.04f)))
+    // Off the map: an even frost. Over it the pane is a dark smoke dense enough to hide the
+    // streets behind its text, since there is no blur to soften them.
+    val fill = when {
+        !overMap -> Color.White.copy(alpha = 0.08f)
+        amoled -> Color(0xFF07090D).copy(alpha = 0.94f)
+        else -> Color(0xFF121822).copy(alpha = 0.92f)
     }
-    // A thin rim, brightest at the top-left, fading, catching a little again bottom-right.
-    // A linear gradient with default ends spans the pane's own diagonal.
-    val rim = Brush.linearGradient(
-        0f to Color.White.copy(alpha = 0.34f),
-        0.45f to Color.White.copy(alpha = 0.07f),
-        1f to Color.White.copy(alpha = 0.18f),
+    // A hairline rim at 14 %, lit to about 30 % along the top edge where light catches it.
+    val rim = Brush.verticalGradient(
+        0f to Color.White.copy(alpha = 0.30f),
+        0.12f to Color.White.copy(alpha = 0.14f),
+        1f to Color.White.copy(alpha = 0.12f),
     )
     return clip(shape).background(fill).border(1.dp, rim, shape)
 }
@@ -97,8 +97,8 @@ private fun Modifier.darkGlass(shape: Shape, overMap: Boolean, amoled: Boolean):
 /**
  * The colour wash behind liquid-glass screens.
  * - Light: soft accent and sky-blue glows on a pale canvas.
- * - Dark: near black with a deep blue glow rising from the bottom right, like iOS 26's
- *   wallpapers. AMOLED keeps the black truly black, with only a dim glow.
+ * - Dark (Frosted Night): near black with a blue glow at the bottom right, violet on the
+ *   left and teal at the top right. AMOLED keeps the black truly black, glows dimmed.
  */
 @Composable
 fun Modifier.glassBackdrop(): Modifier {
@@ -121,20 +121,21 @@ fun Modifier.glassBackdrop(): Modifier {
             }
         }
     }
-    val base = if (amoled) Color.Black else Color(0xFF04060C)
-    val blue = Color(0xFF1C4FA8).copy(alpha = if (amoled) 0.35f else 0.62f)
-    val violet = Color(0xFF4B36B8).copy(alpha = if (amoled) 0.14f else 0.26f)
-    val accent = colors.accent.copy(alpha = if (amoled) 0.08f else 0.14f)
+    val base = if (amoled) Color.Black else Color(0xFF06080D)
+    val dim = if (amoled) 0.45f else 1f
+    val blue = Color(0xFF2460D2).copy(alpha = 0.75f * dim)
+    val violet = Color(0xFF5C40D2).copy(alpha = 0.45f * dim)
+    val teal = Color(0xFF1EA0BE).copy(alpha = 0.30f * dim)
     return background(base).drawWithCache {
         val w = size.width
         val h = size.height
-        val glowBlue = Brush.radialGradient(listOf(blue, Color.Transparent), center = Offset(w * 1.0f, h * 0.92f), radius = w * 1.2f)
-        val glowViolet = Brush.radialGradient(listOf(violet, Color.Transparent), center = Offset(w * 0.0f, h * 0.55f), radius = w * 0.9f)
-        val glowAccent = Brush.radialGradient(listOf(accent, Color.Transparent), center = Offset(w * 0.15f, h * 0.05f), radius = w * 0.8f)
+        val glowBlue = Brush.radialGradient(listOf(blue, Color.Transparent), center = Offset(w * 0.95f, h * 0.9f), radius = w * 0.75f)
+        val glowViolet = Brush.radialGradient(listOf(violet, Color.Transparent), center = Offset(w * 0.0f, h * 0.52f), radius = w * 0.65f)
+        val glowTeal = Brush.radialGradient(listOf(teal, Color.Transparent), center = Offset(w * 0.95f, h * 0.03f), radius = w * 0.5f)
         onDrawBehind {
             drawRect(glowBlue)
             drawRect(glowViolet)
-            drawRect(glowAccent)
+            drawRect(glowTeal)
         }
     }
 }
