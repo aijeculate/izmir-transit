@@ -39,4 +39,6 @@
     <string name="home_favourite_move_up">Yukarı taşı</string>
     <string name="home_favourite_move_down">Aşağı taşı</string>
     <string name="home_favourite_remove">Favorilerden çıkar</string>
+    <string name="home_go_home">Eve git</string>
+    <string name="home_go_work">İşe git</string>
 </resources>

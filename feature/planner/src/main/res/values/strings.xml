@@ -39,4 +39,21 @@
         <item quantity="one">%1$d durak sonra in: %2$s · %3$s</item>
         <item quantity="other">%1$d durak sonra in: %2$s · %3$s</item>
     </plurals>
+    <string name="planner_leave_at">Kalkış</string>
+    <string name="planner_arrive_by">Varış</string>
+    <string name="planner_leave_at_at">Kalkış: %1$s %2$s</string>
+    <string name="planner_arrive_by_at">Varış: %1$s en geç %2$s</string>
+    <string name="planner_today">Bugün</string>
+    <string name="planner_tomorrow">Yarın</string>
+    <string name="planner_time_ok">Tamam</string>
+    <string name="planner_time_cancel">Vazgeç</string>
+    <string name="planner_home">Ev</string>
+    <string name="planner_work">İş</string>
+    <string name="planner_tap_to_set">Kaydetmek için dokun</string>
+    <string name="planner_change_home">Ev adresini değiştir</string>
+    <string name="planner_change_work">İş adresini değiştir</string>
+    <string name="planner_set_home_hint">Ev adresini ara</string>
+    <string name="planner_set_work_hint">İş adresini ara</string>
+    <string name="planner_recents">Son aramalar</string>
+    <string name="planner_recents_clear">Temizle</string>
 </resources>

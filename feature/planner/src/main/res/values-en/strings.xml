@@ -38,4 +38,21 @@
         <item quantity="one">Get off after %1$d stop: %2$s · %3$s</item>
         <item quantity="other">Get off after %1$d stops: %2$s · %3$s</item>
     </plurals>
+    <string name="planner_leave_at">Leave at</string>
+    <string name="planner_arrive_by">Arrive by</string>
+    <string name="planner_leave_at_at">Leave %1$s at %2$s</string>
+    <string name="planner_arrive_by_at">Arrive %1$s by %2$s</string>
+    <string name="planner_today">Today</string>
+    <string name="planner_tomorrow">Tomorrow</string>
+    <string name="planner_time_ok">OK</string>
+    <string name="planner_time_cancel">Cancel</string>
+    <string name="planner_home">Home</string>
+    <string name="planner_work">Work</string>
+    <string name="planner_tap_to_set">Tap to set</string>
+    <string name="planner_change_home">Change home</string>
+    <string name="planner_change_work">Change work</string>
+    <string name="planner_set_home_hint">Search for your home address</string>
+    <string name="planner_set_work_hint">Search for your work address</string>
+    <string name="planner_recents">Recent</string>
+    <string name="planner_recents_clear">Clear</string>
 </resources>

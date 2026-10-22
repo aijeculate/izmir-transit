@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aijec.izmirtransit.core.data.repository.FavouriteItem
 import com.aijec.izmirtransit.core.data.repository.FavouritesRepository
+import com.aijec.izmirtransit.core.data.repository.SavedPlaces
+import com.aijec.izmirtransit.core.data.repository.SavedPlacesRepository
 import com.aijec.izmirtransit.core.data.repository.LineRepository
 import com.aijec.izmirtransit.core.data.repository.LiveBusRepository
 import com.aijec.izmirtransit.core.data.repository.StopRepository
@@ -80,6 +82,7 @@ data class FavouritesState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val favouritesRepository: FavouritesRepository,
+    savedPlaces: SavedPlacesRepository,
     private val stops: StopRepository,
     private val lines: LineRepository,
     private val live: LiveBusRepository,
@@ -87,6 +90,10 @@ class HomeViewModel @Inject constructor(
     private val clock: Clock,
     private val mapSelection: MapSelection,
 ) : ViewModel() {
+
+    /** Home and work, for one-tap trips from the Where-to card. */
+    val saved: StateFlow<SavedPlaces> = savedPlaces.places
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SavedPlaces())
 
     /** Asks the Map tab to centre on a stop; the caller then switches to it. */
     fun showOnMap(stopCode: String) = mapSelection.showStop(stopCode)

@@ -111,6 +111,7 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                     onOpenLine = { nav.navigate(lineDestination(it)) },
                     onOpenSettings = { nav.navigate(SETTINGS_ROUTE) },
                     onPlanTrip = { nav.navigate(planDestination(null)) },
+                    onPlanTo = { name, location -> nav.navigate(planDestination(PlanDestination(name, location))) },
                     onShowOnMap = { nav.openMapTab() },
                 )
             }

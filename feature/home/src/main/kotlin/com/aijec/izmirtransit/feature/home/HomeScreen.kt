@@ -35,6 +35,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Work
+import com.aijec.izmirtransit.core.data.repository.SavedPlaces
+import com.aijec.izmirtransit.core.model.geo.LatLng
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -100,8 +104,10 @@ fun HomeRoute(
     onOpenSettings: () -> Unit,
     onPlanTrip: () -> Unit = {},
     onShowOnMap: () -> Unit = {},
+    onPlanTo: (name: String, location: LatLng) -> Unit = { _, _ -> },
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
+    val saved by viewModel.saved.collectAsStateWithLifecycle()
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
     val arrivals by viewModel.arrivals.collectAsStateWithLifecycle()
     val boards by viewModel.boards.collectAsStateWithLifecycle()
@@ -121,6 +127,8 @@ fun HomeRoute(
         onOpenSettings = onOpenSettings,
         onPlanTrip = onPlanTrip,
         onShowOnMap = { code -> viewModel.showOnMap(code); onShowOnMap() },
+        saved = saved,
+        onPlanTo = onPlanTo,
         editActions = FavouriteEditActions(viewModel::moveFavourite, viewModel::removeFavourite),
     )
 }
@@ -144,6 +152,8 @@ fun HomeScreen(
     onPlanTrip: () -> Unit = {},
     onShowOnMap: (String) -> Unit = {},
     editActions: FavouriteEditActions = FavouriteEditActions(),
+    saved: SavedPlaces = SavedPlaces(),
+    onPlanTo: (name: String, location: LatLng) -> Unit = { _, _ -> },
 ) {
     val hasFavourites = favourites.entries.isNotEmpty()
     var editMode by rememberSaveable { mutableStateOf(false) }
@@ -168,7 +178,7 @@ fun HomeScreen(
                 CircleIconButton(Icons.Filled.Settings, stringResource(R.string.home_settings), onOpenSettings, tint = Calm.colors.textSecondary)
             }
         }
-        item("where-to") { WhereTo(onPlanTrip) }
+        item("where-to") { WhereTo(onPlanTrip, saved, onPlanTo) }
 
         item("fav-label") {
             SectionLabel(stringResource(R.string.home_favourites)) {
@@ -254,13 +264,37 @@ fun HomeScreen(
 /** Date line and a time-of-day greeting in İzmir time. */
 /** The trip planner's front door: looks like a search field, opens the planner. */
 @Composable
-private fun WhereTo(onClick: () -> Unit) {
+private fun WhereTo(onClick: () -> Unit, saved: SavedPlaces, onPlanTo: (String, LatLng) -> Unit) {
     val colors = Calm.colors
     Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
         CalmRow(onClick = onClick, padding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
             Icon(Icons.Filled.Directions, contentDescription = null, tint = colors.accent, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
             Text(stringResource(R.string.home_where_to), style = MaterialTheme.typography.bodyLarge, color = colors.textSecondary)
+        }
+        // "Take me home" in one tap; set them in the trip planner's search.
+        val shortcuts = listOfNotNull(
+            saved.home?.let { Triple(Icons.Filled.Home, R.string.home_go_home, it) },
+            saved.work?.let { Triple(Icons.Filled.Work, R.string.home_go_work, it) },
+        )
+        if (shortcuts.isNotEmpty()) {
+            Hairline()
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((icon, label, place) in shortcuts) {
+                    Row(
+                        Modifier
+                            .clip(CircleShape)
+                            .background(colors.accentSoft)
+                            .clickable(role = Role.Button) { onPlanTo(place.name, place.location) }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(icon, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(label), style = MaterialTheme.typography.labelLarge, color = colors.accent)
+                    }
+                }
+            }
         }
     }
 }

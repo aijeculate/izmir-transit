@@ -2,50 +2,75 @@ package com.aijec.izmirtransit.core.data.routing
 
 import com.aijec.izmirtransit.core.model.Journey
 import com.aijec.izmirtransit.core.model.JourneyLeg
+import com.aijec.izmirtransit.core.model.Stop
 import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.model.geo.distanceMeters
 
 /**
- * Earliest-arrival trip planning with RAPTOR (Delling et al., "Round-Based Public Transit
- * Routing"): round k finds the best arrival at every stop using k rides, then lets people
- * walk to nearby stops. Each round's best arrival at the destination is one answer, so the
- * result offers the fastest trip for each number of changes.
+ * Trip planning with multi-criteria RAPTOR (McRAPTOR; Delling et al., "Round-Based Public
+ * Transit Routing"). Round k finds every trip with k rides that isn't beaten on both
+ * arrival time and walking by another with as few rides; between rounds people walk to
+ * nearby stops. Keeping walking as a criterion finds the "same time, much less walking"
+ * trip that earliest-arrival RAPTOR missed (Gaziemir → Menemen chose a 2.1 km walk).
+ *
+ * The result is a short list: the fastest trip, plus ones with fewer changes or much less
+ * walking that cost little extra time.
  */
 class JourneyPlanner(private val network: TransitNetwork) {
 
-    fun plan(
-        origin: LatLng,
-        destination: LatLng,
-        startMinute: Int,
-        maxRides: Int = MAX_RIDES,
-    ): List<Journey> {
+    /** A way to reach a stop: when, how far walked so far, and the step that got there. */
+    private class Label(
+        val stop: Int,
+        val arrival: Int,
+        val walk: Int,
+        val parent: Label?,
+        /** The ride into [stop], or null for a walk. */
+        val ride: RideLabel?,
+        /** For a walk: where it started (a stop, or [ORIGIN]). */
+        val walkFrom: Int,
+    )
+
+    private class RideLabel(val pattern: Int, val boardPosition: Int, val alightPosition: Int, val boardMinute: Int, val headsign: String)
+
+    /** A trip being ridden along a pattern during a scan. */
+    private class Boarded(val from: Label, val position: Int, val minute: Int, val reach: Int, val headsign: String)
+
+    private class Candidate(val label: Label, val rides: Int, val arrival: Int, val walk: Int, val egressStop: Int)
+
+    fun plan(origin: LatLng, destination: LatLng, startMinute: Int, maxRides: Int = MAX_RIDES): List<Journey> {
         val stopCount = network.stops.size
         val rounds = maxRides + 1
-        // arrival[k][s]: best arrival at s with exactly-at-most k rides; how it got there.
-        val rideArrival = Array(rounds) { IntArray(stopCount) { NONE } }
-        val rideFrom = Array(rounds) { arrayOfNulls<RideLabel>(stopCount) }
-        val walkArrival = Array(rounds) { IntArray(stopCount) { NONE } }
-        val walkFrom = Array(rounds) { IntArray(stopCount) { -1 } }
-        val best = IntArray(stopCount) { NONE }
-        fun arrival(k: Int, s: Int) = minOf(rideArrival[k][s], walkArrival[k][s])
+        val bags = Array(rounds) { arrayOfNulls<MutableList<Label>>(stopCount) }
+        // Every label kept so far at a stop, any round: a later round must beat these.
+        val best = arrayOfNulls<MutableList<Label>>(stopCount)
+        val target = ArrayList<Pair<Int, Int>>() // (arrival, walk) reaching the destination
+        val candidates = ArrayList<Candidate>()
+
+        fun prunedByTarget(arrival: Int, walk: Int) = target.any { (a, w) -> a <= arrival && w <= walk }
+
+        /** Adds a label to round [k]'s bag at its stop unless something already kept is as good. */
+        fun insert(k: Int, label: Label): Boolean {
+            if (prunedByTarget(label.arrival, label.walk)) return false
+            val all = best[label.stop] ?: ArrayList<Label>().also { best[label.stop] = it }
+            if (all.any { dominates(it.arrival, it.walk, label.arrival, label.walk) }) return false
+            all.removeAll { dominates(label.arrival, label.walk, it.arrival, it.walk) }
+            all += label
+            val bag = bags[k][label.stop] ?: ArrayList<Label>().also { bags[k][label.stop] = it }
+            bag.removeAll { dominates(label.arrival, label.walk, it.arrival, it.walk) }
+            bag += label
+            return true
+        }
 
         // Round 0: walk from the origin to stops around it.
-        val access = nearbyOrWider(origin)
         val marked = BooleanArray(stopCount)
-        for ((s, meters) in access) {
-            val t = startMinute + TransitNetwork.walkMinutes(meters)
-            if (t < walkArrival[0][s]) {
-                walkArrival[0][s] = t
-                walkFrom[0][s] = ORIGIN
-                best[s] = minOf(best[s], t)
-                marked[s] = true
-            }
+        for ((s, meters) in nearbyOrWider(origin)) {
+            val label = Label(s, startMinute + TransitNetwork.walkMinutes(meters), walkedMeters(meters), null, null, ORIGIN)
+            if (insert(0, label)) marked[s] = true
         }
-        val egress = nearbyOrWider(destination).associate { (s, meters) -> s to TransitNetwork.walkMinutes(meters) }
-        var bestAtTarget = NONE
+        val egress = nearbyOrWider(destination).map { (s, meters) -> Triple(s, TransitNetwork.walkMinutes(meters), walkedMeters(meters)) }
 
         for (k in 1 until rounds) {
-            // Patterns to scan, from the earliest marked stop along each.
+            // Patterns to scan, from the earliest stop marked last round.
             val scanFrom = HashMap<Int, Int>()
             for (s in 0 until stopCount) {
                 if (!marked[s]) continue
@@ -56,95 +81,127 @@ class JourneyPlanner(private val network: TransitNetwork) {
                 }
             }
             marked.fill(false)
-            val improved = ArrayList<Int>()
+            val rodeTo = ArrayList<Label>()
 
             for ((p, first) in scanFrom) {
                 val pattern = network.patterns[p]
-                var boardPosition = -1
-                var boardMinute = 0
-                var reach = -1
-                var headsign = ""
+                val boarded = ArrayList<Boarded>()
                 for (position in first until pattern.stops.size) {
                     val s = pattern.stops[position]
                     // Ride on to this stop.
-                    if (boardPosition >= 0 && position <= reach) {
-                        val t = boardMinute + pattern.offsets[position] - pattern.offsets[boardPosition]
-                        if (t < best[s] && t < bestAtTarget) {
-                            rideArrival[k][s] = t
-                            rideFrom[k][s] = RideLabel(p, boardPosition, position, boardMinute, headsign)
-                            best[s] = t
-                            if (!marked[s]) improved += s
+                    for (trip in boarded) {
+                        if (position > trip.reach) continue
+                        val t = trip.minute + pattern.offsets[position] - pattern.offsets[trip.position]
+                        val label = Label(s, t, trip.from.walk, trip.from, RideLabel(p, trip.position, position, trip.minute, trip.headsign), -1)
+                        if (insert(k, label)) {
                             marked[s] = true
+                            rodeTo += label
                         }
                     }
-                    // Catch an earlier vehicle here?
-                    val ready = arrival(k - 1, s)
-                    if (ready == NONE) continue
-                    // A change needs a minute; the first boarding doesn't.
-                    val departure = pattern.nextDeparture(position, ready + if (k > 1) TRANSFER_SLACK else 0) ?: continue
-                    val current = if (boardPosition >= 0) boardMinute + pattern.offsets[position] - pattern.offsets[boardPosition] else NONE
-                    if (departure.minute < current) {
-                        boardPosition = position
-                        boardMinute = departure.minute
-                        reach = departure.reach
-                        headsign = departure.headsign
+                    // Board here from anything that reached this stop last round.
+                    val ready = bags[k - 1][s] ?: continue
+                    for (from in ready) {
+                        // A change needs a minute; the first boarding doesn't.
+                        val departure = pattern.nextDeparture(position, from.arrival + if (k > 1) TRANSFER_SLACK else 0) ?: continue
+                        val trip = Boarded(from, position, departure.minute, departure.reach, departure.headsign)
+                        // Keep the trips that are best on time-here or walking so far.
+                        fun here(b: Boarded) = b.minute + pattern.offsets[position] - pattern.offsets[b.position]
+                        if (boarded.any { dominates(here(it), it.from.walk, here(trip), trip.from.walk) && it.reach >= trip.reach }) continue
+                        boarded.removeAll { dominates(here(trip), trip.from.walk, here(it), it.from.walk) && trip.reach >= it.reach }
+                        boarded += trip
                     }
                 }
             }
 
             // Walk on from stops reached by a ride this round.
-            for (s in improved) {
-                val from = rideArrival[k][s]
-                for ((neighbour, minutes) in network.transfers[s]) {
-                    val t = from + minutes
-                    if (t < best[neighbour] && t < bestAtTarget) {
-                        walkArrival[k][neighbour] = t
-                        walkFrom[k][neighbour] = s
-                        best[neighbour] = t
-                        marked[neighbour] = true
-                    }
+            for (ride in rodeTo) {
+                for ((neighbour, minutes) in network.transfers[ride.stop]) {
+                    val meters = walkedMeters(distanceMeters(network.stops[ride.stop].location, network.stops[neighbour].location))
+                    val label = Label(neighbour, ride.arrival + minutes, ride.walk + meters, ride, null, ride.stop)
+                    if (insert(k, label)) marked[neighbour] = true
                 }
             }
-            for ((s, minutes) in egress) {
-                val at = rideArrival[k][s]
-                if (at != NONE) bestAtTarget = minOf(bestAtTarget, at + minutes)
+            for ((s, minutes, meters) in egress) {
+                for (label in bags[k][s].orEmpty()) {
+                    if (label.ride == null) continue
+                    val arrival = label.arrival + minutes
+                    val walk = label.walk + meters
+                    if (prunedByTarget(arrival, walk)) continue
+                    target.removeAll { (a, w) -> arrival <= a && walk <= w }
+                    target += arrival to walk
+                    candidates += Candidate(label, k, arrival, walk, s)
+                }
             }
             if (marked.none { it }) break
         }
 
-        // One answer per number of rides. Another change has to be worth it: arrive at least
-        // MIN_GAIN_PER_CHANGE sooner, or about as soon with much less walking.
+        return choose(candidates, origin, destination, startMinute)
+    }
+
+    /**
+     * Trips that arrive by [arriveBy], leaving as late as possible. Leaving later never
+     * arrives earlier, so a binary search over the start time finds the latest start that
+     * still makes it; a second search a little earlier adds alternatives.
+     */
+    fun planArriveBy(origin: LatLng, destination: LatLng, arriveBy: Int, maxRides: Int = MAX_RIDES): List<Journey> {
+        fun inTime(start: Int) = plan(origin, destination, start, maxRides).filter { it.arrivalMinute <= arriveBy }
+        var low = arriveBy - ARRIVE_BY_LOOKBACK_MINUTES
+        var high = arriveBy
+        var found = inTime(low)
+        if (found.isEmpty()) return emptyList()
+        while (high - low > 1) {
+            val mid = (low + high) / 2
+            val options = inTime(mid)
+            if (options.isNotEmpty()) {
+                low = mid
+                found = options
+            } else {
+                high = mid
+            }
+        }
+        val earlier = inTime(low - ARRIVE_BY_ALTERNATIVES_MINUTES)
+        return (found + earlier)
+            .groupBy { journey -> journey.rides.joinToString { "${it.line.code}@${it.board.code}" } }
+            .map { (_, same) -> same.maxBy { it.departureMinute } }
+            .sortedWith(compareByDescending<Journey> { it.departureMinute }.thenBy { it.rides.size })
+            .take(MAX_OPTIONS)
+    }
+
+    /**
+     * The fastest trip, then trips with fewer rides or much less walking that arrive at most
+     * [MAX_SLOWER_MINUTES] later; another change has to save [MIN_GAIN_PER_CHANGE] minutes.
+     */
+    private fun choose(candidates: List<Candidate>, origin: LatLng, destination: LatLng, startMinute: Int): List<Journey> {
         val journeys = ArrayList<Journey>()
         var fastest = NONE
         var leastWalking = Int.MAX_VALUE
+        var fewestRides = Int.MAX_VALUE
         val direct = distanceMeters(origin, destination)
         if (direct <= MAX_DIRECT_WALK_METERS) {
             val minutes = TransitNetwork.walkMinutes(direct)
             journeys += Journey(startMinute, startMinute + minutes, listOf(walk(origin, destination, null, null, startMinute, startMinute + minutes)))
             fastest = startMinute + minutes
+            leastWalking = walkedMeters(direct)
+            fewestRides = 0
         }
-        for (k in 1 until rounds) {
-            var bestStop = -1
-            var bestTime = NONE
-            for ((s, minutes) in egress) {
-                val at = rideArrival[k][s]
-                if (at != NONE && at + minutes < bestTime) {
-                    bestTime = at + minutes
-                    bestStop = s
-                }
-            }
-            if (bestStop < 0) continue
-            val candidate = reconstruct(k, bestStop, bestTime, origin, destination, startMinute, rideArrival, rideFrom, walkArrival, walkFrom)
-            val firstTransit = journeys.none { it.rides.isNotEmpty() }
+        // Fewest rides first, then fastest: each must earn its place against what's kept.
+        for (c in candidates.sortedWith(compareBy({ it.rides }, { it.arrival }, { it.walk }))) {
+            if (journeys.size >= MAX_OPTIONS) break
             val worthIt = when {
-                firstTransit -> bestTime < fastest
-                bestTime <= fastest - MIN_GAIN_PER_CHANGE -> true
-                else -> bestTime <= fastest + WALK_TRADE_MINUTES && candidate.walkingMeters <= leastWalking - MIN_WALK_SAVED_METERS
+                journeys.none { it.rides.isNotEmpty() } && fewestRides == Int.MAX_VALUE -> true
+                // Faster enough to be worth this many rides.
+                c.arrival <= fastest - (if (c.rides > fewestRides) MIN_GAIN_PER_CHANGE else 1) -> true
+                // About as fast, much less walking, and at most one more change.
+                c.arrival <= fastest + MAX_SLOWER_MINUTES && c.walk <= leastWalking - MIN_WALK_SAVED_METERS && c.rides <= fewestRides + 1 -> true
+                // Transit beats a long walk that takes about as long.
+                journeys.none { it.rides.isNotEmpty() } && c.arrival <= fastest + MAX_SLOWER_MINUTES && c.walk <= leastWalking / 2 -> true
+                else -> false
             }
             if (!worthIt) continue
-            journeys += candidate
-            fastest = minOf(fastest, bestTime)
-            leastWalking = minOf(leastWalking, candidate.walkingMeters)
+            journeys += reconstruct(c, origin, destination, startMinute)
+            fastest = minOf(fastest, c.arrival)
+            leastWalking = minOf(leastWalking, c.walk)
+            fewestRides = minOf(fewestRides, c.rides)
         }
         return journeys.sortedWith(compareBy({ it.arrivalMinute }, { it.rides.size }))
     }
@@ -152,40 +209,21 @@ class JourneyPlanner(private val network: TransitNetwork) {
     private fun nearbyOrWider(point: LatLng): List<Pair<Int, Double>> =
         network.stopsNear(point, ACCESS_RADIUS_METERS).ifEmpty { network.stopsNear(point, WIDE_ACCESS_RADIUS_METERS) }
 
-    private class RideLabel(val pattern: Int, val boardPosition: Int, val alightPosition: Int, val boardMinute: Int, val headsign: String)
-
-    private fun reconstruct(
-        rides: Int,
-        lastStop: Int,
-        arrivalAtTarget: Int,
-        origin: LatLng,
-        destination: LatLng,
-        startMinute: Int,
-        rideArrival: Array<IntArray>,
-        rideFrom: Array<Array<RideLabel?>>,
-        walkArrival: Array<IntArray>,
-        walkFrom: Array<IntArray>,
-    ): Journey {
+    private fun reconstruct(candidate: Candidate, origin: LatLng, destination: LatLng, startMinute: Int): Journey {
         val stops = network.stops
         val legs = ArrayList<JourneyLeg>()
-        var k = rides
-        var s = lastStop
-        val arriveAtStop = rideArrival[k][s]
-        legs += walk(stops[s].location, destination, stops[s], null, arriveAtStop, arrivalAtTarget)
-        while (true) {
-            if (k == 0) {
-                legs += walk(origin, stops[s].location, null, stops[s], startMinute, walkArrival[0][s])
-                break
+        val last = candidate.label
+        legs += walk(stops[last.stop].location, destination, stops[last.stop], null, last.arrival, candidate.arrival)
+        var label: Label? = last
+        while (label != null) {
+            val ride = label.ride
+            val parent = label.parent
+            when {
+                ride != null -> legs += ride(ride, label.arrival)
+                label.walkFrom == ORIGIN -> legs += walk(origin, stops[label.stop].location, null, stops[label.stop], startMinute, label.arrival)
+                parent != null -> legs += walk(stops[parent.stop].location, stops[label.stop].location, stops[parent.stop], stops[label.stop], parent.arrival, label.arrival)
             }
-            if (walkArrival[k][s] < rideArrival[k][s]) {
-                val from = walkFrom[k][s]
-                legs += walk(stops[from].location, stops[s].location, stops[from], stops[s], rideArrival[k][from], walkArrival[k][s])
-                s = from
-            }
-            val label = rideFrom[k][s] ?: error("No ride into stop ${stops[s].code} in round $k")
-            legs += ride(label, rideArrival[k][s])
-            s = network.patterns[label.pattern].stops[label.boardPosition]
-            k -= 1
+            label = parent
         }
         legs.reverse()
         // Leave as late as still makes the first ride: the start walk ends at boarding.
@@ -199,7 +237,7 @@ class JourneyPlanner(private val network: TransitNetwork) {
         }
         // Drop zero-length walks (boarding right where the trip starts).
         val cleaned = adjusted.filterNot { it is JourneyLeg.Walk && it.meters < 1 && it.fromStop == null && it.toStop != null }
-        return Journey(cleaned.first().startMinute, arrivalAtTarget, cleaned)
+        return Journey(cleaned.first().startMinute, candidate.arrival, cleaned)
     }
 
     private fun ride(label: RideLabel, arrival: Int): JourneyLeg.Ride {
@@ -229,23 +267,33 @@ class JourneyPlanner(private val network: TransitNetwork) {
         )
     }
 
-    private fun walk(from: LatLng, to: LatLng, fromStop: com.aijec.izmirtransit.core.model.Stop?, toStop: com.aijec.izmirtransit.core.model.Stop?, start: Int, end: Int) =
-        JourneyLeg.Walk(from, to, fromStop, toStop, (distanceMeters(from, to) * TransitNetwork.WALK_DETOUR).toInt(), start, end)
+    private fun walk(from: LatLng, to: LatLng, fromStop: Stop?, toStop: Stop?, start: Int, end: Int) =
+        JourneyLeg.Walk(from, to, fromStop, toStop, walkedMeters(distanceMeters(from, to)), start, end)
 
     companion object {
         private const val NONE = Int.MAX_VALUE / 2
         private const val ORIGIN = -2
         const val MAX_RIDES = 4
         const val TRANSFER_SLACK = 1
-        /** A trip with one more change is only offered if it arrives at least this much sooner. */
+        /** A trip with more rides is only offered if it arrives at least this much sooner. */
         const val MIN_GAIN_PER_CHANGE = 5
-        /** ...or arrives no more than this later while walking at least [MIN_WALK_SAVED_METERS] less. */
-        const val WALK_TRADE_MINUTES = 2
-        const val MIN_WALK_SAVED_METERS = 800
+        /** A slower trip is offered for fewer rides or [MIN_WALK_SAVED_METERS] less walking, up to this much later. */
+        const val MAX_SLOWER_MINUTES = 10
+        const val MIN_WALK_SAVED_METERS = 500
+        /** Walking differences below this don't make two labels different (keeps bags small). */
+        const val WALK_TOLERANCE_METERS = 100
+        const val MAX_OPTIONS = 5
         /** How far people walk to the first stop and from the last one. */
         const val ACCESS_RADIUS_METERS = 1_200.0
         const val WIDE_ACCESS_RADIUS_METERS = 2_000.0
         /** Within this, walking all the way is offered too. */
         const val MAX_DIRECT_WALK_METERS = 2_500.0
+        const val ARRIVE_BY_LOOKBACK_MINUTES = 180
+        const val ARRIVE_BY_ALTERNATIVES_MINUTES = 15
+
+        private fun walkedMeters(straightMeters: Double) = (straightMeters * TransitNetwork.WALK_DETOUR).toInt()
+
+        private fun dominates(arrivalA: Int, walkA: Int, arrivalB: Int, walkB: Int) =
+            arrivalA <= arrivalB && walkA <= walkB + WALK_TOLERANCE_METERS
     }
 }

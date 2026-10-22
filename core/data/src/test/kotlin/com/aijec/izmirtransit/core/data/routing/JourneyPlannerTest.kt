@@ -74,6 +74,16 @@ class JourneyPlannerTest {
     }
 
     @Test
+    fun `arrive by leaves as late as still makes it`() {
+        val journeys = planner.planArriveBy(origin = LatLng(38.4, 27.0995), destination = LatLng(38.4303, 27.1201), arriveBy = 640)
+        // The 06:20 bus meets the 06:30 train, at D about 06:35; the 06:00 bus is too early to matter.
+        val latest = journeys.first()
+        assertEquals(620, latest.rides.first().startMinute)
+        assertTrue(latest.arrivalMinute <= 640)
+        assertTrue(planner.planArriveBy(origin = LatLng(38.4, 27.0995), destination = LatLng(38.4303, 27.1201), arriveBy = 605).none { it.rides.isNotEmpty() })
+    }
+
+    @Test
     fun `nothing after the last departure`() {
         val journeys = planner.plan(origin = LatLng(38.4, 27.0995), destination = LatLng(38.4303, 27.1201), startMinute = 700)
         assertTrue(journeys.none { it.rides.isNotEmpty() })

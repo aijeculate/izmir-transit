@@ -33,6 +33,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.aijec.izmirtransit.core.data.repository.SavedKind
+import java.time.LocalDateTime
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Icon
@@ -98,7 +111,9 @@ fun PlannerRoute(onBack: () -> Unit, onOpenStop: (String) -> Unit, viewModel: Pl
         onQueryChange = viewModel::onQueryChange,
         onChoose = viewModel::choose,
         onSwap = viewModel::swap,
-        onDepartIn = viewModel::setDepartIn,
+        onTime = viewModel::setTime,
+        onStartSaving = viewModel::startSaving,
+        onClearRecents = viewModel::clearRecents,
         onSelect = viewModel::select,
         onAskLocation = { viewModel.consumeMessage(); permission.launch(LocationProvider.PERMISSIONS) },
         onOpenStop = onOpenStop,
@@ -113,8 +128,6 @@ private fun messageText(message: PlannerMessage): Int = when (message) {
     PlannerMessage.PLACE_FAILED -> R.string.planner_place_failed
 }
 
-private val DEPART_OPTIONS = listOf(0, 15, 30, 60)
-
 @Composable
 fun PlannerScreen(
     state: PlannerUiState,
@@ -123,10 +136,12 @@ fun PlannerScreen(
     onQueryChange: (String) -> Unit,
     onChoose: (Suggestion) -> Unit,
     onSwap: () -> Unit,
-    onDepartIn: (Int) -> Unit,
+    onTime: (TimeMode, LocalDateTime?) -> Unit,
     onSelect: (Int) -> Unit,
     onAskLocation: () -> Unit,
     onOpenStop: (String) -> Unit,
+    onStartSaving: (SavedKind) -> Unit = {},
+    onClearRecents: () -> Unit = {},
 ) {
     val journey = state.selectedJourney
     val from = state.from
@@ -150,7 +165,7 @@ fun PlannerScreen(
         ) {
             EndpointsPanel(state, onBack, onEdit, onSwap)
             if (state.editing != null) {
-                SearchPanel(state, onQueryChange, onChoose, Modifier.imePadding())
+                SearchPanel(state, onQueryChange, onChoose, onStartSaving, onClearRecents, Modifier.imePadding())
             }
         }
         if (state.editing == null) {
@@ -161,7 +176,7 @@ fun PlannerScreen(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ResultsPanel(state, onDepartIn, onSelect, onAskLocation)
+                ResultsPanel(state, onTime, onSelect, onAskLocation)
             }
         }
     }
@@ -224,7 +239,14 @@ private fun EndpointRow(label: String, value: String?, placeholder: String, dot:
 }
 
 @Composable
-private fun SearchPanel(state: PlannerUiState, onQueryChange: (String) -> Unit, onChoose: (Suggestion) -> Unit, modifier: Modifier = Modifier) {
+private fun SearchPanel(
+    state: PlannerUiState,
+    onQueryChange: (String) -> Unit,
+    onChoose: (Suggestion) -> Unit,
+    onStartSaving: (SavedKind) -> Unit,
+    onClearRecents: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = Calm.colors
     val focus = remember { FocusRequester() }
     LaunchedEffect(state.editing) { runCatching { focus.requestFocus() } }
@@ -232,19 +254,42 @@ private fun SearchPanel(state: PlannerUiState, onQueryChange: (String) -> Unit, 
         PillSearchField(
             value = state.query,
             onValueChange = onQueryChange,
-            placeholder = stringResource(if (state.placesEnabled) R.string.planner_search_hint else R.string.planner_search_hint_stops),
+            placeholder = when (state.saving) {
+                SavedKind.HOME -> stringResource(R.string.planner_set_home_hint)
+                SavedKind.WORK -> stringResource(R.string.planner_set_work_hint)
+                null -> stringResource(if (state.placesEnabled) R.string.planner_search_hint else R.string.planner_search_hint_stops)
+            },
             glass = true,
             modifier = Modifier.focusRequester(focus),
         )
         if (state.suggestions.isNotEmpty()) {
             Panel(Modifier.fillMaxWidth(), glass = true, padding = PaddingValues(vertical = 6.dp)) {
                 LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                    if (state.query.isBlank() && state.suggestions.any { it is Suggestion.Recent }) {
+                        item("recents-clear") {
+                            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.planner_recents), style = MaterialTheme.typography.labelMedium, color = colors.textSecondary, modifier = Modifier.weight(1f))
+                                Text(
+                                    stringResource(R.string.planner_recents_clear),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = colors.accent,
+                                    modifier = Modifier.clickable(onClick = onClearRecents).padding(8.dp),
+                                )
+                            }
+                        }
+                    }
                     items(state.suggestions, key = { suggestionKey(it) }) { suggestion ->
                         CalmRow(onClick = { onChoose(suggestion) }, padding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)) {
                             val (icon, title, subtitle) = when (suggestion) {
                                 Suggestion.MyLocation -> Triple(Icons.Filled.MyLocation, stringResource(R.string.planner_my_location), "")
                                 is Suggestion.Place -> Triple(Icons.Filled.Place, suggestion.place.title, suggestion.place.subtitle)
                                 is Suggestion.StopResult -> Triple(null, suggestion.stop.name, stopKindLabel(suggestion.stop))
+                                is Suggestion.Saved -> Triple(
+                                    if (suggestion.kind == SavedKind.HOME) Icons.Filled.Home else Icons.Filled.Work,
+                                    stringResource(if (suggestion.kind == SavedKind.HOME) R.string.planner_home else R.string.planner_work),
+                                    suggestion.place?.name?.ifBlank { stringResource(R.string.planner_dropped_pin) } ?: stringResource(R.string.planner_tap_to_set),
+                                )
+                                is Suggestion.Recent -> Triple(Icons.Filled.History, suggestion.place.name.ifBlank { stringResource(R.string.planner_dropped_pin) }, "")
                             }
                             if (suggestion is Suggestion.StopResult) {
                                 ModeIcon(suggestion.stop.mode, size = 28.dp)
@@ -260,6 +305,15 @@ private fun SearchPanel(state: PlannerUiState, onQueryChange: (String) -> Unit, 
                                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
+                            if (suggestion is Suggestion.Saved && suggestion.place != null) {
+                                CircleIconButton(
+                                    Icons.Filled.Edit,
+                                    stringResource(if (suggestion.kind == SavedKind.HOME) R.string.planner_change_home else R.string.planner_change_work),
+                                    onClick = { onStartSaving(suggestion.kind) },
+                                    tint = colors.textSecondary,
+                                    plain = true,
+                                )
+                            }
                         }
                     }
                 }
@@ -272,19 +326,55 @@ private fun suggestionKey(s: Suggestion): String = when (s) {
     Suggestion.MyLocation -> "me"
     is Suggestion.Place -> "place-${s.place.placeId}"
     is Suggestion.StopResult -> "stop-${s.stop.code}"
+    is Suggestion.Saved -> "saved-${s.kind}"
+    is Suggestion.Recent -> "recent-${s.place.latitude},${s.place.longitude},${s.place.name}"
 }
 
 @Composable
-private fun ResultsPanel(state: PlannerUiState, onDepartIn: (Int) -> Unit, onSelect: (Int) -> Unit, onAskLocation: () -> Unit) {
+private fun ResultsPanel(state: PlannerUiState, onTime: (TimeMode, LocalDateTime?) -> Unit, onSelect: (Int) -> Unit, onAskLocation: () -> Unit) {
     val colors = Calm.colors
+    var picking by remember { mutableStateOf<TimeMode?>(null) }
+    picking?.let { mode ->
+        TimeDialog(
+            mode = mode,
+            initial = state.time ?: nowInIzmir().plusMinutes(15),
+            onDismiss = { picking = null },
+            onConfirm = { time -> picking = null; onTime(mode, time) },
+        )
+    }
     Panel(Modifier.fillMaxWidth().animateContentSize(), glass = true, padding = PaddingValues(vertical = 10.dp)) {
         SegmentedControl(
-            options = DEPART_OPTIONS,
-            selected = state.departInMinutes,
-            onSelect = onDepartIn,
-            label = { if (it == 0) stringResource(R.string.planner_now) else stringResource(R.string.planner_in_minutes, it) },
+            options = TimeMode.entries,
+            selected = state.timeMode,
+            onSelect = { mode -> if (mode == TimeMode.NOW) onTime(TimeMode.NOW, null) else picking = mode },
+            label = { mode ->
+                stringResource(
+                    when (mode) {
+                        TimeMode.NOW -> R.string.planner_now
+                        TimeMode.LEAVE_AT -> R.string.planner_leave_at
+                        TimeMode.ARRIVE_BY -> R.string.planner_arrive_by
+                    },
+                )
+            },
             modifier = Modifier.padding(horizontal = 12.dp),
         )
+        val time = state.time
+        if (state.timeMode != TimeMode.NOW && time != null) {
+            val day = stringResource(if (time.toLocalDate() == nowInIzmir().toLocalDate()) R.string.planner_today else R.string.planner_tomorrow)
+            Text(
+                stringResource(
+                    if (state.timeMode == TimeMode.ARRIVE_BY) R.string.planner_arrive_by_at else R.string.planner_leave_at_at,
+                    day,
+                    clock(time.hour * 60 + time.minute),
+                ),
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.accent,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .clickable { picking = state.timeMode }
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+            )
+        }
         when {
             state.message == PlannerMessage.LOCATION_PERMISSION && state.from == null -> {
                 Text(
@@ -328,6 +418,42 @@ private fun ResultsPanel(state: PlannerUiState, onDepartIn: (Int) -> Unit, onSel
             else -> Text(stringResource(R.string.planner_no_route), style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
         }
     }
+}
+
+private fun nowInIzmir(): LocalDateTime = TimetableRepository.localNow(java.time.Clock.systemUTC())
+
+/** A 24-hour time picker with today or tomorrow. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeDialog(mode: TimeMode, initial: LocalDateTime, onDismiss: () -> Unit, onConfirm: (LocalDateTime) -> Unit) {
+    val today = nowInIzmir().toLocalDate()
+    val picker = rememberTimePickerState(initial.hour, initial.minute, is24Hour = true)
+    var tomorrow by remember { mutableStateOf(initial.toLocalDate().isAfter(today)) }
+    val colors = Calm.colors
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.panel,
+        title = { Text(stringResource(if (mode == TimeMode.ARRIVE_BY) R.string.planner_arrive_by else R.string.planner_leave_at), color = colors.text) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SegmentedControl(
+                    options = listOf(false, true),
+                    selected = tomorrow,
+                    onSelect = { tomorrow = it },
+                    label = { stringResource(if (it) R.string.planner_tomorrow else R.string.planner_today) },
+                )
+                TimePicker(state = picker)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm((if (tomorrow) today.plusDays(1) else today).atTime(picker.hour, picker.minute)) }) {
+                Text(stringResource(R.string.planner_time_ok), color = colors.accent)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.planner_time_cancel), color = colors.textSecondary) }
+        },
+    )
 }
 
 @Composable

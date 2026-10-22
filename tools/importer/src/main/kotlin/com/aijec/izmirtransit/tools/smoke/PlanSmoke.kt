@@ -47,6 +47,11 @@ fun main(): Unit = runBlocking {
         }
         val many = measureTime { repeat(20) { planner.plan(trips[1].second.first, trips[1].second.second, 8 * 60 + it * 7) } }
         println("\n20 plans: $many")
+        val (byNine, arriveTime) = measureTimedValue { planner.planArriveBy(trips[0].second.first, trips[0].second.second, arriveBy = 9 * 60) }
+        println("\n== ${trips[0].first}, arrive by 09:00 ($arriveTime)")
+        for (j in byNine) {
+            println("  ${clock(j.departureMinute)} → ${clock(j.arrivalMinute)} (${j.rides.size} rides: ${j.rides.joinToString { it.line.displayCode }}, walk ${j.walkingMeters} m)")
+        }
     } finally {
         database.close()
     }
