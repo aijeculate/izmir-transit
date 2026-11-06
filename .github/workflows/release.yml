@@ -99,7 +99,12 @@ jobs:
             [ -n "$PLACES_API_KEY" ] && echo "PLACES_API_KEY=$PLACES_API_KEY"
             true
           } > local.properties
-          echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+          # Accepts the bare base64 line or the whole signing sheet pasted in (the long line is used).
+          printf '%s\n' "$KEYSTORE_BASE64" | tr -d '\r' | grep -E '^[A-Za-z0-9+/=]{200,}$' | tail -n 1 | base64 -d > release.keystore
+          if [ ! -s release.keystore ]; then
+            echo "::error::KEYSTORE_BASE64 doesn't contain the keystore's base64 line"
+            exit 1
+          fi
           {
             echo "storeFile=release.keystore"
             echo "storePassword=$KEYSTORE_PASSWORD"
