@@ -211,7 +211,7 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 **Added 6 Nov 2026:**
 
 - **Planner panels can be put away:** tap the map, swipe the results down or tap their grab handle. A compact bar (the chosen journey's times and lines) brings them back on tap or swipe up; Back also restores them. A floating back button stays while they're hidden.
-- **Monochrome map** (`MapStyles` in `:core:map`, JSON styles for light and dark, in the style of Uber's map): greys only, no POI icons or names, Google transit stations still hidden. A JSON style replaces Google's dark scheme, so dark mode has its own style.
+- **Monochrome map** (`MapStyles` in `:core:map`, JSON styles for light and dark, in the style of Uber's map): greys only; places (shops, cafés, workplaces) keep their icons and names, in grey, because people use the map to find where they're going (user's call, 6 Nov). Google transit stations stay hidden. A JSON style replaces Google's dark scheme, so dark mode has its own style.
 - **Timetable opens on the direction shown on the line map** (`?direction=OUTBOUND|RETURN` on `timetable/`). It wins over the from-stop direction; with "Show both directions" on nothing is passed. A direction a loop line lacks falls back to the one it has.
 
 | Module | What it holds |
