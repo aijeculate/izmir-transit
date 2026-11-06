@@ -33,6 +33,7 @@ jobs:
       - name: Check secrets
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          PLACES_API_KEY: ${{ secrets.PLACES_API_KEY }}
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -46,6 +47,14 @@ jobs:
             echo "::error::Missing repository secrets:$missing (Settings > Secrets and variables > Actions)"
             exit 1
           fi
+          # Google API keys start with "AIza". A fingerprint or other text here gives a blank map.
+          for name in MAPS_API_KEY PLACES_API_KEY; do
+            value="${!name}"
+            if [ -n "$value" ] && [[ "$value" != AIza* ]]; then
+              echo "::error::$name doesn't look like a Google API key (they start with AIza). Copy it from Google Cloud > Credentials > Show key."
+              exit 1
+            fi
+          done
 
       # Next version: the latest release's patch number plus one (v1.2.0 -> v1.2.1).
       # versionCode is derived from it (1.2.1 -> 10201), so it always goes up.
