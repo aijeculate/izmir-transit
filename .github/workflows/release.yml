@@ -1,0 +1,137 @@
+name: Release
+
+# Every push to main that changes the app builds a signed APK and publishes it as a new
+# release, so the app's update checker finds it. Put [skip release] in a commit message to
+# push without releasing. It can also be started by hand from the Actions tab.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'research/**'
+      - '**/*.md'
+      - 'LICENSE'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One release at a time, in push order.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=""
+          for name in MAPS_API_KEY KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+
+      # Next version: the latest release's patch number plus one (v1.2.0 -> v1.2.1).
+      # versionCode is derived from it (1.2.1 -> 10201), so it always goes up.
+      - name: Work out the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>/dev/null || echo "v0.0.0")
+          IFS=. read -r major minor patch <<< "${latest#v}"
+          patch=$((patch + 1))
+          name="$major.$minor.$patch"
+          code=$((major * 10000 + minor * 100 + patch))
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Releasing $name (versionCode $code), after $latest"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The transit data (research/raw) is git-ignored and takes ~6 min to download, so it is
+      # cached for a week; the app refreshes its own data weekly anyway.
+      - name: Data cache key
+        id: week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Restore transit data
+        id: data
+        uses: actions/cache@v4
+        with:
+          path: research/raw
+          key: transit-data-${{ steps.week.outputs.week }}
+          restore-keys: transit-data-
+      - name: Download transit data
+        if: steps.data.outputs.cache-hit != 'true'
+        run: ./gradlew :tools:importer:downloadData
+
+      - name: Write keys and signing config
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          PLACES_API_KEY: ${{ secrets.PLACES_API_KEY }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          {
+            echo "MAPS_API_KEY=$MAPS_API_KEY"
+            [ -n "$PLACES_API_KEY" ] && echo "PLACES_API_KEY=$PLACES_API_KEY"
+            true
+          } > local.properties
+          echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+          {
+            echo "storeFile=release.keystore"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+
+      - name: Unit tests
+        run: ./gradlew test
+
+      - name: Build the release APK
+        run: >
+          ./gradlew :app:assembleRelease
+          -PappVersionName=${{ steps.version.outputs.name }}
+          -PappVersionCode=${{ steps.version.outputs.code }}
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          apk=$(ls app/build/outputs/apk/release/*.apk | grep -v unsigned | head -n 1)
+          if [ -z "$apk" ]; then
+            echo "::error::No signed APK was built"
+            exit 1
+          fi
+          mkdir -p dist
+          cp "$apk" dist/izmir-transit.apk
+          cp "$apk" "dist/izmir-transit-$VERSION.apk"
+          gh release create "v$VERSION" dist/izmir-transit.apk "dist/izmir-transit-$VERSION.apk" \
+            --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --latest
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f release.keystore keystore.properties local.properties
