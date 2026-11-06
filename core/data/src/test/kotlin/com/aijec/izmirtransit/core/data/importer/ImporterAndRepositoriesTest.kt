@@ -106,7 +106,10 @@ class ImporterAndRepositoriesTest {
     @Test
     fun `stop order is derived from the shape when GTFS is absent`() = runBlocking {
         val routes = lines.routes("5").associateBy { it.direction }
-        assertEquals(listOf("100", "200", "300"), routes.getValue(Direction.OUTBOUND).stops.map { it.code })
+        // Both directions share the street. Şirinyer (200) is on its north side: the right of
+        // westbound (return) traffic, so only the return direction calls there. The end stops
+        // are termini and serve both.
+        assertEquals(listOf("100", "300"), routes.getValue(Direction.OUTBOUND).stops.map { it.code })
         assertEquals(listOf("300", "200", "100"), routes.getValue(Direction.RETURN).stops.map { it.code })
         // The straight three-point shape simplifies to its two endpoints.
         assertEquals(listOf(LatLng(38.40, 27.10), LatLng(38.40, 27.13)), routes.getValue(Direction.OUTBOUND).shape)

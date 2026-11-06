@@ -94,6 +94,15 @@ jobs:
         if: steps.data.outputs.cache-hit != 'true'
         run: ./gradlew :tools:importer:downloadData
 
+      # ESHOT's GTFS server times out from GitHub's machines. Without it every bus stop lands in
+      # both directions, so use the committed copy of its stop order instead.
+      - name: Fall back to the saved bus stop order
+        run: |
+          if [ ! -s research/raw/bus-eshot-gtfs.zip ]; then
+            echo "Live ESHOT GTFS unavailable; using tools/importer/fallback/bus-eshot-gtfs.zip"
+            cp tools/importer/fallback/bus-eshot-gtfs.zip research/raw/bus-eshot-gtfs.zip
+          fi
+
       - name: Write keys and signing config
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
