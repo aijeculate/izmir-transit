@@ -39,7 +39,6 @@ import com.google.android.gms.maps.model.Dot
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.gms.maps.model.RoundCap
@@ -69,9 +68,6 @@ import kotlinx.coroutines.yield
 import com.google.android.gms.maps.model.LatLng as GLatLng
 
 private val IZMIR_CENTER = GLatLng(38.4237, 27.1428)
-private val HideGoogleTransit = MapStyleOptions(
-    """[{"featureType":"transit.station","stylers":[{"visibility":"off"}]}]""",
-)
 private const val VEHICLE_FRAME_MILLIS = 66L
 private const val ROUTE_FADE_MILLIS = 420
 /** One flowing chevron per this much route, at most [MAX_CHEVRONS] (each is a marker moved every frame). */
@@ -180,7 +176,7 @@ fun TransitMap(
     }
     val originDot = rememberOriginDot(colors.accent)
 
-    val casing = if (colors.isDark) Color(0xFF0B1220) else Color.White
+    val casing = if (colors.isDark) Color(0xFF1C1C1E) else Color.White
     val routeWidth = with(density) { 5.dp.toPx() }
     val casingWidth = with(density) { 8.dp.toPx() }
     // The selected line is wider so its direction chevrons are big enough to read.
@@ -195,8 +191,9 @@ fun TransitMap(
         properties = MapProperties(
             isMyLocationEnabled = myLocationEnabled,
             minZoomPreference = 8f,
-            // Google's own transit station icons duplicated our stop badges (and stole taps).
-            mapStyleOptions = HideGoogleTransit,
+            // Monochrome base map, so our routes and stops carry all the colour. It also hides
+            // Google's own transit station icons, which duplicated our stop badges (and stole taps).
+            mapStyleOptions = if (colors.isDark) MapStyles.Dark else MapStyles.Light,
         ),
         uiSettings = MapUiSettings(
             compassEnabled = false,

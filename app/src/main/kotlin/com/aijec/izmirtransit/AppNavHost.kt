@@ -48,6 +48,7 @@ import com.aijec.izmirtransit.feature.planner.PlannerViewModel
 import com.aijec.izmirtransit.feature.settings.SettingsRoute
 import com.aijec.izmirtransit.feature.stop.StopRoute
 import com.aijec.izmirtransit.feature.stop.StopViewModel
+import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.feature.timetable.TimetableRoute
 import com.aijec.izmirtransit.feature.timetable.TimetableViewModel
 
@@ -57,7 +58,8 @@ private const val SETTINGS_ROUTE = "settings"
 private const val LINE_ROUTE =
     "line/{${LineMapViewModel.KEY_LINE}}?stop={${LineMapViewModel.KEY_FROM_STOP}}&toward={${LineMapViewModel.KEY_TOWARD}}"
 private const val STOP_ROUTE = "stop/{${StopViewModel.STOP_CODE_ARG}}"
-private const val TIMETABLE_ROUTE = "timetable/{${TimetableViewModel.LINE_CODE_ARG}}?stop={${TimetableViewModel.STOP_ARG}}"
+private const val TIMETABLE_ROUTE =
+    "timetable/{${TimetableViewModel.LINE_CODE_ARG}}?stop={${TimetableViewModel.STOP_ARG}}&direction={${TimetableViewModel.DIRECTION_ARG}}"
 
 private const val PLAN_ROUTE =
     "plan?${PlannerViewModel.ARG_LAT}={${PlannerViewModel.ARG_LAT}}&${PlannerViewModel.ARG_LON}={${PlannerViewModel.ARG_LON}}&${PlannerViewModel.ARG_NAME}={${PlannerViewModel.ARG_NAME}}"
@@ -74,8 +76,11 @@ private fun lineDestination(code: String, fromStop: String? = null, toward: Stri
     return "line/${Uri.encode(code)}" + if (query.isEmpty()) "" else query.joinToString("&", prefix = "?")
 }
 private fun stopDestination(code: String) = "stop/${Uri.encode(code)}"
-private fun timetableDestination(code: String, stop: String? = null) =
-    "timetable/${Uri.encode(code)}" + (stop?.let { "?stop=${Uri.encode(it)}" } ?: "")
+/** [direction]: the direction the line map was showing, so the timetable opens on it. */
+private fun timetableDestination(code: String, stop: String? = null, direction: Direction? = null): String {
+    val query = listOfNotNull(stop?.let { "stop=${Uri.encode(it)}" }, direction?.let { "direction=${it.name}" })
+    return "timetable/${Uri.encode(code)}" + if (query.isEmpty()) "" else query.joinToString("&", prefix = "?")
+}
 
 /**
  * Two tabs: Home (start) and Map (the all-lines overview, or the line chosen there).
@@ -119,7 +124,7 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                 LineMapRoute(
                     onFullscreenChange = { mapFullscreen = it },
                     onOpenStop = { nav.navigate(stopDestination(it)) },
-                    onOpenTimetable = { code, stop -> nav.navigate(timetableDestination(code, stop)) },
+                    onOpenTimetable = { code, stop, direction -> nav.navigate(timetableDestination(code, stop, direction)) },
                     onPlanTrip = { nav.navigate(planDestination(it)) },
                 )
             }
@@ -142,7 +147,7 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                 LineMapRoute(
                     onFullscreenChange = { mapFullscreen = it },
                     onOpenStop = { nav.navigate(stopDestination(it)) },
-                    onOpenTimetable = { code, stop -> nav.navigate(timetableDestination(code, stop)) },
+                    onOpenTimetable = { code, stop, direction -> nav.navigate(timetableDestination(code, stop, direction)) },
                     onBack = { nav.popBackStack() },
                     onPlanTrip = { nav.navigate(planDestination(it)) },
                 )
@@ -180,6 +185,11 @@ fun AppNavHost(openStop: String? = null, onOpenStopHandled: () -> Unit = {}) {
                 arguments = listOf(
                     navArgument(TimetableViewModel.LINE_CODE_ARG) { type = NavType.StringType },
                     navArgument(TimetableViewModel.STOP_ARG) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument(TimetableViewModel.DIRECTION_ARG) {
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null

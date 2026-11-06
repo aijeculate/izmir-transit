@@ -116,8 +116,11 @@ import com.aijec.izmirtransit.core.ui.tabular
 @Composable
 fun LineMapRoute(
     onOpenStop: (stopCode: String) -> Unit,
-    /** Opens a line's timetable, at [stopCode] when the line was opened from a stop. */
-    onOpenTimetable: (lineCode: String, stopCode: String?) -> Unit,
+    /**
+     * Opens a line's timetable, at [stopCode] when the line was opened from a stop, in the
+     * [direction] shown on the map (null when both directions are drawn).
+     */
+    onOpenTimetable: (lineCode: String, stopCode: String?, direction: Direction?) -> Unit,
     onBack: () -> Unit = {},
     /** Opens the trip planner, optionally with a destination already chosen. */
     onPlanTrip: (PlanDestination?) -> Unit = {},
@@ -158,7 +161,9 @@ fun LineMapRoute(
         layers = layers,
         isFavourite = isFavourite,
         onToggleFavourite = viewModel::toggleFavourite,
-        onOpenTimetable = { state.lineCode?.let { onOpenTimetable(it, viewModel.fromStop) } },
+        onOpenTimetable = {
+            state.lineCode?.let { onOpenTimetable(it, viewModel.fromStop, state.direction.takeUnless { bothDirections }) }
+        },
         onClose = if (state.pinned) onBack else viewModel::clearLine,
         searchAtBottom = searchAtBottom,
         onLocate = {

@@ -2,7 +2,22 @@ package com.aijec.izmirtransit.feature.planner
 
 import com.aijec.izmirtransit.core.ui.ModeIcon
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import com.aijec.izmirtransit.core.ui.calmSurface
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -170,6 +185,11 @@ fun PlannerScreen(
     val journey = state.selectedJourney
     val from = state.from
     val to = state.to
+    // The panels can be put away so the route on the map can be seen in full: tap the map,
+    // swipe the results down or use the handle. A compact bar brings them back.
+    var panelsHidden by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.editing) { if (state.editing != null) panelsHidden = false }
+    BackHandler(enabled = panelsHidden) { panelsHidden = false }
     Box(Modifier.fillMaxSize()) {
         TransitMap(
             contentPadding = MapPadding(start = 24.dp, top = 230.dp, end = 24.dp, bottom = 360.dp),
@@ -178,19 +198,38 @@ fun PlannerScreen(
             myLocationEnabled = from?.isMyLocation == true,
             fitKey = journey?.let { "${state.selected}:${it.departureMinute}:${it.arrivalMinute}:${from?.location}:${to?.location}" },
             onStopClick = { onOpenStop(it.code) },
+            onMapClick = { if (state.editing == null) panelsHidden = !panelsHidden },
             modifier = Modifier.fillMaxSize(),
         )
-        Column(
-            Modifier
-                .align(Alignment.TopCenter)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        AnimatedVisibility(
+            visible = !panelsHidden,
+            enter = fadeIn() + slideInVertically { -it / 2 },
+            exit = fadeOut() + slideOutVertically { -it / 2 },
+            modifier = Modifier.align(Alignment.TopCenter),
         ) {
-            EndpointsPanel(state, onBack, onEdit, onSwap)
-            if (state.editing != null) {
-                SearchPanel(state, onQueryChange, onChoose, onStartSaving, onClearRecents, Modifier.imePadding())
+            Column(
+                Modifier
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                EndpointsPanel(state, onBack, onEdit, onSwap)
+                if (state.editing != null) {
+                    SearchPanel(state, onQueryChange, onChoose, onStartSaving, onClearRecents, Modifier.imePadding())
+                }
             }
+        }
+        // With the panels away, a back button stays so the planner can still be left.
+        AnimatedVisibility(
+            visible = panelsHidden,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(12.dp),
+        ) {
+            CircleIconButton(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.planner_back), onClick = onBack, glass = true)
         }
         if (state.editing == null) {
             Column(
@@ -201,9 +240,95 @@ fun PlannerScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (tracking) TrackingBanner(onStopTrip)
-                ResultsPanel(state, onTime, onSelect, onAskLocation, if (tracking) null else onStartTrip)
+                AnimatedVisibility(
+                    visible = !panelsHidden,
+                    enter = fadeIn() + slideInVertically { it / 2 },
+                    exit = fadeOut() + slideOutVertically { it / 2 },
+                ) {
+                    ResultsPanel(
+                        state, onTime, onSelect, onAskLocation, if (tracking) null else onStartTrip,
+                        onHide = { panelsHidden = true },
+                    )
+                }
+                AnimatedVisibility(
+                    visible = panelsHidden,
+                    enter = fadeIn() + slideInVertically { it / 2 },
+                    exit = fadeOut() + slideOutVertically { it / 2 },
+                ) {
+                    CollapsedBar(journey, onShow = { panelsHidden = false })
+                }
             }
         }
+    }
+}
+
+/** A grab handle for the results: tap it or swipe down to put the panels away. */
+@Composable
+private fun PanelHandle(onHide: () -> Unit) {
+    val colors = Calm.colors
+    val description = stringResource(R.string.planner_hide_panels)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(22.dp)
+            .clickable(role = Role.Button, onClickLabel = description, onClick = onHide)
+            .pointerInput(Unit) {
+                var dragged = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { dragged = 0f },
+                    onVerticalDrag = { _, amount -> dragged += amount },
+                    onDragEnd = { if (dragged > 24.dp.toPx()) onHide() },
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(colors.textSecondary.copy(alpha = 0.45f)))
+    }
+}
+
+/** The results put away: the chosen journey in one line; tap or swipe up to bring them back. */
+@Composable
+private fun CollapsedBar(journey: Journey?, onShow: () -> Unit) {
+    val colors = Calm.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .calmSurface(Calm.PillShape, overMap = true)
+            .clickable(role = Role.Button, onClick = onShow)
+            .pointerInput(Unit) {
+                var dragged = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { dragged = 0f },
+                    onVerticalDrag = { _, amount -> dragged += amount },
+                    onDragEnd = { if (dragged < -24.dp.toPx()) onShow() },
+                )
+            }
+            .padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (journey != null) {
+            Text(
+                "${clock(journey.departureMinute)} – ${clock(journey.arrivalMinute)}",
+                style = MaterialTheme.typography.titleSmall.tabular(),
+                color = colors.text,
+            )
+            Spacer(Modifier.width(10.dp))
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                journey.rides.take(3).forEach { ride -> LineBadge(ride.line, strong = true) }
+                if (journey.rides.isEmpty()) {
+                    Icon(Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(18.dp))
+                }
+            }
+        } else {
+            Text(
+                stringResource(R.string.planner_show_panels),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.text,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.planner_show_panels), tint = colors.textSecondary)
     }
 }
 
@@ -382,6 +507,8 @@ private fun ResultsPanel(
     onAskLocation: () -> Unit,
     /** Null while a trip is already being tracked. */
     onStartTrip: (() -> Unit)?,
+    /** Puts the panels away so the map can be seen. */
+    onHide: () -> Unit = {},
 ) {
     val colors = Calm.colors
     var picking by remember { mutableStateOf<TimeMode?>(null) }
@@ -393,7 +520,8 @@ private fun ResultsPanel(
             onConfirm = { time -> picking = null; onTime(mode, time) },
         )
     }
-    Panel(Modifier.fillMaxWidth().animateContentSize(), glass = true, padding = PaddingValues(vertical = 10.dp)) {
+    Panel(Modifier.fillMaxWidth().animateContentSize(), glass = true, padding = PaddingValues(top = 0.dp, bottom = 10.dp)) {
+        PanelHandle(onHide)
         SegmentedControl(
             options = TimeMode.entries,
             selected = state.timeMode,

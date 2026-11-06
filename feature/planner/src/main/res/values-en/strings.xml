@@ -61,4 +61,6 @@
     <string name="planner_trip_needs_precise">Trip tracking needs precise location to count stops.</string>
     <string name="planner_remove_home">Remove saved home</string>
     <string name="planner_remove_work">Remove saved work</string>
+    <string name="planner_hide_panels">Show the map</string>
+    <string name="planner_show_panels">Show route details</string>
 </resources>

@@ -62,11 +62,19 @@ class TimetableViewModel @Inject constructor(
     /** The stop the user came from: its station and direction are shown first. */
     private val fromStop: String? = savedState[STOP_ARG]
 
+    /** The direction the line map was showing when the timetable was opened, if any. */
+    private val requestedDirection: Direction? =
+        savedState.get<String>(DIRECTION_ARG)?.let { name -> Direction.entries.firstOrNull { it.name == name } }
+
     private val header = MutableStateFlow(TimetableUiState(lineCode))
 
     private data class Selection(val day: ServiceDay, val direction: Direction, val stationCode: String? = null)
     private val selection = MutableStateFlow(
-        Selection(TimetableRepository.serviceMoment(TimetableRepository.localNow(clock)).serviceDay, Direction.OUTBOUND, fromStop),
+        Selection(
+            TimetableRepository.serviceMoment(TimetableRepository.localNow(clock)).serviceDay,
+            requestedDirection ?: Direction.OUTBOUND,
+            fromStop,
+        ),
     )
 
     /** Buses only have times from their first stop; rail and ferry have every station's. */
@@ -90,7 +98,13 @@ class TimetableViewModel @Inject constructor(
         val directions: List<Direction>,
     )
 
-    private val departures = combine(selection, routes) { selected, routes -> selected to routes }.mapLatest { (selected, routes) ->
+    private val departures = combine(selection, routes) { chosen, routes -> chosen to routes }.mapLatest { (chosen, routes) ->
+        // A loop line runs one way only: a direction it doesn't have falls back to the one it does.
+        val selected = if (routes.isNotEmpty() && routes.none { it.direction == chosen.direction }) {
+            chosen.copy(direction = routes.first().direction)
+        } else {
+            chosen
+        }
         val stations = routes.firstOrNull { it.direction == selected.direction }?.stops.orEmpty()
             // The terminus has no departures in this direction.
             .dropLast(1)
@@ -123,7 +137,8 @@ class TimetableViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimetableUiState(lineCode))
 
     init {
-        if (fromStop != null) {
+        // The direction shown on the line map wins; otherwise start in the one leaving that stop.
+        if (fromStop != null && requestedDirection == null) {
             viewModelScope.launch {
                 // Start in the direction that leaves from that stop.
                 val direction = lines.routes(lineCode).firstOrNull { r -> r.stops.dropLast(1).any { it.code == fromStop } }?.direction
@@ -147,5 +162,6 @@ class TimetableViewModel @Inject constructor(
     companion object {
         const val LINE_CODE_ARG = "lineCode"
         const val STOP_ARG = "stop"
+        const val DIRECTION_ARG = "direction"
     }
 }
