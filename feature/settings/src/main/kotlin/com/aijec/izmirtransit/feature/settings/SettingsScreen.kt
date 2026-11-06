@@ -78,6 +78,9 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     val appVersion: String get() = updates.currentVersion
 
+    /** The Play build has no update section: the store updates it. */
+    val selfUpdates: Boolean get() = updates.selfUpdates
+
     private val _updateStatus = MutableStateFlow<UpdateStatus>(updates.available.value?.let(UpdateStatus::Available) ?: UpdateStatus.Idle)
     val updateStatus: StateFlow<UpdateStatus> = _updateStatus.asStateFlow()
 
@@ -126,6 +129,7 @@ fun SettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
         onShowBothDirections = { viewModel.setShowBothDirections(it) },
         onReplayTutorial = { viewModel.replayTutorial() },
         appVersion = viewModel.appVersion,
+        showUpdates = viewModel.selfUpdates,
         updateStatus = updateStatus,
         onAutoCheckUpdates = { viewModel.setAutoCheckUpdates(it) },
         onCheckForUpdates = viewModel::checkForUpdates,
@@ -151,6 +155,7 @@ fun SettingsScreen(
     onShowBothDirections: (Boolean) -> Unit = {},
     onReplayTutorial: () -> Unit = {},
     appVersion: String = "",
+    showUpdates: Boolean = true,
     updateStatus: UpdateStatus = UpdateStatus.Idle,
     onAutoCheckUpdates: (Boolean) -> Unit = {},
     onCheckForUpdates: () -> Unit = {},
@@ -235,8 +240,8 @@ fun SettingsScreen(
             }
         }
 
-        item { SectionLabel(stringResource(R.string.settings_updates)) }
-        item {
+        if (showUpdates) item { SectionLabel(stringResource(R.string.settings_updates)) }
+        if (showUpdates) item {
             Panel(Modifier.fillMaxWidth(), padding = PaddingValues(0.dp)) {
                 Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                     SettingSwitch(

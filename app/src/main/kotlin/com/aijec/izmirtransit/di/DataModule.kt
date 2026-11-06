@@ -46,7 +46,7 @@ object DataModule {
 
     /** One HTTP client for the live API and the dataset downloads. */
     @Provides
-    fun appVersion(): AppVersion = AppVersion(BuildConfig.VERSION_NAME)
+    fun appVersion(): AppVersion = AppVersion(BuildConfig.VERSION_NAME, selfUpdates = BuildConfig.SELF_UPDATES)
 
     @Provides
     @Singleton

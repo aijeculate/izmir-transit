@@ -18,8 +18,11 @@ import java.time.Duration
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** The installed app's version name, e.g. "1.0.1". */
-data class AppVersion(val name: String)
+/**
+ * The installed app's version name, e.g. "1.0.1". [selfUpdates] is false in the Google Play
+ * build: Play handles its updates, and its policy forbids an app updating itself.
+ */
+data class AppVersion(val name: String, val selfUpdates: Boolean = true)
 
 /** A newer release on GitHub; [downloadUrl] is its APK, or the release page if it has none. */
 data class AppUpdate(val version: String, val downloadUrl: String, val pageUrl: String)
@@ -50,8 +53,12 @@ class UpdateChecker @Inject constructor(
 
     val currentVersion: String get() = current.name
 
+    /** False in the Play build, where the store updates the app and GitHub is never asked. */
+    val selfUpdates: Boolean get() = current.selfUpdates
+
     /** The automatic check: skipped when switched off or when the last one was under a day ago. */
     suspend fun checkIfDue() {
+        if (!current.selfUpdates) return
         val prefs = settings.settings.first()
         if (!prefs.autoCheckUpdates) return
         val now = clock.millis()
@@ -59,7 +66,7 @@ class UpdateChecker @Inject constructor(
         if (check() != UpdateCheck.Failed) settings.setLastUpdateCheck(now)
     }
 
-    suspend fun check(): UpdateCheck = try {
+    suspend fun check(): UpdateCheck = if (!current.selfUpdates) UpdateCheck.UpToDate else try {
         val release = latestRelease()
         val version = release.tagName.removePrefix("v")
         if (isNewer(version, current.name)) {

@@ -34,6 +34,22 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    // Two editions of the same app (same package, same signing key):
+    // github: the APK on GitHub releases, which checks GitHub for updates and offers them;
+    // play: the bundle for Google Play, which leaves updates to the store (Play policy
+    // forbids self-updating) and has no update section in Settings.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            isDefault = true
+            buildConfigField("boolean", "SELF_UPDATES", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "SELF_UPDATES", "false")
+        }
+    }
     // Release signing from keystore.properties (storeFile, storePassword, keyAlias,
     // keyPassword), which is git-ignored. Without it the release APK is left unsigned.
     val keystoreProperties = Properties().apply {

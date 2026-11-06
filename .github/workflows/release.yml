@@ -133,9 +133,10 @@ jobs:
       - name: Unit tests
         run: ./gradlew test
 
-      - name: Build the release APK
+      # The GitHub APK (checks GitHub for updates) and the Google Play bundle (no self-updater).
+      - name: Build the APK and the Play bundle
         run: >
-          ./gradlew :app:assembleRelease
+          ./gradlew :app:assembleGithubRelease :app:bundlePlayRelease
           -PappVersionName=${{ steps.version.outputs.name }}
           -PappVersionCode=${{ steps.version.outputs.code }}
 
@@ -144,15 +145,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.name }}
         run: |
-          apk=$(ls app/build/outputs/apk/release/*.apk | grep -v unsigned | head -n 1)
-          if [ -z "$apk" ]; then
-            echo "::error::No signed APK was built"
+          apk=$(ls app/build/outputs/apk/github/release/*.apk | grep -v unsigned | head -n 1)
+          aab=$(ls app/build/outputs/bundle/playRelease/*.aab | head -n 1)
+          if [ -z "$apk" ] || [ -z "$aab" ]; then
+            echo "::error::The signed APK or the Play bundle is missing"
             exit 1
           fi
           mkdir -p dist
           cp "$apk" dist/izmir-transit.apk
           cp "$apk" "dist/izmir-transit-$VERSION.apk"
+          cp "$aab" "dist/izmir-transit-$VERSION-play.aab"
           gh release create "v$VERSION" dist/izmir-transit.apk "dist/izmir-transit-$VERSION.apk" \
+            "dist/izmir-transit-$VERSION-play.aab" \
             --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --latest
 
       - name: Remove signing files
