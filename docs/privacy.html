@@ -4,24 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Privacy · İzmir Transit</title>
-<link rel="icon" href="icons/icon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
-<link rel="icon" href="icons/icon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon-dark.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-light-512.png" type="image/png">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#071A2B">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-  :root { --canvas: #eef1f5; --panel: #fff; --text: #1c2430; --text-2: #5f6b7a; --hairline: #e1e6ed; --accent: #1f6fd1; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --canvas: #05070d; --panel: rgba(255,255,255,.06); --text: #e8edf3; --text-2: #97a2b0; --hairline: rgba(255,255,255,.12); --accent: #7db0ff; }
-  }
-  :root[data-theme="dark"] { --canvas: #05070d; --panel: rgba(255,255,255,.06); --text: #e8edf3; --text-2: #97a2b0; --hairline: rgba(255,255,255,.12); --accent: #7db0ff; }
+  :root { color-scheme: dark; --canvas: #071A2B; --panel: #0D2540; --text: #EEF4F8; --text-2: #A3B8CB; --hairline: #1C3A57; --accent: #FF8A4C; --sea: #3FD0C9; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--canvas); color: var(--text); line-height: 1.6; }
   main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
   a { color: var(--accent); }
-  h1 { font-size: 34px; margin: 24px 0 4px; }
+  a:hover { color: #FFA877; }
+  h1 { font-size: 34px; margin: 24px 0 4px; letter-spacing: -0.02em; }
   h2 { font-size: 20px; margin: 32px 0 8px; }
   p, li { color: var(--text-2); }
-  .card { background: var(--panel); border: 1px solid var(--hairline); border-radius: 18px; padding: 4px 18px; overflow-x: auto; }
+  em { font-family: "JetBrains Mono", monospace; font-style: normal; font-size: 14px; color: var(--sea); }
+  .card { background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px; padding: 4px 18px; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
   td, th { text-align: left; padding: 10px 8px 10px 0; border-top: 1px solid var(--hairline); vertical-align: top; }
   tr:first-child th { border-top: 0; }
