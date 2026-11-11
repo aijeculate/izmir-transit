@@ -7,7 +7,7 @@
 <meta name="description" content="İzmir'in tüm toplu taşıması tek uygulamada: canlı ESHOT otobüsleri, Metro, tramvay, İZBAN ve vapur; sefer saatleri, aktarmalar ve yol tarifi.">
 <meta property="og:title" content="İzmir Transit">
 <meta property="og:description" content="Canlı otobüsler, metro, tramvay, İZBAN ve vapur — tek uygulamada, internet olmadan da.">
-<meta property="og:image" content="https://aijeculate.github.io/izmir-transit/screenshots/map.jpg">
+<meta property="og:image" content="https://aijeculate.github.io/izmir-transit/screenshots/og.jpg">
 <link rel="icon" href="icons/icon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
 <link rel="icon" href="icons/icon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="icons/icon-light-512.png" type="image/png">
@@ -56,6 +56,7 @@
   }
 
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
@@ -117,6 +118,18 @@
   .gallery img { width: 100%; border-radius: 24px; border: 1px solid var(--hairline); box-shadow: var(--shadow); }
   .gallery figcaption { font-size: 14px; color: var(--text-2); margin-top: 10px; text-align: center; }
 
+  .test { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 28px; align-items: start; background: var(--panel); border: 1px solid var(--hairline); border-radius: 28px; padding: 32px; box-shadow: var(--shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .badge { display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; padding: 5px 12px; border-radius: 999px; background: var(--glow-a); color: var(--accent); margin-bottom: 14px; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: step; }
+  .steps li { display: grid; grid-template-columns: 36px 1fr; gap: 14px; align-items: start; counter-increment: step; }
+  .steps li::before { content: counter(step); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; }
+  .steps strong { display: block; margin-bottom: 2px; }
+  .steps p { margin: 0 0 10px; color: var(--text-2); font-size: 15px; }
+  .steps .btn { min-height: 44px; padding: 10px 18px; font-size: 15px; }
+  .ask { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  .ask li { padding-left: 26px; position: relative; color: var(--text-2); font-size: 15px; }
+  .ask li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
   td { padding: 12px 0; border-top: 1px solid var(--hairline); vertical-align: top; }
   td:first-child { font-weight: 600; width: 34%; padding-right: 16px; }
@@ -132,6 +145,7 @@
     .phones { height: 460px; }
     .phone { width: 200px; }
     .grid { grid-template-columns: 1fr 1fr; }
+    .test { grid-template-columns: 1fr; padding: 24px; }
   }
   @media (max-width: 560px) {
     .grid { grid-template-columns: 1fr; }
@@ -182,8 +196,10 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
             <span class="tr">Android için indir</span><span class="en">Download for Android</span>
           </a>
-          <a class="btn ghost" href="https://github.com/aijeculate/izmir-transit">
-            <span class="tr">Kaynak kodu</span><span class="en">Source code</span>
+          <!-- Shown once the tester Google Group exists: remove "hidden" here and on section#test, and set GROUP_URL. -->
+          <a class="btn ghost" href="#test" hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3 13.4 12l-9.8 9.7c-.4-.2-.6-.6-.6-1.1V3.4c0-.5.2-.9.6-1.1zm11.1 11 2.5 2.5-11.4 6.5 8.9-9zm3.8-3.4 2.7 1.5c.8.5.8 1.6 0 2.1l-2.7 1.5-2.8-2.8 2.8-2.3zM5.8 1.7l11.4 6.5-2.5 2.5-8.9-9z"/></svg>
+            <span class="tr">Google Play testine katıl</span><span class="en">Join the Google Play test</span>
           </a>
         </div>
         <p class="note">
@@ -196,8 +212,8 @@
         </p>
       </div>
       <div class="phones" aria-hidden="true">
-        <div class="phone a"><img src="screenshots/map.jpg" alt=""></div>
-        <div class="phone b"><img src="screenshots/stop.jpg" alt=""></div>
+        <div class="phone a"><img src="screenshots/live.jpg" alt=""></div>
+        <div class="phone b"><img src="screenshots/planner.jpg" alt=""></div>
       </div>
     </div>
 
@@ -214,7 +230,7 @@
         </div>
         <div class="card">
           <h3><span class="tr">Yol tarifi</span><span class="en">Trip planner</span></h3>
-          <p><span class="tr">Adresi ya da yeri yaz: hangi durağa yürüyeceğini, neye bineceğini ve nerede aktarma yapacağını gösterir. Hesaplama tamamen telefonda.</span><span class="en">Type an address or place: it shows which stop to walk to, what to take and where to change. Planned entirely on your phone.</span></p>
+          <p><span class="tr">Adresi ya da yeri yaz: hangi durağa yürüyeceğini, neye bineceğini ve nerede aktarma yapacağını gösterir. Yolculuğu başlat, ineceğin durak yaklaşınca haber versin.</span><span class="en">Type an address or place: it shows which stop to walk to, what to take and where to change. Start the trip and get told when your stop is coming up.</span></p>
         </div>
         <div class="card">
           <h3><span class="tr">Her durak, her istasyon</span><span class="en">Every stop and station</span></h3>
@@ -230,7 +246,7 @@
         </div>
         <div class="card">
           <h3><span class="tr">Sana göre</span><span class="en">Yours</span></h3>
-          <p><span class="tr">Türkçe ve İngilizce; açık, koyu ve AMOLED tema; sakin ya da sıvı cam görünüm; tam ekran harita.</span><span class="en">Turkish and English; light, dark and AMOLED themes; a calm or liquid-glass look; a fullscreen map.</span></p>
+          <p><span class="tr">Türkçe ve İngilizce; açık, koyu ve AMOLED tema; yerleri gösteren sade, tek renkli harita; ana ekran widget'ı.</span><span class="en">Turkish and English; light, dark and AMOLED themes; a calm monochrome map that still shows places; a home-screen widget.</span></p>
         </div>
       </div>
     </section>
@@ -238,11 +254,50 @@
     <section>
       <h2><span class="tr">Ekran görüntüleri</span><span class="en">Screenshots</span></h2>
       <div class="gallery">
-        <figure><img src="screenshots/map.jpg" alt="" loading="lazy"><figcaption><span class="tr">Tüm İzmir ağı</span><span class="en">The whole network</span></figcaption></figure>
-        <figure><img src="screenshots/stop.jpg" alt="" loading="lazy"><figcaption><span class="tr">İstasyon ve aktarmalar</span><span class="en">Station and interchanges</span></figcaption></figure>
+        <figure><img src="screenshots/home.jpg" alt="" loading="lazy"><figcaption><span class="tr">Favoriler ve canlı varışlar</span><span class="en">Favourites and live arrivals</span></figcaption></figure>
+        <figure><img src="screenshots/live.jpg" alt="" loading="lazy"><figcaption><span class="tr">Canlı otobüsler</span><span class="en">Live buses</span></figcaption></figure>
+        <figure><img src="screenshots/network.jpg" alt="" loading="lazy"><figcaption><span class="tr">Tüm İzmir ağı</span><span class="en">The whole network</span></figcaption></figure>
         <figure><img src="screenshots/planner.jpg" alt="" loading="lazy"><figcaption><span class="tr">Yol tarifi</span><span class="en">Trip planner</span></figcaption></figure>
-        <figure><img src="screenshots/timetable.jpg" alt="" loading="lazy"><figcaption><span class="tr">Sefer saatleri</span><span class="en">Timetable</span></figcaption></figure>
-        <figure><img src="screenshots/welcome.jpg" alt="" loading="lazy"><figcaption><span class="tr">İlk açılış</span><span class="en">First launch</span></figcaption></figure>
+        <figure><img src="screenshots/timetable.jpg" alt="" loading="lazy"><figcaption><span class="tr">Sefer saatleri</span><span class="en">Timetables</span></figcaption></figure>
+        <figure><img src="screenshots/metro.jpg" alt="" loading="lazy"><figcaption><span class="tr">Metro, tramvay, İZBAN, vapur</span><span class="en">Metro, tram, İZBAN, ferry</span></figcaption></figure>
+      </div>
+    </section>
+
+    <section id="test" hidden>
+      <div class="test">
+        <div>
+          <span class="badge"><span class="tr">Google Play · Kapalı test</span><span class="en">Google Play · Closed test</span></span>
+          <h2><span class="tr">Google Play testine katıl</span><span class="en">Join the Google Play test</span></h2>
+          <p class="sub">
+            <span class="tr">İzmir Transit'in Google Play'de herkese açılabilmesi için 14 gün boyunca test eden kullanıcılara ihtiyacı var. Katılırsan uygulamayı Play Store'dan yükler, güncellemeleri de otomatik alırsın.</span>
+            <span class="en">To be released to everyone on Google Play, İzmir Transit needs people to test it for 14 days. Join and you install it from the Play Store, with updates arriving automatically.</span>
+          </p>
+          <ol class="steps">
+            <li><div>
+              <strong><span class="tr">Test grubuna katıl</span><span class="en">Join the test group</span></strong>
+              <p><span class="tr">Telefonunda kullandığın Google hesabıyla gir ve “Gruba katıl”a dokun.</span><span class="en">Use the Google account on your phone and tap “Join group”.</span></p>
+              <a class="btn primary" href="GROUP_URL" rel="noopener"><span class="tr">Gruba katıl</span><span class="en">Join the group</span></a>
+            </div></li>
+            <li><div>
+              <strong><span class="tr">Test kullanıcısı ol</span><span class="en">Become a tester</span></strong>
+              <p><span class="tr">Gruba katıldıktan sonra bu sayfada “Test kullanıcısı ol”a dokun.</span><span class="en">After joining the group, tap “Become a tester” on this page.</span></p>
+              <a class="btn ghost" href="https://play.google.com/apps/testing/com.aijec.izmirtransit" rel="noopener"><span class="tr">Test kullanıcısı ol</span><span class="en">Become a tester</span></a>
+            </div></li>
+            <li><div>
+              <strong><span class="tr">Play Store'dan yükle</span><span class="en">Install from the Play Store</span></strong>
+              <p><span class="tr">Aynı sayfadaki “Google Play'den indir” bağlantısıyla yükle. Uygulamanın GitHub sürümü yüklüyse önce onu kaldır.</span><span class="en">Install it with the “Download it on Google Play” link on the same page. If you have the GitHub version installed, uninstall it first.</span></p>
+            </div></li>
+          </ol>
+        </div>
+        <div>
+          <h3 style="margin:0 0 12px;font-size:17px"><span class="tr">Tek ricam</span><span class="en">All I ask</span></h3>
+          <ul class="ask">
+            <li><span class="tr">14 gün boyunca gruptan ve testten çıkma.</span><span class="en">Stay in the group and the test for 14 days.</span></li>
+            <li><span class="tr">Uygulamayı silme, haftada birkaç kez aç; otobüsünü kontrol etmen yeterli.</span><span class="en">Keep the app installed and open it a few times a week; checking your bus is enough.</span></li>
+            <li><span class="tr">Bir hata ya da öneri olursa Play Store'daki uygulama sayfasından özel geri bildirim gönder.</span><span class="en">Found a bug or have an idea? Send private feedback from the app's Play Store page.</span></li>
+          </ul>
+          <p class="note"><span class="tr">Test sürümü tamamen ücretsizdir; hesap açman ya da bir şey ödemen gerekmez.</span><span class="en">The test version is completely free; no account or payment needed.</span></p>
+        </div>
       </div>
     </section>
 

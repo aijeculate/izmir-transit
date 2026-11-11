@@ -15,7 +15,7 @@
 
 | | | | |
 |---|---|---|---|
-| ![Map](docs/screenshots/map.jpg) | ![Station](docs/screenshots/stop.jpg) | ![Trip planner](docs/screenshots/planner.jpg) | ![Timetable](docs/screenshots/timetable.jpg) |
+| ![Live buses](docs/screenshots/live.jpg) | ![Home](docs/screenshots/home.jpg) | ![Trip planner](docs/screenshots/planner.jpg) | ![Timetable](docs/screenshots/timetable.jpg) |
 
 ## Features
 
