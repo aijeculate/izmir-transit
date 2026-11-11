@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.aijec.izmirtransit.core.data.live.BusMotion
+import com.aijec.izmirtransit.core.data.live.DrawnBus
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.LineRoute
 import com.aijec.izmirtransit.core.model.LiveBus
@@ -163,8 +164,7 @@ fun TransitMap(
     val ringReturn = rememberRingDot(TransitColors.Return)
     val badgeOutbound = rememberFilledBadge(routeMode, TransitColors.Outbound)
     val badgeReturn = rememberFilledBadge(routeMode, TransitColors.Return)
-    val vehicleOutbound = rememberVehicleIcon(routeMode, TransitColors.Outbound)
-    val vehicleReturn = rememberVehicleIcon(routeMode, TransitColors.Return)
+    val vehicleIcon = rememberVehicleIcon(routeMode)
     val areaBadges = TransitMode.entries.associateWith { mode ->
         rememberOutlinedBadge(mode, TransitColors.forMode(mode, colors.accent), colors.panel)
     }
@@ -321,7 +321,7 @@ fun TransitMap(
         }
 
         // --- Live vehicles.
-        if (buses.isNotEmpty()) Vehicles(motion, vehicleOutbound, vehicleReturn)
+        if (buses.isNotEmpty()) Vehicles(motion, vehicleIcon)
 
         // --- A planned journey.
         plan?.let { journey ->
@@ -439,21 +439,27 @@ fun TransitMap(
  */
 @Composable
 @GoogleMapComposable
-private fun Vehicles(motion: BusMotion, outbound: BitmapDescriptor, inbound: BitmapDescriptor) {
-    var vehicles by remember { mutableStateOf<Map<Int, Pair<LatLng, Direction>>>(emptyMap()) }
+private fun Vehicles(motion: BusMotion, icon: BitmapDescriptor) {
+    var vehicles by remember { mutableStateOf<Map<Int, DrawnBus>>(emptyMap()) }
     LaunchedEffect(motion) {
         while (isActive) {
-            vehicles = motion.positionsAt(SystemClock.elapsedRealtime())
+            vehicles = motion.drawnAt(SystemClock.elapsedRealtime())
             delay(VEHICLE_FRAME_MILLIS)
         }
     }
-    for ((id, position) in vehicles) {
+    for ((id, bus) in vehicles) {
         key(id) {
-            val state = remember { MarkerState(position.first.toGoogle()) }
-            state.position = position.first.toGoogle()
+            val state = remember { MarkerState(bus.position.toGoogle()) }
+            state.position = bus.position.toGoogle()
+            // Keep the last known heading while an off-route bus hasn't moved yet.
+            var heading by remember { mutableFloatStateOf(0f) }
+            bus.heading?.let { heading = it.toFloat() }
             Marker(
                 state = state,
-                icon = if (position.second == Direction.OUTBOUND) outbound else inbound,
+                icon = icon,
+                // Flat, so the bus turns along the road and stays aligned with the map.
+                flat = true,
+                rotation = heading,
                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                 zIndex = 8f,
             )

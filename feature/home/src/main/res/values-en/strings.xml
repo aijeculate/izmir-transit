@@ -39,4 +39,9 @@
     <string name="home_favourite_remove">Remove from favourites</string>
     <string name="home_go_home">Go home</string>
     <string name="home_go_work">Go to work</string>
+    <string name="home_nearby_show_fewer">Show fewer</string>
+    <plurals name="home_nearby_show_more">
+        <item quantity="one">Show %1$d more stop</item>
+        <item quantity="other">Show %1$d more stops</item>
+    </plurals>
 </resources>

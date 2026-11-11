@@ -4,6 +4,8 @@ import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.LiveBus
 import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 
@@ -41,6 +43,8 @@ class BusMotion(
         var from: LatLng,
         var to: LatLng,
         var changedAt: Long,
+        /** The way it faced before this move, kept while it stands still. */
+        var heading: Double? = null,
     ) : Track
 
     private class OnRoute(
@@ -65,7 +69,8 @@ class BusMotion(
             val existing = tracks[bus.busId]
             if (route == null || projection == null || projection.distanceFromLineMeters > onRouteMeters) {
                 val drawn = existing?.let { positionOf(it, nowMillis).first } ?: bus.position
-                tracks[bus.busId] = Free(bus.direction, from = drawn, to = bus.position, changedAt = nowMillis)
+                val heading = existing?.let { headingOf(it, nowMillis) }
+                tracks[bus.busId] = Free(bus.direction, from = drawn, to = bus.position, changedAt = nowMillis, heading = heading)
                 continue
             }
             val along = projection.distanceAlongMeters
@@ -97,6 +102,27 @@ class BusMotion(
     fun positionsAt(nowMillis: Long): Map<Int, Pair<LatLng, Direction>> =
         tracks.mapValues { (_, track) -> positionOf(track, nowMillis) }
 
+    /**
+     * Every tracked bus at [nowMillis] with the way it faces, for drawing it turned along the
+     * road: degrees clockwise from north. On its route that is the route's direction where the
+     * bus is; off its route, the way it last moved. Null until an off-route bus has moved.
+     */
+    fun drawnAt(nowMillis: Long): Map<Int, DrawnBus> =
+        tracks.mapValues { (_, track) ->
+            val (position, direction) = positionOf(track, nowMillis)
+            DrawnBus(position, direction, headingOf(track, nowMillis))
+        }
+
+    private fun headingOf(track: Track, nowMillis: Long): Double? = when (track) {
+        is OnRoute -> {
+            val along = drawnAlong(track, nowMillis)
+            val behind = track.route.pointAt(max(along - HEADING_SPAN_METERS, 0.0))
+            val ahead = track.route.pointAt(min(along + HEADING_SPAN_METERS, track.route.lengthMeters))
+            bearing(behind, ahead)
+        }
+        is Free -> if (track.from == track.to) track.heading else bearing(track.from, track.to) ?: track.heading
+    }
+
     private fun positionOf(track: Track, nowMillis: Long): Pair<LatLng, Direction> = when (track) {
         is Free -> {
             val t = easedFraction(nowMillis - track.changedAt)
@@ -117,8 +143,22 @@ class BusMotion(
         return track.correctionFrom + (clamped - track.correctionFrom) * t
     }
 
+    /** Compass bearing from [from] to [to], degrees clockwise from north; null if they coincide. */
+    private fun bearing(from: LatLng, to: LatLng): Double? {
+        val dLon = Math.toRadians(to.longitude - from.longitude) * cos(Math.toRadians(from.latitude))
+        val dLat = Math.toRadians(to.latitude - from.latitude)
+        if (dLon == 0.0 && dLat == 0.0) return null
+        return (Math.toDegrees(atan2(dLon, dLat)) + 360.0) % 360.0
+    }
+
     private fun easedFraction(elapsedMillis: Long): Double {
         val x = (elapsedMillis.toDouble() / correctionMillis).coerceIn(0.0, 1.0)
         return 1 - (1 - x) * (1 - x) // ease-out
     }
 }
+
+/** A bus as drawn: where, in which direction of its line, and facing which way. */
+data class DrawnBus(val position: LatLng, val direction: Direction, val heading: Double?)
+
+/** Half the stretch of route used to tell which way a bus faces. */
+private const val HEADING_SPAN_METERS = 12.0

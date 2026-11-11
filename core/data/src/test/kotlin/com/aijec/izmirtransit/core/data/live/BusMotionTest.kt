@@ -77,4 +77,22 @@ class BusMotionTest {
         motion.update(listOf(bus(1000.0)), routes, 15_000)
         assertEquals(setOf(1), motion.positionsAt(15_000).keys)
     }
+
+    @Test
+    fun `a bus on its route faces along the route`() {
+        // The route runs west to east, so the bus faces east (90° from north).
+        motion.update(listOf(bus(1000.0)), routes, 0)
+        assertEquals(90.0, assertNotNull(motion.drawnAt(0)[1]?.heading), 1.0)
+    }
+
+    @Test
+    fun `an off-route bus faces the way it last moved and keeps it while still`() {
+        val far = LatLng(38.45, 27.1) // about 5.5 km north of the route
+        motion.update(listOf(LiveBus(2, "5", Direction.OUTBOUND, far)), routes, 0)
+        val north = LatLng(38.46, 27.1)
+        motion.update(listOf(LiveBus(2, "5", Direction.OUTBOUND, north)), routes, 10_000)
+        assertEquals(0.0, assertNotNull(motion.drawnAt(10_500)[2]?.heading), 1.0)
+        motion.update(listOf(LiveBus(2, "5", Direction.OUTBOUND, north)), routes, 20_000)
+        assertEquals(0.0, assertNotNull(motion.drawnAt(25_000)[2]?.heading), 1.0)
+    }
 }

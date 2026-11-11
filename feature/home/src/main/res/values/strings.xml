@@ -41,4 +41,9 @@
     <string name="home_favourite_remove">Favorilerden çıkar</string>
     <string name="home_go_home">Eve git</string>
     <string name="home_go_work">İşe git</string>
+    <string name="home_nearby_show_fewer">Daha az göster</string>
+    <plurals name="home_nearby_show_more">
+        <item quantity="one">%1$d durak daha göster</item>
+        <item quantity="other">%1$d durak daha göster</item>
+    </plurals>
 </resources>

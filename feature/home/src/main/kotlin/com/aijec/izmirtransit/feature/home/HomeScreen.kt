@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -480,6 +481,9 @@ private fun FavouriteLinesPanel(lines: List<Line>, onOpenLine: (String) -> Unit)
     }
 }
 
+/** Nearby stops shown before "show more". */
+private const val NEARBY_FIRST = 3
+
 private fun LazyListScope.nearbySection(nearby: NearbyState, onRefresh: () -> Unit, onOpenStop: (String) -> Unit) {
     when (nearby) {
         NearbyState.Idle, NearbyState.Locating -> item("nearby-locating") {
@@ -501,8 +505,12 @@ private fun LazyListScope.nearbySection(nearby: NearbyState, onRefresh: () -> Un
                 item("nearby-none") { MessagePanel(stringResource(R.string.home_nearby_none)) }
             } else {
                 item("nearby-list") {
-                    Panel(Modifier.fillMaxWidth(), padding = PaddingValues(vertical = 4.dp)) {
-                        nearby.stops.forEachIndexed { index, item ->
+                    // The closest few first; the rest behind a button, so Home stays short.
+                    var showAll by rememberSaveable { mutableStateOf(false) }
+                    val shown = if (showAll) nearby.stops else nearby.stops.take(NEARBY_FIRST)
+                    val hidden = nearby.stops.size - NEARBY_FIRST
+                    Panel(Modifier.fillMaxWidth().animateContentSize(), padding = PaddingValues(vertical = 4.dp)) {
+                        shown.forEachIndexed { index, item ->
                             if (index > 0) Hairline()
                             CalmRow(onClick = { onOpenStop(item.stop.code) }) {
                                 ModeIcon(item.stop.mode, size = 30.dp)
@@ -522,6 +530,26 @@ private fun LazyListScope.nearbySection(nearby: NearbyState, onRefresh: () -> Un
                                     stringResource(R.string.home_distance_m, item.distanceMeters),
                                     style = MaterialTheme.typography.labelMedium.tabular(),
                                     color = Calm.colors.textSecondary,
+                                )
+                            }
+                        }
+                        if (hidden > 0) {
+                            Hairline()
+                            CalmRow(onClick = { showAll = !showAll }) {
+                                Text(
+                                    if (showAll) {
+                                        stringResource(R.string.home_nearby_show_fewer)
+                                    } else {
+                                        pluralStringResource(R.plurals.home_nearby_show_more, hidden, hidden)
+                                    },
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Calm.colors.accent,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Icon(
+                                    if (showAll) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = Calm.colors.accent,
                                 )
                             }
                         }

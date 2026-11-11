@@ -27,7 +27,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.lerp
 import com.aijec.izmirtransit.core.model.TransitMode
+import com.aijec.izmirtransit.core.ui.ModeBrands
 import com.aijec.izmirtransit.core.ui.modeGlyph
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.maps.android.compose.MapsComposeExperimentalApi
@@ -89,24 +94,52 @@ internal fun rememberRingDot(color: Color, size: Dp = 11.dp): BitmapDescriptor =
         )
     }
 
-/** A live vehicle: a disc in its direction colour with the mode pictogram, ringed in white. */
+/**
+ * A live vehicle, seen from above: a bus in its mode's brand colour (ESHOT red) with a white
+ * outline, the windscreen at the front. Drawn pointing north; the marker's rotation turns it
+ * along the road, so it reads as a vehicle and never as one of the line's round stops.
+ */
 @OptIn(MapsComposeExperimentalApi::class)
 @Composable
-internal fun rememberVehicleIcon(mode: TransitMode, color: Color, size: Dp = 30.dp): BitmapDescriptor =
-    rememberComposeBitmapDescriptor("vehicle", mode, color, size) {
-        Box(
-            Modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(Color.White)
-                .padding(2.5.dp)
-                .clip(CircleShape)
-                .background(color),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(glyphFor(mode), contentDescription = null, tint = Color.White, modifier = Modifier.size(size * 0.55f))
+internal fun rememberVehicleIcon(mode: TransitMode, length: Dp = 40.dp): BitmapDescriptor {
+    val body = ModeBrands.of(mode).primary
+    return rememberComposeBitmapDescriptor("vehicle-top", mode, length) {
+        Canvas(Modifier.size(width = length * 0.5f, height = length)) {
+            val w = size.width
+            val h = size.height
+            val outline = w * 0.09f
+            val radius = CornerRadius(w * 0.24f)
+            // White outline, then the body inside it.
+            drawRoundRect(Color.White, cornerRadius = radius)
+            drawRoundRect(
+                body,
+                topLeft = Offset(outline, outline),
+                size = Size(w - 2 * outline, h - 2 * outline),
+                cornerRadius = CornerRadius(w * 0.18f),
+            )
+            // Windscreen at the front (top), rear window at the back.
+            drawRoundRect(
+                Color(0xFFCFE3F5),
+                topLeft = Offset(w * 0.2f, h * 0.08f),
+                size = Size(w * 0.6f, h * 0.15f),
+                cornerRadius = CornerRadius(w * 0.08f),
+            )
+            drawRoundRect(
+                lerp(body, Color.Black, 0.35f),
+                topLeft = Offset(w * 0.24f, h * 0.88f),
+                size = Size(w * 0.52f, h * 0.05f),
+                cornerRadius = CornerRadius(w * 0.04f),
+            )
+            // Roof air-conditioning unit.
+            drawRoundRect(
+                lerp(body, Color.Black, 0.18f),
+                topLeft = Offset(w * 0.26f, h * 0.36f),
+                size = Size(w * 0.48f, h * 0.26f),
+                cornerRadius = CornerRadius(w * 0.08f),
+            )
         }
     }
+}
 
 /**
  * A white chevron stamped along a route line to show its direction of travel. Google Maps
