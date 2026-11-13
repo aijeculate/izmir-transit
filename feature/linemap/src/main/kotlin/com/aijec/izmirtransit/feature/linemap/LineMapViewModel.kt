@@ -68,6 +68,11 @@ data class LineMapUiState(
     val connections: List<ConnectionType> = emptyList(),
     /** The direction shown when only one is drawn (the default). */
     val direction: Direction = Direction.OUTBOUND,
+    /**
+     * Set for a ring line: the direction its trips start in. Both halves are then drawn as one
+     * round trip, with every bus on it and no direction switch.
+     */
+    val ringStart: Direction? = null,
     /** Rail and ferry only: they run to timetable, with no live positions. */
     val nextDepartures: Map<Direction, NextDepartures> = emptyMap(),
     val loadingRoute: Boolean = true,
@@ -136,6 +141,7 @@ class LineMapViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun switchDirection() = _state.update { s ->
+        if (s.ringStart != null) return@update s
         val available = s.routes.map { it.direction }
         val next = s.direction.opposite
         if (next in available) s.copy(direction = next) else s
@@ -216,7 +222,7 @@ class LineMapViewModel @Inject constructor(
                 if (code == null) {
                     _state.update {
                         it.copy(
-                            lineCode = null, line = null, routes = emptyList(), announcements = emptyList(),
+                            lineCode = null, line = null, routes = emptyList(), announcements = emptyList(), ringStart = null,
                             connections = emptyList(), nextDepartures = emptyMap(), loadingRoute = false,
                         )
                     }
@@ -243,6 +249,7 @@ class LineMapViewModel @Inject constructor(
                         tripDirection = trimmed.direction
                     }
                 }
+                val ringStart = line?.let { timetable.ringStart(it) }?.takeIf { routes.size == 2 }
                 val announcements = timetable.activeAnnouncements(code, TimetableRepository.localNow(clock))
                 val connections = lines.connections(code)
                 _state.update {
@@ -252,7 +259,8 @@ class LineMapViewModel @Inject constructor(
                         announcements = announcements,
                         connections = connections,
                         loadingRoute = false,
-                        direction = tripDirection ?: direction(routes),
+                        direction = tripDirection ?: ringStart ?: direction(routes),
+                        ringStart = ringStart,
                     )
                 }
                 if (!isBusCode(code)) {

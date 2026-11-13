@@ -5,12 +5,14 @@ import com.aijec.izmirtransit.core.database.IzmirDatabase
 import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.ServiceDay
 import com.aijec.izmirtransit.core.model.geo.PolylineCodec
+import com.aijec.izmirtransit.core.model.ringStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 
 /**
  * Builds the trip planner's network for a service day from the offline database and keeps
@@ -37,6 +39,16 @@ class NetworkRepository @Inject constructor(private val database: IzmirDatabase)
         val shapes = lineDao.allShapes().associateBy { it.lineCode to it.direction }
         val departures = database.timetableDao().departuresOn(day.ordinal).groupBy { it.lineCode to it.direction }
         val stopDepartures = database.stopDao().stopDeparturesOn(day.ordinal).groupBy { it.lineCode to it.direction }
+        // Ring lines are timed from one end only; the way back is the same trips continuing,
+        // reaching its first stop after the outward half's running time.
+        val ringReturns = buildMap {
+            for (line in lines.values) {
+                val start = line.ringStart(Direction.entries.filter { departures[line.code to it.datasetCode].orEmpty().isNotEmpty() }) ?: continue
+                val length = shapes[line.code to start.datasetCode]?.lengthMeters ?: continue
+                val running = (length / TransitNetwork.BUS_METERS_PER_MINUTE).roundToInt()
+                put(line.code to start.opposite.datasetCode, departures.getValue(line.code to start.datasetCode).map { it.minutesAfterMidnight + running })
+            }
+        }
         run {
             val inputs = lineStops.mapNotNull { (key, rows) ->
                 val line = lines[key.first] ?: return@mapNotNull null
@@ -47,7 +59,11 @@ class NetworkRepository @Inject constructor(private val database: IzmirDatabase)
                     direction = direction,
                     stopCodes = rows.sortedBy { it.sequence }.map { it.stopCode },
                     shape = shapes[key]?.let { PolylineCodec.decode(it.encodedPolyline) }.orEmpty(),
-                    originDepartures = if (scheduled.isEmpty()) departures[key].orEmpty().map { it.minutesAfterMidnight } else emptyList(),
+                    originDepartures = when {
+                        scheduled.isNotEmpty() -> emptyList()
+                        departures[key].isNullOrEmpty() -> ringReturns[key].orEmpty()
+                        else -> departures.getValue(key).map { it.minutesAfterMidnight }
+                    },
                     stopDepartures = scheduled.groupBy({ it.stopCode }, { it.minutesAfterMidnight to it.headsign }),
                 )
             }

@@ -162,7 +162,7 @@ fun LineMapRoute(
         isFavourite = isFavourite,
         onToggleFavourite = viewModel::toggleFavourite,
         onOpenTimetable = {
-            state.lineCode?.let { onOpenTimetable(it, viewModel.fromStop, state.direction.takeUnless { bothDirections }) }
+            state.lineCode?.let { onOpenTimetable(it, viewModel.fromStop, state.ringStart ?: state.direction.takeUnless { bothDirections }) }
         },
         onClose = if (state.pinned) onBack else viewModel::clearLine,
         searchAtBottom = searchAtBottom,
@@ -220,17 +220,20 @@ fun LineMapScreen(
     LaunchedEffect(fullscreen) { onFullscreenChange(fullscreen) }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
     BackHandler(enabled = fullscreen) { fullscreen = false }
-    // One direction at a time unless the user asked for both: simpler to read.
-    val shownRoutes = remember(state.routes, state.direction, bothDirections) {
-        if (bothDirections) state.routes else state.routes.filter { it.direction == state.direction }
+    // One direction at a time unless the user asked for both: simpler to read. A ring line is
+    // one round trip, so it always shows both halves and all its buses.
+    val allDirections = bothDirections || state.ringStart != null
+    val shownRoutes = remember(state.routes, state.direction, allDirections) {
+        if (allDirections) state.routes else state.routes.filter { it.direction == state.direction }
     }
-    val shownBuses = live.data.orEmpty().let { buses -> if (bothDirections) buses else buses.filter { it.direction == state.direction } }
+    val shownBuses = live.data.orEmpty().let { buses -> if (allDirections) buses else buses.filter { it.direction == state.direction } }
     val shownLive = live.copy(data = live.data?.let { shownBuses })
     Box(Modifier.fillMaxSize()) {
         TransitMap(
             routes = shownRoutes,
             routeMode = state.line?.mode ?: TransitMode.BUS,
             buses = shownBuses,
+            oneColour = state.ringStart != null,
             // Keeps the route clear of the search pill above and the panels below.
             contentPadding = when {
                 fullscreen -> MapPadding()
@@ -326,7 +329,7 @@ fun LineMapScreen(
                     pin != null -> PinPanel(onPlan = { onPlanTrip(PlanDestination(null, pin)) }, onClose = onMapClick)
                     state.lineCode == null -> OverviewPanel(overview)
                     else -> LinePanel(
-                        state, shownLive, isFavourite, onToggleFavourite, onOpenTimetable, onClose, bothDirections, onSwitchDirection,
+                        state, shownLive, isFavourite, onToggleFavourite, onOpenTimetable, onClose, allDirections, onSwitchDirection,
                         otherDirectionBuses = live.data.orEmpty().size - shownBuses.size,
                     )
                 }
@@ -651,7 +654,13 @@ private fun LinePanel(
                 fun towards(direction: Direction): String =
                     state.routes.takeIf { line.mode != TransitMode.BUS }?.firstOrNull { it.direction == direction }?.stops?.lastOrNull()?.name
                         ?: if (direction == Direction.OUTBOUND) line.destination else line.origin
-                if (bothDirections || available.size < 2) {
+                val ring = state.ringStart
+                if (ring != null) {
+                    // A ring line: out to the far end and back as one trip, timed from the start.
+                    val start = if (ring == Direction.OUTBOUND) line.origin else line.destination
+                    val far = if (ring == Direction.OUTBOUND) line.destination else line.origin
+                    DirectionLegend(Direction.OUTBOUND, stringResource(R.string.linemap_ring, start, far))
+                } else if (bothDirections || available.size < 2) {
                     available.forEach { direction ->
                         DirectionLegend(
                             direction,

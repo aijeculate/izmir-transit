@@ -1,6 +1,6 @@
 // İzmir Transit on the web: screens, routing and polling.
 import {
-  OUTBOUND, RETURN, db, isBus, loadCore, loadLine, nearbyStops, nextFromStart, search, stationBoard, timetable, towards, transfers,
+  OUTBOUND, RETURN, db, isBus, loadCore, loadLine, nearbyStops, nextFromStart, ringStart, search, stationBoard, timetable, towards, transfers,
 } from "./data.js";
 import { distance } from "./geo.js";
 import { lang, t } from "./i18n.js";
@@ -373,8 +373,9 @@ function lineView(params) {
   if (!line) { go("", true); return; }
   M.showOverview(false);
   panel.innerHTML = `<div class="panel line-panel"><p class="hint shimmer">…</p></div>`;
-  let detail = null, direction = +params.dir || 0;
+  let detail = null, direction = +params.dir || 0, ring = null;
   let stopped = false;
+  const ringEnds = () => (ring === OUTBOUND ? [line.origin, line.destination] : [line.destination, line.origin]);
   const motion = new BusMotion();
   const resolver = new DirectionResolver();
   let previousRaw = [], chosen = new Map(), buses = [], updatedAt = 0, liveError = null;
@@ -385,7 +386,7 @@ function lineView(params) {
   const render = () => {
     if (stopped) return;
     const dirs = detail.directions;
-    const loop = dirs.length < 2;
+    const loop = dirs.length < 2 || ring != null;
     const anns = db.announcements.get(line.code) || [];
     const conns = [...new Set(db.connections.get(line.code) || [])].sort();
     const live = isBus(line.code);
@@ -409,7 +410,8 @@ function lineView(params) {
       <div class="card-head">
         <button class="circle small" data-action="back" aria-label="${t.back}">${icon("back", 18)}</button>
         ${badge(line)}<h1 class="grow line-name">${esc(line.name)}</h1>${favButton("l", line.code)}</div>
-      ${!loop || line.mode !== "BUS" ? `<div class="direction-row"><span class="dot" style="background:${line.mode === "BUS" ? "#2F6FDB" : line.color}"></span>
+      ${ring ? `<div class="direction-row"><span class="dot" style="background:#2F6FDB"></span><span class="grow">${esc(t.ring(...ringEnds()))}</span></div>` : ""}
+      ${!ring && (!loop || line.mode !== "BUS") ? `<div class="direction-row"><span class="dot" style="background:${line.mode === "BUS" ? "#2F6FDB" : line.color}"></span>
         <span class="grow">${esc(t.towards(towards(line, detail, direction)))}</span>
         ${!loop ? `<button class="pill-button small" data-action="switch">${icon("swap", 16)} ${t.switchDirection}</button>` : ""}</div>` : ""}
       ${status}
@@ -420,11 +422,13 @@ function lineView(params) {
   };
 
   const drawRoute = () => {
-    M.showLine(line, detail, [direction]);
-    const key = `${line.code}|${direction}`;
+    // A ring line is one round trip: both halves, in one colour.
+    const shown = ring ? [ring, ...detail.directions.filter((d) => d !== ring)] : [direction];
+    M.showLine(line, detail, shown, !!ring);
+    const key = `${line.code}|${ring ? "ring" : direction}`;
     if (fitted.key !== key) {
       fitted.key = key;
-      const pts = detail.routes[direction]?.points || (detail.stops[direction] || []).map((c) => db.stops.get(c)?.position).filter(Boolean);
+      const pts = shown.flatMap((d) => detail.routes[d]?.points || (detail.stops[d] || []).map((c) => db.stops.get(c)?.position).filter(Boolean));
       M.fitTo(pts, fitPadding());
     }
   };
@@ -448,6 +452,8 @@ function lineView(params) {
   loadLine(line.code).then((d) => {
     if (stopped) return;
     detail = d;
+    ring = ringStart(line, detail);
+    if (ring) direction = ring;
     if (!detail.directions.includes(direction)) {
       // From a stop: the direction serving it; otherwise outbound.
       direction = (params.stop && detail.directions.find((dir) => detail.stops[dir]?.includes(params.stop))) || detail.directions[0] || OUTBOUND;
@@ -456,7 +462,7 @@ function lineView(params) {
     drawRoute();
     if (isBus(line.code)) {
       stopPoll = every(15000, poll);
-      M.animateBuses((now) => motion.drawn(now).filter((b) => detail.directions.length < 2 || b.direction === direction));
+      M.animateBuses((now) => motion.drawn(now).filter((b) => ring || detail.directions.length < 2 || b.direction === direction));
     }
     clockTimer = setInterval(render, 15000);
   }).catch(() => { panel.innerHTML = `<div class="panel"><p class="empty">${t.loadFailed}</p></div>`; });
@@ -464,7 +470,7 @@ function lineView(params) {
   const onClick = (e) => {
     const a = e.target.closest("[data-action]");
     if (!a || !detail) return;
-    if (a.dataset.action === "switch") {
+    if (a.dataset.action === "switch" && !ring) {
       direction = otherDir();
       history.replaceState(null, "", `#/line/${encodeURIComponent(line.code)}?dir=${direction}`);
       render();
@@ -568,7 +574,9 @@ function timetableView(params) {
 
   const render = () => {
     if (stopped) return;
-    const dirs = detail.directions;
+    // A ring line has one timetable for the whole round trip, from where it starts.
+    const ring = ringStart(line, detail);
+    const dirs = ring ? [ring] : detail.directions;
     if (!dirs.includes(direction)) direction = (station && dirs.find((d) => detail.stops[d]?.includes(station))) || dirs[0];
     const rail = line.mode !== "BUS";
     const stopsHere = detail.stops[direction] || [];
@@ -579,7 +587,7 @@ function timetableView(params) {
     const nextIndex = today ? rows.findIndex((r) => r.minutes >= now) : -1;
     const seg = (items, value, action) => `<div class="segmented" role="tablist">${items.map(([v, label]) => `<button role="tab" data-action="${action}" data-value="${v}" aria-selected="${v === value}">${esc(label)}</button>`).join("")}</div>`;
     const days = [[WEEKDAY, t.weekday], [SATURDAY, t.saturday], [SUNDAY, t.sunday]];
-    const dirItems = dirs.map((d) => [d, t.towards(towards(line, detail, d))]);
+    const dirItems = dirs.map((d) => [d, ring ? t.ringFrom(d === OUTBOUND ? line.origin : line.destination) : t.towards(towards(line, detail, d))]);
     panel.innerHTML = `${header({ title: `${badge(line)} <span>${esc(line.name)}</span>`, sub: t.timetable })}
       ${holidayNote(moment)}
       ${seg(days, day, "day")}

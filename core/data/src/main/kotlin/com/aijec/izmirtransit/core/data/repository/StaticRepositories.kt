@@ -15,6 +15,8 @@ import com.aijec.izmirtransit.core.model.ServiceDay
 import com.aijec.izmirtransit.core.model.Stop
 import com.aijec.izmirtransit.core.model.TransitMode
 import com.aijec.izmirtransit.core.model.geo.BoundingBox
+import com.aijec.izmirtransit.core.model.isRing
+import com.aijec.izmirtransit.core.model.ringStart
 import com.aijec.izmirtransit.core.model.geo.LatLng
 import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
 import com.aijec.izmirtransit.core.model.geo.PolylineCodec
@@ -238,6 +240,18 @@ class TimetableRepository @Inject constructor(private val database: IzmirDatabas
 
     suspend fun departures(lineCode: String, serviceDay: ServiceDay, direction: Direction): List<Departure> =
         dao.departures(lineCode, serviceDay.ordinal, direction.datasetCode).map { it.toModel() }
+
+    /**
+     * For a ring line, the direction its trips start in (the only one with departures on any
+     * day); the other direction is the way back of the same trips. Null for other lines.
+     */
+    suspend fun ringStart(line: Line): Direction? {
+        if (!line.isRing) return null
+        val timed = Direction.entries.filter { direction ->
+            ServiceDay.entries.any { day -> dao.departures(line.code, day.ordinal, direction.datasetCode).isNotEmpty() }
+        }
+        return line.ringStart(timed)
+    }
 
     /**
      * A rail or ferry line's timetable at one station: what the station board shows, for the

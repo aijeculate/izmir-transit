@@ -38,6 +38,8 @@ data class TimetableUiState(
     val stations: List<Stop> = emptyList(),
     /** Loop lines (Çiğli tram, the Ring) run one way only. */
     val directions: List<Direction> = Direction.entries,
+    /** A ring line's starting direction: its only timetable, for the whole round trip. */
+    val ringStart: Direction? = null,
     val station: Stop? = null,
     val loading: Boolean = true,
     /** Set only when the selected day is the timetable running now. */
@@ -81,6 +83,9 @@ class TimetableViewModel @Inject constructor(
     private val byStation = !isBusCode(lineCode)
     private val routes = flow { emit(if (byStation) lines.routes(lineCode) else emptyList()) }
 
+    /** Ring lines are timed from one end only: that direction is the whole timetable. */
+    private val ringStart = flow { emit(lines.line(lineCode)?.let { timetable.ringStart(it) }) }
+
     /** Re-evaluates "next departure" every 30 s while the screen is open. */
     private val minuteTicker = flow {
         while (true) {
@@ -96,14 +101,15 @@ class TimetableViewModel @Inject constructor(
         val station: Stop?,
         val list: List<Departure>,
         val directions: List<Direction>,
+        val ringStart: Direction?,
     )
 
-    private val departures = combine(selection, routes) { chosen, routes -> chosen to routes }.mapLatest { (chosen, routes) ->
+    private val departures = combine(selection, routes, ringStart) { chosen, routes, ring -> Triple(chosen, routes, ring) }.mapLatest { (chosen, routes, ring) ->
         // A loop line runs one way only: a direction it doesn't have falls back to the one it does.
-        val selected = if (routes.isNotEmpty() && routes.none { it.direction == chosen.direction }) {
-            chosen.copy(direction = routes.first().direction)
-        } else {
-            chosen
+        val selected = when {
+            ring != null -> chosen.copy(direction = ring)
+            routes.isNotEmpty() && routes.none { it.direction == chosen.direction } -> chosen.copy(direction = routes.first().direction)
+            else -> chosen
         }
         val stations = routes.firstOrNull { it.direction == selected.direction }?.stops.orEmpty()
             // The terminus has no departures in this direction.
@@ -111,8 +117,12 @@ class TimetableViewModel @Inject constructor(
         val station = stations.firstOrNull { it.code == selected.stationCode } ?: stations.firstOrNull()
         val list = if (station != null) timetable.departuresAt(station.code, lineCode, selected.day, selected.direction)
         else timetable.departures(lineCode, selected.day, selected.direction)
-        val directions = if (routes.isEmpty()) Direction.entries else routes.map { it.direction }.distinct().sorted()
-        Loaded(selected.day, selected.direction, stations, station, list, directions)
+        val directions = when {
+            ring != null -> listOf(ring)
+            routes.isEmpty() -> Direction.entries
+            else -> routes.map { it.direction }.distinct().sorted()
+        }
+        Loaded(selected.day, selected.direction, stations, station, list, directions, ring)
     }
 
     val state: StateFlow<TimetableUiState> = combine(header, departures, minuteTicker) { head, loaded, moment ->
@@ -131,6 +141,7 @@ class TimetableViewModel @Inject constructor(
             stations = stations,
             station = station,
             directions = loaded.directions,
+            ringStart = loaded.ringStart,
             loading = false,
             next = next,
         )

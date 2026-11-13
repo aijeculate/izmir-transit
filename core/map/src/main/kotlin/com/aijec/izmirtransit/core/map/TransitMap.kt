@@ -101,6 +101,8 @@ fun TransitMap(
     /** The selected line's mode, for its stop pictograms. */
     routeMode: TransitMode = TransitMode.BUS,
     buses: List<LiveBus> = emptyList(),
+    /** Draws both directions in one colour: a ring line's halves are one round trip. */
+    oneColour: Boolean = false,
     overview: List<OverviewRoute> = emptyList(),
     areaStops: List<Stop> = emptyList(),
     highlightedStop: Stop? = null,
@@ -245,7 +247,7 @@ fun TransitMap(
             // A route fades in when it appears (a line chosen, a direction switched).
             val fade = remember(route) { Animatable(if (reducedMotion) 1f else 0f) }
             LaunchedEffect(route) { fade.animateTo(1f, tween(ROUTE_FADE_MILLIS)) }
-            val color = TransitColors.forDirection(direction).copy(alpha = fade.value)
+            val color = TransitColors.forDirection(if (oneColour) Direction.OUTBOUND else direction).copy(alpha = fade.value)
             com.google.maps.android.compose.Polyline(
                 points = points,
                 color = casing.copy(alpha = casing.alpha * fade.value),
@@ -276,10 +278,11 @@ fun TransitMap(
         // --- The selected line's stops: dots when zoomed out, pictogram badges close up.
         if (detail != StopDetail.NONE) {
             for (route in routes) {
+                val outboundLook = oneColour || route.direction == Direction.OUTBOUND
                 val icon = when {
-                    detail == StopDetail.DOTS && route.direction == Direction.OUTBOUND -> ringOutbound
+                    detail == StopDetail.DOTS && outboundLook -> ringOutbound
                     detail == StopDetail.DOTS -> ringReturn
-                    route.direction == Direction.OUTBOUND -> badgeOutbound
+                    outboundLook -> badgeOutbound
                     else -> badgeReturn
                 }
                 for (stop in route.stops) {

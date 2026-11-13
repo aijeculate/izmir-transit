@@ -239,12 +239,18 @@ private fun DirectionPicker(state: TimetableUiState, onSelect: (Direction) -> Un
             selected = state.direction,
             onSelect = onSelect,
             label = { direction ->
-                val towards = when {
-                    line == null -> ""
-                    direction == Direction.OUTBOUND -> line.destination
-                    else -> line.origin
+                val ring = state.ringStart
+                if (line != null && ring != null) {
+                    // One timetable for the round trip, timed at its start.
+                    stringResource(R.string.timetable_ring, if (ring == Direction.OUTBOUND) line.origin else line.destination)
+                } else {
+                    val towards = when {
+                        line == null -> ""
+                        direction == Direction.OUTBOUND -> line.destination
+                        else -> line.origin
+                    }
+                    stringResource(R.string.timetable_towards, towards)
                 }
-                stringResource(R.string.timetable_towards, towards)
             },
         )
     }

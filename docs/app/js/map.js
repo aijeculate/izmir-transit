@@ -207,10 +207,10 @@ export function showOverview(visible) {
 }
 
 /** One line: the chosen direction(s)' routes and stops. */
-export function showLine(line, detail, directions) {
+export function showLine(line, detail, directions, oneColour = false) {
   const routes = [], stops = [];
   directions.forEach((dir, i) => {
-    const color = line.mode === "BUS" ? (i === 0 ? ROUTE_BLUE : ROUTE_ORANGE) : line.color || BRANDS[line.mode].primary;
+    const color = line.mode === "BUS" ? (i === 0 || oneColour ? ROUTE_BLUE : ROUTE_ORANGE) : line.color || BRANDS[line.mode].primary;
     const r = detail.routes[dir];
     if (r) routes.push(lineString(r.points, { color }));
     for (const code of detail.stops[dir] || []) {

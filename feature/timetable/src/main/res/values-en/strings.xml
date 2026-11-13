@@ -19,4 +19,5 @@
     <string name="timetable_in_minutes">in %1$d min</string>
     <string name="timetable_from_station">Departing from</string>
     <string name="timetable_change_station">Change station</string>
+    <string name="timetable_ring">From %1$s · ring line</string>
 </resources>

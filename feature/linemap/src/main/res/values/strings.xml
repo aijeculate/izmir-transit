@@ -55,4 +55,5 @@
         <item quantity="one">%1$s yönünde otobüs yok · %3$s yönünde %2$d otobüs var</item>
         <item quantity="other">%1$s yönünde otobüs yok · %3$s yönünde %2$d otobüs var</item>
     </plurals>
+    <string name="linemap_ring">Ring hat: %1$s → %2$s → %1$s</string>
 </resources>

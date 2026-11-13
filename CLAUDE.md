@@ -228,6 +228,13 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 - Data: `tools/web/export_web_data.py` turns the DB into `docs/app/data/{core,overview}.json` and `lines/{code}.json` (~3.8 MB, ~0.4 MB gzipped to start). Not committed (git-ignored); the **Website** workflow (`pages.yml`) builds the DB, exports and deploys `docs/` to Pages on docs changes, every Monday and by hand. Pages' source must be "GitHub Actions".
 - `sw.js` keeps the app and timetable data for offline use; live data and tiles are never cached.
 
+**Added 13 Nov 2026 — ring lines (user report, line 465):**
+
+- 33 bus lines are rings: notes say "HATTIMIZ RİNG HAT OLUP KONAKTAN SAAT UYGULAMASI YOKTUR". The bus goes out and back as one trip, timed only from one end; the data splits it into two directions and only one has departures. `Line.isRing` (notes contain "ring hat", Turkish lowercase; line 566's rush-hour "ring yapmaktadır" doesn't count), `Line.ringStart(timed)` and `TimetableRepository.ringStart(line)` (the only direction with departures on any day; null if both are timed).
+- Line map: a ring shows both halves in one colour (`TransitMap(oneColour = true)`), every bus, no switch, and "Ring hat: TINAZTEPE → KONAK → TINAZTEPE". Its timetable has the one direction, labelled "TINAZTEPE çıkışlı · Ring hat".
+- Planner: the untimed half gets the timed half's departures plus its running time (shape length at 300 m/min), so trips like Konak → Buca on 465 are found (`NetworkRepository.ringReturns`).
+- The web version does the same (`ringStart` in `docs/app/js/data.js`).
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |

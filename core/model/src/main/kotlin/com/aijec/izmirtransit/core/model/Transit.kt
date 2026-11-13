@@ -50,6 +50,18 @@ data class Line(
     val destination: String,
 )
 
+/**
+ * A ring line ("HATTIMIZ RİNG HAT OLUP KONAKTAN SAAT UYGULAMASI YOKTUR"): the bus goes out and
+ * comes back as one trip, timed only from one end, without waiting at the far end. The data
+ * still splits it into two directions, and only one of them has departures.
+ */
+val Line.isRing: Boolean
+    get() = mode == TransitMode.BUS && notes.lowercase(java.util.Locale.forLanguageTag("tr")).contains("ring hat")
+
+/** Where a ring line's trips start: its only timed direction. Null for any other line. */
+fun Line.ringStart(timedDirections: Collection<Direction>): Direction? =
+    if (isRing) timedDirections.distinct().singleOrNull() else null
+
 data class Stop(
     val mode: TransitMode,
     val code: String,

@@ -57,6 +57,17 @@ export function loadLine(code) {
   return lineCache.get(code);
 }
 
+/**
+ * A ring line ("HATTIMIZ RİNG HAT OLUP KONAKTAN SAAT UYGULAMASI YOKTUR") runs out and back as one
+ * trip, timed from one end only. Returns that starting direction, or null (as Line.ringStart).
+ */
+export function ringStart(line, detail) {
+  if (line.mode !== "BUS" || !(line.notes || "").toLocaleLowerCase("tr").includes("ring hat")) return null;
+  if (detail.directions.length !== 2) return null;
+  const timed = [OUTBOUND, RETURN].filter((d) => Object.values(detail.departures || {}).some((day) => (day[d] || []).length));
+  return timed.length === 1 ? timed[0] : null;
+}
+
 /** The terminus a direction heads to, from the line's own stop list, else its name. */
 export function towards(line, detail, direction) {
   const stops = detail?.stops?.[direction];

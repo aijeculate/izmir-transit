@@ -20,4 +20,5 @@
     <string name="timetable_in_minutes">%1$d dk sonra</string>
     <string name="timetable_from_station">Kalkış istasyonu</string>
     <string name="timetable_change_station">İstasyonu değiştir</string>
+    <string name="timetable_ring">%1$s çıkışlı · Ring hat</string>
 </resources>
