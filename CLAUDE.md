@@ -235,6 +235,11 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 - Planner: the untimed half gets the timed half's departures plus its running time (shape length at 300 m/min), so trips like Konak → Buca on 465 are found (`NetworkRepository.ringReturns`).
 - The web version does the same (`ringStart` in `docs/app/js/data.js`).
 
+**Added 14 Nov 2026 — automatic Play uploads:**
+
+- After publishing the GitHub release, `release.yml` sends the `.aab` to Play's closed test (track `alpha`, "Closed testing - Alpha") with `r0adkll/upload-google-play`, using the repository secret `PLAY_SERVICE_ACCOUNT_JSON` (a Google Cloud service account invited in Play Console with View app information + Release to testing tracks + Release to production). Skipped when the secret is missing. Google still reviews each release.
+- Tester release notes come from `distribution/whatsnew/whatsnew-tr-TR` and `whatsnew-en-US` (max 500 characters each). **Rewrite both with every app change**, in plain words for riders. Changing only `distribution/**` doesn't release.
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |

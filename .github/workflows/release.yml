@@ -11,6 +11,7 @@ on:
       - 'tools/web/**'
       - '.github/workflows/pages.yml'
       - 'research/**'
+      - 'distribution/**'
       - '**/*.md'
       - 'LICENSE'
       - '.github/workflows/build.yml'
@@ -160,6 +161,29 @@ jobs:
           gh release create "v$VERSION" dist/izmir-transit.apk "dist/izmir-transit-$VERSION.apk" \
             "dist/izmir-transit-$VERSION-play.aab" \
             --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --latest
+
+      # Sends the bundle to the Play closed test once the publishing robot's key is set up
+      # (repository secret PLAY_SERVICE_ACCOUNT_JSON). Without it this is skipped and the
+      # .aab can still be uploaded by hand from the release.
+      - name: Check the Google Play key
+        id: play
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: echo "ready=$([ -n "$PLAY_JSON" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      # Release notes for testers come from distribution/whatsnew (whatsnew-tr-TR, whatsnew-en-US,
+      # at most 500 characters each); update them with each app change.
+      - name: Send to Google Play closed testing
+        if: steps.play.outputs.ready == 'true'
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.aijec.izmirtransit
+          releaseFiles: dist/izmir-transit-${{ steps.version.outputs.name }}-play.aab
+          releaseName: ${{ steps.version.outputs.name }}
+          track: alpha
+          status: completed
+          whatsNewDirectory: distribution/whatsnew
 
       - name: Remove signing files
         if: always()
