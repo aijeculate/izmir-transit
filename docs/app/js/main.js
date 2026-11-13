@@ -410,7 +410,9 @@ function lineView(params) {
       <div class="card-head">
         <button class="circle small" data-action="back" aria-label="${t.back}">${icon("back", 18)}</button>
         ${badge(line)}<h1 class="grow line-name">${esc(line.name)}</h1>${favButton("l", line.code)}</div>
-      ${ring ? `<div class="direction-row"><span class="dot" style="background:#2F6FDB"></span><span class="grow">${esc(t.ring(...ringEnds()))}</span></div>` : ""}
+      ${ring ? `<p class="hint ring-title">${t.ring}</p>
+        <div class="direction-row"><span class="swatch"></span><span class="grow">${esc(t.ringOut(...ringEnds()))}</span></div>
+        <div class="direction-row"><span class="swatch dashed"></span><span class="grow">${esc(t.ringBack(...ringEnds().reverse()))}</span></div>` : ""}
       ${!ring && (!loop || line.mode !== "BUS") ? `<div class="direction-row"><span class="dot" style="background:${line.mode === "BUS" ? "#2F6FDB" : line.color}"></span>
         <span class="grow">${esc(t.towards(towards(line, detail, direction)))}</span>
         ${!loop ? `<button class="pill-button small" data-action="switch">${icon("swap", 16)} ${t.switchDirection}</button>` : ""}</div>` : ""}
@@ -422,7 +424,7 @@ function lineView(params) {
   };
 
   const drawRoute = () => {
-    // A ring line is one round trip: both halves, in one colour.
+    // A ring line is one round trip: the way out solid, the way back dashed.
     const shown = ring ? [ring, ...detail.directions.filter((d) => d !== ring)] : [direction];
     M.showLine(line, detail, shown, !!ring);
     const key = `${line.code}|${ring ? "ring" : direction}`;
@@ -452,8 +454,9 @@ function lineView(params) {
   loadLine(line.code).then((d) => {
     if (stopped) return;
     detail = d;
-    ring = ringStart(line, detail);
-    if (ring) direction = ring;
+    const ringLine = ringStart(line, detail);
+    ring = store.get().ringRoundTrip !== false ? ringLine : null;
+    if (ringLine && !detail.directions.includes(direction)) direction = ringLine;
     if (!detail.directions.includes(direction)) {
       // From a stop: the direction serving it; otherwise outbound.
       direction = (params.stop && detail.directions.find((dir) => detail.stops[dir]?.includes(params.stop))) || detail.directions[0] || OUTBOUND;
@@ -574,14 +577,19 @@ function timetableView(params) {
 
   const render = () => {
     if (stopped) return;
-    // A ring line has one timetable for the whole round trip, from where it starts.
-    const ring = ringStart(line, detail);
+    // A ring line has one timetable for the whole round trip, from where it starts. Shown
+    // two ways (a setting), its way back gets estimated times: the start's plus the drive.
+    const ringLine = ringStart(line, detail);
+    const ring = store.get().ringRoundTrip !== false ? ringLine : null;
     const dirs = ring ? [ring] : detail.directions;
     if (!dirs.includes(direction)) direction = (station && dirs.find((d) => detail.stops[d]?.includes(station))) || dirs[0];
     const rail = line.mode !== "BUS";
     const stopsHere = detail.stops[direction] || [];
     if (rail && (!station || !stopsHere.includes(station))) station = stopsHere[0];
-    const rows = timetable(detail, line, day, direction, station);
+    const estimated = ringLine && !ring && direction !== ringLine ? Math.round((detail.routes[ringLine]?.length || 0) / 300) : null;
+    const rows = estimated != null
+      ? timetable(detail, line, day, ringLine, station).map((r) => ({ ...r, minutes: r.minutes + estimated }))
+      : timetable(detail, line, day, direction, station);
     const today = day === serviceMoment().day;
     const now = serviceMoment().minutes;
     const nextIndex = today ? rows.findIndex((r) => r.minutes >= now) : -1;
@@ -592,6 +600,7 @@ function timetableView(params) {
       ${holidayNote(moment)}
       ${seg(days, day, "day")}
       ${dirs.length > 1 ? seg(dirItems, direction, "dir") : `<p class="hint">${esc(dirItems[0]?.[1] || "")}</p>`}
+      ${estimated != null && rows.length ? `<p class="hint">${esc(t.ringEstimated(ringLine === OUTBOUND ? line.origin : line.destination, estimated))}</p>` : ""}
       ${rail ? `<label class="select-row"><span class="dim">${t.departingFrom}</span>
         <select data-action="station">${stopsHere.map((c) => `<option value="${esc(c)}" ${c === station ? "selected" : ""}>${esc(db.stops.get(c)?.name || c)}</option>`).join("")}</select></label>` : ""}
       <div class="panel">${rows.length ? `<div class="times-grid tabular">${rows.map((r, i) => `<span class="${i === nextIndex ? "next" : i < nextIndex ? "past" : ""}" ${i === nextIndex ? 'id="next-dep"' : ""}>
@@ -625,13 +634,15 @@ function settingsView() {
     panel.innerHTML = `${header({ title: t.settings })}
       <h2 class="section">${t.theme}</h2>${seg([["system", t.system], ["light", t.light], ["dark", t.dark]], s.theme, "theme")}
       <h2 class="section">${t.language}</h2>${seg([["tr", "Türkçe"], ["en", "English"]], lang(), "lang")}
+      <h2 class="section">${t.ringLines}</h2>${seg([["round", t.ringRoundTrip], ["two", t.ringTwoWays]], s.ringRoundTrip === false ? "two" : "round", "ring")}
       <div class="panel foot"><p>${t.about}</p><p><a href="../">${t.getApp}</a> · <a href="https://github.com/aijeculate/izmir-transit">GitHub</a> · <a href="../privacy.html">Privacy</a></p></div>`;
   };
   render();
   const onClick = (e) => {
     const b = e.target.closest("[data-set]");
     if (!b) return;
-    store.set({ [b.dataset.set]: b.dataset.value });
+    if (b.dataset.set === "ring") store.set({ ringRoundTrip: b.dataset.value === "round" });
+    else store.set({ [b.dataset.set]: b.dataset.value });
     if (b.dataset.set === "theme") applyTheme();
     if (b.dataset.set === "lang") { document.documentElement.lang = lang(); translateChrome(); }
     render();

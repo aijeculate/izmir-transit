@@ -43,4 +43,6 @@
     <string name="settings_updates_failed">Couldn\'t check. Check your internet connection.</string>
     <string name="settings_repo">Source code on GitHub</string>
     <string name="settings_version">İzmir Transit %1$s</string>
+    <string name="settings_ring_round_trip">Show ring lines as one round trip</string>
+    <string name="settings_ring_round_trip_hint">Ring lines such as 465: the way out solid and the way back dashed, on one map. Off shows them like other lines, one direction at a time.</string>
 </resources>

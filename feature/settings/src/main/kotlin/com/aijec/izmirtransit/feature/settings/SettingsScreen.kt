@@ -111,6 +111,8 @@ class SettingsViewModel @Inject constructor(
 
     fun setShowBothDirections(both: Boolean) = viewModelScope.launch { repository.setShowBothDirections(both) }
 
+    fun setRingAsRoundTrip(roundTrip: Boolean) = viewModelScope.launch { repository.setRingAsRoundTrip(roundTrip) }
+
     /** Shows the first-run tutorial again (the app switches to it at once). */
     fun replayTutorial() = viewModelScope.launch { repository.setOnboardingDone(false) }
 }
@@ -127,6 +129,7 @@ fun SettingsRoute(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
         onSearchAtBottom = { viewModel.setSearchAtBottom(it) },
         onStyle = { viewModel.setStyle(it) },
         onShowBothDirections = { viewModel.setShowBothDirections(it) },
+        onRingAsRoundTrip = { viewModel.setRingAsRoundTrip(it) },
         onReplayTutorial = { viewModel.replayTutorial() },
         appVersion = viewModel.appVersion,
         showUpdates = viewModel.selfUpdates,
@@ -153,6 +156,7 @@ fun SettingsScreen(
     onSearchAtBottom: (Boolean) -> Unit,
     onStyle: (UiStyle) -> Unit = {},
     onShowBothDirections: (Boolean) -> Unit = {},
+    onRingAsRoundTrip: (Boolean) -> Unit = {},
     onReplayTutorial: () -> Unit = {},
     appVersion: String = "",
     showUpdates: Boolean = true,
@@ -229,6 +233,13 @@ fun SettingsScreen(
                     hint = stringResource(R.string.settings_both_directions_hint),
                     checked = settings.showBothDirections,
                     onChange = onShowBothDirections,
+                )
+                Hairline(inset = 0.dp)
+                SettingSwitch(
+                    title = stringResource(R.string.settings_ring_round_trip),
+                    hint = stringResource(R.string.settings_ring_round_trip_hint),
+                    checked = settings.ringAsRoundTrip,
+                    onChange = onRingAsRoundTrip,
                 )
                 Hairline(inset = 0.dp)
                 SettingSwitch(

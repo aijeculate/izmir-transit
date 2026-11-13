@@ -69,8 +69,8 @@ data class LineMapUiState(
     /** The direction shown when only one is drawn (the default). */
     val direction: Direction = Direction.OUTBOUND,
     /**
-     * Set for a ring line: the direction its trips start in. Both halves are then drawn as one
-     * round trip, with every bus on it and no direction switch.
+     * Set for a ring line: the direction its trips start in. With the round-trip view on (the
+     * default), both halves are drawn as one trip, with every bus on it and no direction switch.
      */
     val ringStart: Direction? = null,
     /** Rail and ferry only: they run to timetable, with no live positions. */
@@ -137,11 +137,14 @@ class LineMapViewModel @Inject constructor(
     val state: StateFlow<LineMapUiState> = _state.asStateFlow()
 
     /** Draw both directions at once (a setting); otherwise one, with a switch. */
+    /** Ring lines drawn as one round trip (the default) rather than one direction at a time. */
+    val ringAsRoundTrip: StateFlow<Boolean> = settings.settings.map { it.ringAsRoundTrip }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     val showBothDirections: StateFlow<Boolean> = settings.settings.map { it.showBothDirections }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun switchDirection() = _state.update { s ->
-        if (s.ringStart != null) return@update s
         val available = s.routes.map { it.direction }
         val next = s.direction.opposite
         if (next in available) s.copy(direction = next) else s

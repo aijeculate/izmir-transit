@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aijec.izmirtransit.core.data.repository.LineRepository
+import com.aijec.izmirtransit.core.data.repository.SettingsRepository
+import com.aijec.izmirtransit.core.data.routing.TransitNetwork
 import com.aijec.izmirtransit.core.data.repository.TimetableRepository
 import com.aijec.izmirtransit.core.model.Announcement
 import com.aijec.izmirtransit.core.model.Departure
@@ -11,6 +13,7 @@ import com.aijec.izmirtransit.core.model.Direction
 import com.aijec.izmirtransit.core.model.Line
 import com.aijec.izmirtransit.core.model.ServiceDay
 import com.aijec.izmirtransit.core.model.Stop
+import com.aijec.izmirtransit.core.model.geo.MeasuredPolyline
 import com.aijec.izmirtransit.core.model.isBusCode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,12 +23,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Clock
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 data class TimetableUiState(
     val lineCode: String,
@@ -38,8 +43,16 @@ data class TimetableUiState(
     val stations: List<Stop> = emptyList(),
     /** Loop lines (Çiğli tram, the Ring) run one way only. */
     val directions: List<Direction> = Direction.entries,
-    /** A ring line's starting direction: its only timetable, for the whole round trip. */
+    /**
+     * A ring line shown as one round trip: its starting direction, the only timetable. Null
+     * when ring lines are shown one direction at a time (a setting).
+     */
     val ringStart: Direction? = null,
+    /**
+     * A ring line's way back, shown on its own: the times are estimated as the start's
+     * departures plus this many minutes of driving, the timetable having none.
+     */
+    val estimatedAfter: Int? = null,
     val station: Stop? = null,
     val loading: Boolean = true,
     /** Set only when the selected day is the timetable running now. */
@@ -57,6 +70,7 @@ class TimetableViewModel @Inject constructor(
     private val lines: LineRepository,
     private val timetable: TimetableRepository,
     private val clock: Clock,
+    settings: SettingsRepository,
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val lineCode: String = checkNotNull(savedState[LINE_CODE_ARG]) { "lineCode argument missing" }
@@ -85,6 +99,13 @@ class TimetableViewModel @Inject constructor(
 
     /** Ring lines are timed from one end only: that direction is the whole timetable. */
     private val ringStart = flow { emit(lines.line(lineCode)?.let { timetable.ringStart(it) }) }
+    private val ringRoundTrip = settings.settings.map { it.ringAsRoundTrip }
+
+    /** Minutes a ring line takes to drive its way out, for estimating the way back. */
+    private suspend fun ringRunningMinutes(start: Direction): Int {
+        val shape = lines.routes(lineCode).firstOrNull { it.direction == start }?.shape.orEmpty()
+        return (MeasuredPolyline(shape).lengthMeters / TransitNetwork.BUS_METERS_PER_MINUTE).roundToInt()
+    }
 
     /** Re-evaluates "next departure" every 30 s while the screen is open. */
     private val minuteTicker = flow {
@@ -102,9 +123,13 @@ class TimetableViewModel @Inject constructor(
         val list: List<Departure>,
         val directions: List<Direction>,
         val ringStart: Direction?,
+        val estimatedAfter: Int?,
     )
 
-    private val departures = combine(selection, routes, ringStart) { chosen, routes, ring -> Triple(chosen, routes, ring) }.mapLatest { (chosen, routes, ring) ->
+    private data class Inputs(val chosen: Selection, val routes: List<com.aijec.izmirtransit.core.model.LineRoute>, val ring: Direction?, val roundTrip: Boolean)
+
+    private val departures = combine(selection, routes, ringStart, ringRoundTrip) { chosen, routes, ring, roundTrip -> Inputs(chosen, routes, ring, roundTrip) }.mapLatest { (chosen, routes, ringLine, roundTrip) ->
+        val ring = ringLine?.takeIf { roundTrip }
         // A loop line runs one way only: a direction it doesn't have falls back to the one it does.
         val selected = when {
             ring != null -> chosen.copy(direction = ring)
@@ -115,14 +140,25 @@ class TimetableViewModel @Inject constructor(
             // The terminus has no departures in this direction.
             .dropLast(1)
         val station = stations.firstOrNull { it.code == selected.stationCode } ?: stations.firstOrNull()
-        val list = if (station != null) timetable.departuresAt(station.code, lineCode, selected.day, selected.direction)
-        else timetable.departures(lineCode, selected.day, selected.direction)
+        // A ring line's way back has no times of its own: the way out's, plus the drive.
+        val estimatedAfter = if (ringLine != null && ring == null && station == null && selected.direction != ringLine) {
+            ringRunningMinutes(ringLine)
+        } else {
+            null
+        }
+        val list = when {
+            station != null -> timetable.departuresAt(station.code, lineCode, selected.day, selected.direction)
+            estimatedAfter != null -> timetable.departures(lineCode, selected.day, ringLine!!).map {
+                it.copy(direction = selected.direction, minutesAfterMidnight = it.minutesAfterMidnight + estimatedAfter)
+            }
+            else -> timetable.departures(lineCode, selected.day, selected.direction)
+        }
         val directions = when {
             ring != null -> listOf(ring)
             routes.isEmpty() -> Direction.entries
             else -> routes.map { it.direction }.distinct().sorted()
         }
-        Loaded(selected.day, selected.direction, stations, station, list, directions, ring)
+        Loaded(selected.day, selected.direction, stations, station, list, directions, ring, estimatedAfter)
     }
 
     val state: StateFlow<TimetableUiState> = combine(header, departures, minuteTicker) { head, loaded, moment ->
@@ -142,6 +178,7 @@ class TimetableViewModel @Inject constructor(
             station = station,
             directions = loaded.directions,
             ringStart = loaded.ringStart,
+            estimatedAfter = loaded.estimatedAfter,
             loading = false,
             next = next,
         )

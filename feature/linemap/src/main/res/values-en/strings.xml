@@ -54,5 +54,7 @@
         <item quantity="one">No buses towards %1$s · %2$d towards %3$s</item>
         <item quantity="other">No buses towards %1$s · %2$d towards %3$s</item>
     </plurals>
-    <string name="linemap_ring">Ring line: %1$s → %2$s → %1$s</string>
+    <string name="linemap_ring">Ring line · one round trip</string>
+    <string name="linemap_ring_out">Out: %1$s → %2$s</string>
+    <string name="linemap_ring_back">Back: %1$s → %2$s</string>
 </resources>

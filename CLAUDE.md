@@ -231,9 +231,11 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 **Added 13 Nov 2026 — ring lines (user report, line 465):**
 
 - 33 bus lines are rings: notes say "HATTIMIZ RİNG HAT OLUP KONAKTAN SAAT UYGULAMASI YOKTUR". The bus goes out and back as one trip, timed only from one end; the data splits it into two directions and only one has departures. `Line.isRing` (notes contain "ring hat", Turkish lowercase; line 566's rush-hour "ring yapmaktadır" doesn't count), `Line.ringStart(timed)` and `TimetableRepository.ringStart(line)` (the only direction with departures on any day; null if both are timed).
-- Line map: a ring shows both halves in one colour (`TransitMap(oneColour = true)`), every bus, no switch, and "Ring hat: TINAZTEPE → KONAK → TINAZTEPE". Its timetable has the one direction, labelled "TINAZTEPE çıkışlı · Ring hat".
+- Line map (14 Nov, after user feedback that one colour was confusing): a ring shows the way out solid blue and the way back dashed orange (`TransitMap(ringStart = …)`; the dashed half drops the stamped chevrons), stops in their half's colour, every bus, no switch, and a key "Ring hat · tek tur / Gidiş: A → B / Dönüş: B → A" (`RingLegend`). Its timetable has the one direction, labelled "TINAZTEPE çıkışlı · Ring hat".
+- **Setting "Ring hatları tek tur olarak göster"** (`AppSettings.ringAsRoundTrip`, default on). Off: rings behave like other lines (one direction + switch); the way back's timetable shows estimated times, the start's departures plus the way out's running time (shape length at 300 m/min), with a note (`TimetableUiState.estimatedAfter`).
+- **Map layers panel** opens to the left of its button (bottom-aligned, scaling out of the button corner with a fade; none with reduced motion). Chips always have a visible rim: on = accent tint + accent rim, off = empty with a grey rim and dimmed content, colours animated.
 - Planner: the untimed half gets the timed half's departures plus its running time (shape length at 300 m/min), so trips like Konak → Buca on 465 are found (`NetworkRepository.ringReturns`).
-- The web version does the same (`ringStart` in `docs/app/js/data.js`).
+- The web version does the same (`ringStart` in `docs/app/js/data.js`, `route-dashed` layer, Settings → Ring hatlar: Tek tur / İki yön).
 
 **Added 14 Nov 2026 — automatic Play uploads:**
 

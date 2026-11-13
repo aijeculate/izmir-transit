@@ -44,4 +44,6 @@
     <string name="settings_updates_failed">Denetlenemedi. İnternet bağlantını kontrol et.</string>
     <string name="settings_repo">Kaynak kodu GitHub\'da</string>
     <string name="settings_version">İzmir Transit %1$s</string>
+    <string name="settings_ring_round_trip">Ring hatları tek tur olarak göster</string>
+    <string name="settings_ring_round_trip_hint">465 gibi ring hatlarda gidiş düz, dönüş kesik çizgiyle aynı haritada. Kapalıyken diğer hatlar gibi tek yön gösterilir.</string>
 </resources>

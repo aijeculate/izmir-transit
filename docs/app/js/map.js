@@ -126,7 +126,15 @@ function addOverlays() {
   map.addLayer({
     id: "route", type: "line", source: "route",
     layout: { "line-cap": "round", "line-join": "round" },
+    filter: ["!", ["to-boolean", ["get", "dashed"]]],
     paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3.5, 16, 8] },
+  });
+  // A ring line's way back: dashed, so it stays apart from the way out on shared streets.
+  map.addLayer({
+    id: "route-dashed", type: "line", source: "route",
+    filter: ["to-boolean", ["get", "dashed"]],
+    layout: { "line-join": "round" },
+    paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3.5, 16, 8], "line-dasharray": [1.6, 1.1] },
   });
   map.addLayer({
     id: "route-arrows", type: "symbol", source: "route",
@@ -207,12 +215,17 @@ export function showOverview(visible) {
 }
 
 /** One line: the chosen direction(s)' routes and stops. */
-export function showLine(line, detail, directions, oneColour = false) {
+/**
+ * One line: the chosen direction(s)' routes and stops. With `ring`, the first direction is a
+ * ring line's way out (solid blue) and the second its way back (dashed orange), stops in the
+ * colour of their half.
+ */
+export function showLine(line, detail, directions, ring = false) {
   const routes = [], stops = [];
   directions.forEach((dir, i) => {
-    const color = line.mode === "BUS" ? (i === 0 || oneColour ? ROUTE_BLUE : ROUTE_ORANGE) : line.color || BRANDS[line.mode].primary;
+    const color = line.mode === "BUS" ? (i === 0 ? ROUTE_BLUE : ROUTE_ORANGE) : line.color || BRANDS[line.mode].primary;
     const r = detail.routes[dir];
-    if (r) routes.push(lineString(r.points, { color }));
+    if (r) routes.push(lineString(r.points, { color, dashed: ring && i > 0 }));
     for (const code of detail.stops[dir] || []) {
       const s = db.stops.get(code);
       if (s) stops.push(point(s.position, { code, name: s.name, color }));

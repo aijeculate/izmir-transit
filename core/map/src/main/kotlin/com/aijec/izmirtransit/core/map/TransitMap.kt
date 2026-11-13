@@ -101,8 +101,12 @@ fun TransitMap(
     /** The selected line's mode, for its stop pictograms. */
     routeMode: TransitMode = TransitMode.BUS,
     buses: List<LiveBus> = emptyList(),
-    /** Draws both directions in one colour: a ring line's halves are one round trip. */
-    oneColour: Boolean = false,
+    /**
+     * A ring line's starting direction, drawn as one round trip: the way out in blue, the way
+     * back dashed in orange (so the halves stay apart where they share a street), stops in the
+     * colour of their half.
+     */
+    ringStart: Direction? = null,
     overview: List<OverviewRoute> = emptyList(),
     areaStops: List<Stop> = emptyList(),
     highlightedStop: Stop? = null,
@@ -240,14 +244,17 @@ fun TransitMap(
         }
 
         // --- Selected line: return first so outbound draws on top where they share a street.
-        for (direction in listOf(Direction.RETURN, Direction.OUTBOUND)) key("route", direction) {
+        val drawOrder = if (ringStart != null) listOf(ringStart.opposite, ringStart) else listOf(Direction.RETURN, Direction.OUTBOUND)
+        for (direction in drawOrder) key("route", direction) {
             val route = routes.firstOrNull { it.direction == direction }
             if (route != null && route.shape.size >= 2) {
             val points = remember(route) { route.shape.map { it.toGoogle() } }
             // A route fades in when it appears (a line chosen, a direction switched).
             val fade = remember(route) { Animatable(if (reducedMotion) 1f else 0f) }
             LaunchedEffect(route) { fade.animateTo(1f, tween(ROUTE_FADE_MILLIS)) }
-            val color = TransitColors.forDirection(if (oneColour) Direction.OUTBOUND else direction).copy(alpha = fade.value)
+            val firstLook = if (ringStart != null) direction == ringStart else direction == Direction.OUTBOUND
+            val dashed = ringStart != null && direction != ringStart
+            val color = (if (firstLook) TransitColors.Outbound else TransitColors.Return).copy(alpha = fade.value)
             com.google.maps.android.compose.Polyline(
                 points = points,
                 color = casing.copy(alpha = casing.alpha * fade.value),
@@ -257,28 +264,39 @@ fun TransitMap(
                 endCap = RoundCap(),
                 zIndex = 3f,
             )
-            com.google.maps.android.compose.Polyline(
-                points = points,
-                spans = listOf(
-                    StyleSpan(
-                        StrokeStyle.colorBuilder(color.toArgb())
-                            .apply { if (reducedMotion) stamp(TextureStyle.newBuilder(chevron).build()) }
-                            .build(),
+            if (dashed) {
+                com.google.maps.android.compose.Polyline(
+                    points = points,
+                    color = color,
+                    width = selectedWidth,
+                    pattern = listOf(Dash(with(density) { 14.dp.toPx() }), Gap(with(density) { 9.dp.toPx() })),
+                    jointType = JointType.ROUND,
+                    zIndex = 4f,
+                )
+            } else {
+                com.google.maps.android.compose.Polyline(
+                    points = points,
+                    spans = listOf(
+                        StyleSpan(
+                            StrokeStyle.colorBuilder(color.toArgb())
+                                .apply { if (reducedMotion) stamp(TextureStyle.newBuilder(chevron).build()) }
+                                .build(),
+                        ),
                     ),
-                ),
-                width = selectedWidth,
-                jointType = JointType.ROUND,
-                startCap = RoundCap(),
-                endCap = RoundCap(),
-                zIndex = 4f,
-            )
+                    width = selectedWidth,
+                    jointType = JointType.ROUND,
+                    startCap = RoundCap(),
+                    endCap = RoundCap(),
+                    zIndex = 4f,
+                )
+            }
             }
         }
 
         // --- The selected line's stops: dots when zoomed out, pictogram badges close up.
         if (detail != StopDetail.NONE) {
             for (route in routes) {
-                val outboundLook = oneColour || route.direction == Direction.OUTBOUND
+                val outboundLook = if (ringStart != null) route.direction == ringStart else route.direction == Direction.OUTBOUND
                 val icon = when {
                     detail == StopDetail.DOTS && outboundLook -> ringOutbound
                     detail == StopDetail.DOTS -> ringReturn

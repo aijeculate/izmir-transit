@@ -2,7 +2,7 @@
 // windows, blocked site data), so every access is guarded and the app works without it.
 
 const KEY = "izmir-transit";
-let state = { favourites: [], theme: "system", lang: null };
+let state = { favourites: [], theme: "system", lang: null, ringRoundTrip: true };
 
 try {
   const saved = JSON.parse(localStorage.getItem(KEY) || "null");

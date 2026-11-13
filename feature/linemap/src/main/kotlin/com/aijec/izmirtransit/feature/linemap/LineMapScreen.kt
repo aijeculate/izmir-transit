@@ -1,5 +1,15 @@
 package com.aijec.izmirtransit.feature.linemap
 
+import com.aijec.izmirtransit.core.ui.rememberReducedMotion
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.selection.toggleable
@@ -74,7 +84,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
@@ -135,6 +148,8 @@ fun LineMapRoute(
     val overview by viewModel.overview.collectAsStateWithLifecycle()
     val layers by viewModel.layers.collectAsStateWithLifecycle()
     val bothDirections by viewModel.showBothDirections.collectAsStateWithLifecycle()
+    val ringAsRoundTrip by viewModel.ringAsRoundTrip.collectAsStateWithLifecycle()
+    val ringView = state.ringStart.takeIf { ringAsRoundTrip }
     val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -162,7 +177,7 @@ fun LineMapRoute(
         isFavourite = isFavourite,
         onToggleFavourite = viewModel::toggleFavourite,
         onOpenTimetable = {
-            state.lineCode?.let { onOpenTimetable(it, viewModel.fromStop, state.ringStart ?: state.direction.takeUnless { bothDirections }) }
+            state.lineCode?.let { onOpenTimetable(it, viewModel.fromStop, ringView ?: state.direction.takeUnless { bothDirections }) }
         },
         onClose = if (state.pinned) onBack else viewModel::clearLine,
         searchAtBottom = searchAtBottom,
@@ -183,6 +198,7 @@ fun LineMapRoute(
         onSetLayer = viewModel::setLayer,
         onPlanTrip = onPlanTrip,
         bothDirections = bothDirections,
+        ringView = ringView,
         onSwitchDirection = viewModel::switchDirection,
         onFullscreenChange = onFullscreenChange,
     )
@@ -211,6 +227,8 @@ fun LineMapScreen(
     onSetLayer: (MapLayer, Boolean) -> Unit = { _, _ -> },
     onPlanTrip: (PlanDestination?) -> Unit = {},
     bothDirections: Boolean = false,
+    /** A ring line's starting direction when it is shown as one round trip. */
+    ringView: Direction? = null,
     onSwitchDirection: () -> Unit = {},
     onFullscreenChange: (Boolean) -> Unit = {},
 ) {
@@ -222,7 +240,7 @@ fun LineMapScreen(
     BackHandler(enabled = fullscreen) { fullscreen = false }
     // One direction at a time unless the user asked for both: simpler to read. A ring line is
     // one round trip, so it always shows both halves and all its buses.
-    val allDirections = bothDirections || state.ringStart != null
+    val allDirections = bothDirections || ringView != null
     val shownRoutes = remember(state.routes, state.direction, allDirections) {
         if (allDirections) state.routes else state.routes.filter { it.direction == state.direction }
     }
@@ -233,7 +251,7 @@ fun LineMapScreen(
             routes = shownRoutes,
             routeMode = state.line?.mode ?: TransitMode.BUS,
             buses = shownBuses,
-            oneColour = state.ringStart != null,
+            ringStart = ringView,
             // Keeps the route clear of the search pill above and the panels below.
             contentPadding = when {
                 fullscreen -> MapPadding()
@@ -298,22 +316,36 @@ fun LineMapScreen(
         ) {
             val searching = state.query.isNotBlank()
             if (!searching) {
-                if (showLayers) {
-                    LayersPanel(layers, onSetLayer, onClose = { showLayers = false })
+                // The layers panel opens to the left of its button, growing out of it, so the
+                // map buttons stay where they are.
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val reducedMotion = rememberReducedMotion()
+                    val origin = TransformOrigin(1f, 1f)
+                    AnimatedVisibility(
+                        visible = showLayers,
+                        enter = if (reducedMotion) EnterTransition.None
+                        else fadeIn(tween(160)) + scaleIn(bouncySpring(), initialScale = 0.6f, transformOrigin = origin),
+                        exit = if (reducedMotion) ExitTransition.None
+                        else fadeOut(tween(120)) + scaleOut(tween(140), targetScale = 0.6f, transformOrigin = origin),
+                    ) {
+                        LayersPanel(layers, onSetLayer, onClose = { showLayers = false })
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CircleIconButton(
+                            Icons.Filled.Fullscreen,
+                            contentDescription = stringResource(R.string.linemap_fullscreen),
+                            onClick = { showLayers = false; fullscreen = true },
+                            glass = true,
+                        )
+                        CircleIconButton(
+                            Icons.Filled.Layers,
+                            contentDescription = stringResource(R.string.linemap_layers),
+                            onClick = { showLayers = !showLayers },
+                            tint = if (showLayers) Calm.colors.accent else Calm.colors.text,
+                            glass = true,
+                        )
+                    }
                 }
-                CircleIconButton(
-                    Icons.Filled.Fullscreen,
-                    contentDescription = stringResource(R.string.linemap_fullscreen),
-                    onClick = { showLayers = false; fullscreen = true },
-                    glass = true,
-                )
-                CircleIconButton(
-                    Icons.Filled.Layers,
-                    contentDescription = stringResource(R.string.linemap_layers),
-                    onClick = { showLayers = !showLayers },
-                    tint = if (showLayers) Calm.colors.accent else Calm.colors.text,
-                    glass = true,
-                )
                 LocateButton(state.locating, onLocate)
                 val preview = state.preview
                 val pin = state.pin
@@ -330,6 +362,7 @@ fun LineMapScreen(
                     state.lineCode == null -> OverviewPanel(overview)
                     else -> LinePanel(
                         state, shownLive, isFavourite, onToggleFavourite, onOpenTimetable, onClose, allDirections, onSwitchDirection,
+                        ringView = ringView,
                         otherDirectionBuses = live.data.orEmpty().size - shownBuses.size,
                     )
                 }
@@ -373,15 +406,24 @@ private fun LayersPanel(layers: Set<MapLayer>, onSet: (MapLayer, Boolean) -> Uni
 @Composable
 private fun LayerChip(layer: MapLayer, on: Boolean, onToggle: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     val colors = Calm.colors
+    // Both states keep a clear outline: on is filled with an accent rim, off is an empty pill
+    // with a visible rim and dimmed content. The colours animate, so a toggle reads at once.
+    val fill by animateColorAsState(if (on) colors.accentSoft else Color.Transparent, tween(160), label = "layerFill")
+    val rim by animateColorAsState(
+        if (on) colors.accent.copy(alpha = 0.55f) else colors.textSecondary.copy(alpha = 0.45f),
+        tween(160),
+        label = "layerRim",
+    )
+    val contentAlpha by animateFloatAsState(if (on) 1f else 0.55f, tween(160), label = "layerAlpha")
     Row(
         modifier
             .height(36.dp)
             .clip(Calm.PillShape)
-            .background(if (on) colors.accentSoft else Color.Transparent)
-            .border(1.dp, if (on) Color.Transparent else colors.hairline, Calm.PillShape)
+            .background(fill)
+            .border(1.dp, rim, Calm.PillShape)
             .toggleable(value = on, role = Role.Switch, onValueChange = onToggle)
-            .alpha(if (on) 1f else 0.5f)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 8.dp)
+            .alpha(contentAlpha),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val mode = layerMode(layer)
@@ -622,6 +664,7 @@ private fun LinePanel(
     onSwitchDirection: () -> Unit = {},
     /** Buses running the direction not shown, so "none" doesn't hide them. */
     otherDirectionBuses: Int = 0,
+    ringView: Direction? = null,
 ) {
     val lineCode = state.lineCode ?: return
     var showAnnouncements by rememberSaveable(lineCode) { mutableStateOf(false) }
@@ -654,12 +697,18 @@ private fun LinePanel(
                 fun towards(direction: Direction): String =
                     state.routes.takeIf { line.mode != TransitMode.BUS }?.firstOrNull { it.direction == direction }?.stops?.lastOrNull()?.name
                         ?: if (direction == Direction.OUTBOUND) line.destination else line.origin
-                val ring = state.ringStart
-                if (ring != null) {
+                if (ringView != null) {
                     // A ring line: out to the far end and back as one trip, timed from the start.
-                    val start = if (ring == Direction.OUTBOUND) line.origin else line.destination
-                    val far = if (ring == Direction.OUTBOUND) line.destination else line.origin
-                    DirectionLegend(Direction.OUTBOUND, stringResource(R.string.linemap_ring, start, far))
+                    // The way back is dashed on the map, so the key shows a dash too.
+                    val start = if (ringView == Direction.OUTBOUND) line.origin else line.destination
+                    val far = if (ringView == Direction.OUTBOUND) line.destination else line.origin
+                    Text(
+                        stringResource(R.string.linemap_ring),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Calm.colors.textSecondary,
+                    )
+                    RingLegend(TransitColors.Outbound, dashed = false, stringResource(R.string.linemap_ring_out, start, far))
+                    RingLegend(TransitColors.Return, dashed = true, stringResource(R.string.linemap_ring_back, far, start))
                 } else if (bothDirections || available.size < 2) {
                     available.forEach { direction ->
                         DirectionLegend(
@@ -797,6 +846,30 @@ private fun DirectionLegend(direction: Direction, label: String, next: NextDepar
             }
         }
     }
+    }
+}
+
+/** One half of a ring line in the panel's key: a solid or dashed stroke and where it goes. */
+@Composable
+private fun RingLegend(color: Color, dashed: Boolean, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Canvas(Modifier.width(22.dp).height(10.dp)) {
+            val y = size.height / 2
+            val stroke = 4.dp.toPx()
+            if (dashed) {
+                val dash = 6.dp.toPx()
+                val gap = 4.dp.toPx()
+                var x = 0f
+                while (x < size.width) {
+                    drawLine(color, Offset(x, y), Offset(minOf(x + dash, size.width), y), stroke, StrokeCap.Round)
+                    x += dash + gap
+                }
+            } else {
+                drawLine(color, Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Calm.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

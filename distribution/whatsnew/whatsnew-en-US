@@ -1,1 +1,1 @@
-Ring lines (e.g. 465) are now shown as one round trip: the whole route, every bus on it and one timetable. Live buses appear as a red bus seen from above. The nearby stops list is shorter.
+Ring lines (e.g. 465) are easier to read: the way out solid, the way back dashed, and stops coloured by direction. Settings can show them one direction at a time instead, with estimated times for the way back. The map layers panel now opens beside its button with an animation, and on and off layers are easier to tell apart.

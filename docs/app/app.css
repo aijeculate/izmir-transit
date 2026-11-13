@@ -290,6 +290,9 @@ span.chip { padding-left: 10px; }
 .line-panel { max-height: 52vh; overflow-y: auto; padding-bottom: 14px; }
 .line-name { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.25; }
 .direction-row, .status-row { display: flex; align-items: center; gap: 10px; padding: 6px 16px; }
+.swatch { width: 22px; height: 4px; border-radius: 2px; background: #2F6FDB; flex: none; }
+.swatch.dashed { background: repeating-linear-gradient(90deg, #F08A24 0 6px, transparent 6px 10px); }
+.ring-title { margin: 4px 16px 0; font-size: 13px; }
 .direction-row .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .bus-chip { width: 9px; height: 18px; border-radius: 3px; background: #D71920; box-shadow: 0 0 0 1.5px #fff; flex: none; margin: 0 4px; transform: rotate(90deg); }
 .times { display: flex; gap: 16px; padding: 2px 16px 8px 44px; margin: 0; font-size: 18px; font-weight: 700; }

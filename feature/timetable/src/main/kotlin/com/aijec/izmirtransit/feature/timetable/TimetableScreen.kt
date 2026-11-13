@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -289,6 +290,18 @@ private fun Summary(state: TimetableUiState) {
                     color = colors.textSecondary,
                 )
             }
+        }
+        val estimated = state.estimatedAfter
+        val line = state.line
+        if (estimated != null && line != null && state.departures.isNotEmpty()) {
+            // A ring line's way back: ESHOT gives no times, so they are worked out.
+            val start = if (state.direction == Direction.OUTBOUND) line.destination else line.origin
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.timetable_ring_estimated, start, estimated),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+            )
         }
     }
 }

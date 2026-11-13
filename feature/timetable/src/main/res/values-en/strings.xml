@@ -20,4 +20,5 @@
     <string name="timetable_from_station">Departing from</string>
     <string name="timetable_change_station">Change station</string>
     <string name="timetable_ring">From %1$s · ring line</string>
+    <string name="timetable_ring_estimated">Ring line: no times are published for the way back. These are estimates, ~%2$d min after the departures from %1$s.</string>
 </resources>
