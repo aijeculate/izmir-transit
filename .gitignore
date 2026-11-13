@@ -15,3 +15,6 @@ research/yon/
 keystore.properties
 *.jks
 *.keystore
+
+# The website's timetable data is built by the Pages workflow from the app's database.
+docs/app/data/

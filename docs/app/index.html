@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>İzmir Ulaşım</title>
+<meta name="description" content="İzmir'in otobüs, metro, tramvay, İZBAN ve vapurları: canlı otobüsler, duraklar ve sefer saatleri. Live buses, stops and timetables for İzmir.">
+<meta name="theme-color" content="#EEF1F5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../icons/icon-light.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icons/icon-light-512.png">
+<script>
+  // Pick the theme before anything paints, so there is no light flash in dark mode.
+  try {
+    var s = JSON.parse(localStorage.getItem("izmir-transit") || "{}").theme || "system";
+    var d = s === "dark" || (s === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.dataset.theme = d ? "dark" : "light";
+  } catch (e) { document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="app.css">
+<link rel="preload" href="data/core.json" as="fetch" crossorigin>
+</head>
+<body class="view-page">
+  <div id="map" aria-label="Harita"></div>
+  <main id="panel" aria-live="polite"><p class="boot">İzmir Ulaşım…</p></main>
+  <nav class="tabbar" aria-label="Sekmeler">
+    <a href="#/" data-tab="home" aria-current="page">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z"/></svg>
+      <span>Ana sayfa</span></a>
+    <a href="#/map" data-tab="map">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14"/></svg>
+      <span>Harita</span></a>
+  </nav>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

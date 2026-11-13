@@ -1,0 +1,79 @@
+name: Website
+
+# Publishes docs/ to GitHub Pages, including the web version (docs/app) and its timetable
+# data, which is built from the same sources as the Android app. Runs when the site changes,
+# every Monday so the timetables stay current, and by hand from the Actions tab.
+# Needs Settings > Pages > Source set to "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'tools/web/**'
+      - '.github/workflows/pages.yml'
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The same weekly data cache as the release workflow.
+      - name: Data cache key
+        id: week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Restore transit data
+        id: data
+        uses: actions/cache@v4
+        with:
+          path: research/raw
+          key: transit-data-${{ steps.week.outputs.week }}
+          restore-keys: transit-data-
+      - name: Download transit data
+        if: steps.data.outputs.cache-hit != 'true'
+        run: ./gradlew :tools:importer:downloadData
+      - name: Fall back to the saved bus stop order
+        run: |
+          if [ ! -s research/raw/bus-eshot-gtfs.zip ]; then
+            cp tools/importer/fallback/bus-eshot-gtfs.zip research/raw/bus-eshot-gtfs.zip
+          fi
+
+      - name: Build the timetable database
+        run: ./gradlew :tools:importer:run
+
+      - name: Export the website's data
+        run: python3 tools/web/export_web_data.py build/izmir-transit.db docs/app/data
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

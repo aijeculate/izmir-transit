@@ -219,6 +219,15 @@ Everything under "Live API" was tested against the real servers on 19 Oct 2026 a
 - **Live buses are a top-down bus** (11 Nov, user's pick from the marker drafts; testers found the blue disc too close to the blue stop rings): `rememberVehicleIcon` draws a 20×40 dp bus from above in the mode's brand colour (ESHOT red) with a white outline, windscreen at the front, pointing north; the marker is `flat` and rotated by `BusMotion.drawnAt(…)`'s `heading` (route tangent at the drawn position on route; last movement off route, kept while still). Both directions use the same icon now.
 - **Home's nearby list** shows the closest 3 stops, then "N durak daha göster" / "Daha az göster" (`NEARBY_FIRST`).
 
+**Added 13 Nov 2026 — web version (`docs/app`, user's call: MapLibre, core features first):**
+
+- A plain-JS site with no build step (ES modules, MapLibre GL 4.7.1 from unpkg, OpenFreeMap `positron`/`dark` tiles), at `aijeculate.github.io/izmir-transit/app/`. Same calm-glass/Frosted Night look, TR/EN, light/dark/system.
+- Screens: Home (search, favourites with live arrivals or station boards, nearby stops 3 + "show more"), Map tab (all lines, stops at zoom ≥ 14.5, tap for a preview card), line (one direction + switch, live top-down buses with motion, next departures for rail/ferry, announcements, connections), stop (live arrivals with ETA, or station board with "just left"), timetable (day/direction tabs, station picker), settings. No planner, widget, alerts or trip tracking yet (background work isn't possible in a browser).
+- Logic in `docs/app/js` mirrors the app: `live.js` (1.1 s pacer, ghost filter, `DirectionResolver`, `BusMotion`, ETA), `time.js` (04:00 rollover, holidays from `docs/holidays.json`), `geo.js` (`MeasuredPolyline`). **Change both when changing one.**
+- The live API allows browser calls (CORS checked by the user on 13 Nov), so each visitor calls İztek directly; no relay.
+- Data: `tools/web/export_web_data.py` turns the DB into `docs/app/data/{core,overview}.json` and `lines/{code}.json` (~3.8 MB, ~0.4 MB gzipped to start). Not committed (git-ignored); the **Website** workflow (`pages.yml`) builds the DB, exports and deploys `docs/` to Pages on docs changes, every Monday and by hand. Pages' source must be "GitHub Actions".
+- `sw.js` keeps the app and timetable data for offline use; live data and tiles are never cached.
+
 | Module | What it holds |
 | --- | --- |
 | `:core:model` | Plain JVM. Domain types (`Line`, `Stop`, `LiveBus`, `LiveSnapshot`, …) and geo helpers: `MeasuredPolyline`, `PolylineCodec`, Douglas–Peucker simplification. |

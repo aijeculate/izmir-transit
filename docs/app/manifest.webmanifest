@@ -1,0 +1,15 @@
+{
+  "name": "İzmir Ulaşım",
+  "short_name": "İzmir Ulaşım",
+  "description": "İzmir'in otobüs, metro, tramvay, İZBAN ve vapurları: canlı otobüsler, duraklar ve sefer saatleri.",
+  "lang": "tr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1F5",
+  "theme_color": "#EEF1F5",
+  "icons": [
+    { "src": "../icons/icon-light-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/icon-light.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
